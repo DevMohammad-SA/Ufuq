@@ -14,3 +14,7 @@ wheels/
 
 # Database
 db.sqlite3
+
+# IDEs
+.idea/*
+.idea/
