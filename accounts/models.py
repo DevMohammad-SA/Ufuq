@@ -2,6 +2,7 @@ from enum import unique
 
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
+from django.core.exceptions import ValidationError
 from django.db import models
 
 # Create your models here.
@@ -59,10 +60,10 @@ class User(AbstractBaseUser, PermissionsMixin):
         verbose_name_plural = "المستخدمين"
 
     national_id = models.CharField(
-        max_length=10, unique=True, blank=True, verbose_name="الهوية الوطنية / الإقامة"
+        max_length=10, unique=True, blank=True,null=True, verbose_name="الهوية الوطنية / الإقامة"
     )
     username = models.CharField(
-        max_length=30, blank=True, unique=True, verbose_name="اسم المستخدم"
+        max_length=30, blank=True, unique=True, null=True, verbose_name="اسم المستخدم"
     )
     role = models.CharField(max_length=30, choices=Role.choices, verbose_name="الدور")
     full_name = models.CharField(
@@ -77,3 +78,8 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return f"{self.full_name} - {self.get_role_display()}"
+
+    def clean(self):
+        super().clean()
+        if not self.username and not self.national_id:
+            raise ValidationError("يجب توفر اسم مستخدم أو رقم هوية على الأقل")
