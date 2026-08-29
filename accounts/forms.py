@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import ReadOnlyPasswordHashField
 
-from .models import User
+from .models import User, Role
 
 
 class UserCreationForm(forms.ModelForm):
@@ -11,23 +11,37 @@ class UserCreationForm(forms.ModelForm):
     the raw `password` model field directly.
     """
 
-    password1 = forms.CharField(widget=forms.PasswordInput,label="كلمة المرور")
-    password2 = forms.CharField(widget=forms.PasswordInput,label="تأكيد كلمة المرور")
+    password1 = forms.CharField(widget=forms.PasswordInput, label="كلمة المرور", required=False)
+    password2 = forms.CharField(widget=forms.PasswordInput, label="تأكيد كلمة المرور", required=False)
 
     class Meta:
         model = User
         fields = ["username","full_name","role","national_id",]
 
-    def clean_password2(self):
-        password1 = self.cleaned_data.get("password1")
-        password2 = self.cleaned_data.get("password2")
+    def clean(self):
+        cleaned_data = super().clean()
+        password1 = cleaned_data.get("password1")
+        password2 = cleaned_data.get("password2")
+        role = cleaned_data.get("role")
+
+        if role != Role.PARTICIPANT and not password1:
+            raise forms.ValidationError("كلمة المرور مطلوبة لهذا الدور")
+
         if password1 and password2 and password1 != password2:
             raise forms.ValidationError("كلمتا المرور غير متطابقتين")
-        return password2
+
+        return cleaned_data
 
     def save(self, commit=True):
         user = super().save(commit=False)
-        user.set_password(self.cleaned_data["password1"])
+        password1 = self.cleaned_data.get("password1")
+
+        if password1:
+            user.set_password(password1)
+        else:
+            from django.utils.crypto import get_random_string
+            user.set_password(get_random_string(50))
+
         if commit:
             user.save()
         return user
