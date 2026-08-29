@@ -60,3 +60,82 @@ class Participant(models.Model):
     def __str__(self):
         group_name = self.group.name if self.group else "بدون بيئة"
         return f"{self.user.full_name} - {group_name}"
+
+
+class CircleAttendance(models.Model):
+    """
+    Daily Quran circle attendance record. One record per participant per day
+    the circle meets (up to 5 records/week per participant, per the program's
+    weekly points table: 15 points total = 3 points/day).
+
+    Converting attended records into actual points/miles is handled by
+    separate logic OUTSIDE this model (not automatically on save()) — this
+    model's only job is to record what happened on a given day.
+    """
+
+    participant = models.ForeignKey(
+        Participant,
+        on_delete=models.CASCADE,
+        related_name="circle_attendances",
+        verbose_name="المشارك",
+    )
+    date = models.DateField(verbose_name="التاريخ")
+    attended = models.BooleanField(default=False, verbose_name="حضر؟")
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        limit_choices_to={"role": Role.GROUP_SUPERVISOR},
+        verbose_name="سجّله",
+    )
+
+    class Meta:
+        verbose_name = "حضور حلقة"
+        verbose_name_plural = "حضور الحلقات"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["participant", "date"],
+                name="unique_circle_attendance_per_day",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.participant.user.full_name} - {self.date}"
+
+
+class MeetingAttendance(models.Model):
+    """
+    Weekly gathering ("اللقاء الأسبوعي") attendance record. One record per
+    participant per week. Full attendance = 8 points, early arrival = extra
+    2 points (per the program's weekly points table).
+    """
+
+    participant = models.ForeignKey(
+        Participant,
+        on_delete=models.CASCADE,
+        related_name="meeting_attendances",
+        verbose_name="المشارك",
+    )
+    week_start_date = models.DateField(verbose_name="بداية الأسبوع")
+    attended = models.BooleanField(default=False, verbose_name="حضر؟")
+    is_early = models.BooleanField(default=False, verbose_name="حضور مبكر؟")
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        limit_choices_to={"role": Role.GROUP_SUPERVISOR},
+        verbose_name="سجّله",
+    )
+
+    class Meta:
+        verbose_name = "حضور لقاء"
+        verbose_name_plural = "حضور اللقاءات"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["participant", "week_start_date"],
+                name="unique_meeting_attendance_per_week",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.participant.user.full_name} - {self.week_start_date}"
