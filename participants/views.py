@@ -23,11 +23,12 @@ def apply_points_delta(participant, points_delta):
     Applies a points delta to a participant's triple-currency balances,
     following the program's fixed conversion rule: miles = points * 10,
     purchase_points = same as points. Accepts negative deltas (for
-    corrections that reduce previously awarded points).
+    corrections that reduce previously awarded points), but never allows
+    any balance to drop below zero — clamped at 0 as a safety floor.
     """
-    participant.points += points_delta
-    participant.miles += points_delta * 10
-    participant.purchase_points += points_delta
+    participant.points = max(0, participant.points + points_delta)
+    participant.miles = max(0, participant.miles + points_delta * 10)
+    participant.purchase_points = max(0, participant.purchase_points + points_delta)
     participant.save(update_fields=["points", "miles", "purchase_points"])
 
 
