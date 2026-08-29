@@ -1,5 +1,5 @@
 from django import forms
-from django.contrib.auth.forms import ReadOnlyPasswordHashField
+from django.contrib.auth.forms import AuthenticationForm, ReadOnlyPasswordHashField
 
 from .models import User, Role
 
@@ -76,3 +76,38 @@ class UserChangeForm(forms.ModelForm):
         if commit:
             user.save()
         return user
+
+
+class ParticipantAuthenticationForm(AuthenticationForm):
+    """
+    Used only on the participant login page. Participants authenticate via
+    national_id with no password check at all (see NationalIDOrUsernameBackend),
+    so the password field here must not be required — otherwise Django's default
+    AuthenticationForm would reject the submission for a missing password before
+    authenticate() is ever called.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["password"].required = False
+
+    def clean(self):
+        # Bypass AuthenticationForm's default validation, which always calls
+        # authenticate() with both username and password and expects a
+        # non-empty password. We call authenticate() manually here instead,
+        # passing whatever password value exists (possibly empty) — the
+        # NationalIDOrUsernameBackend ignores it entirely for participants.
+        username = self.cleaned_data.get("username")
+        password = self.cleaned_data.get("password")
+
+        if username is not None:
+            self.user_cache = self.authenticate_via_backends(username, password)
+            if self.user_cache is None:
+                raise self.get_invalid_login_error()
+            self.confirm_login_allowed(self.user_cache)
+
+        return self.cleaned_data
+
+    def authenticate_via_backends(self, username, password):
+        from django.contrib.auth import authenticate
+        return authenticate(self.request, username=username, password=password)
