@@ -43,7 +43,22 @@ class UserChangeForm(forms.ModelForm):
         label="كلمة المرور",
         help_text="كلمات المرور لا تُخزن كنص صريح، لذلك لا يمكن عرضها هنا مباشرة.",
     )
+    new_password = forms.CharField(
+        label="كلمة مرور جديدة",
+        widget=forms.PasswordInput,
+        required=False,
+        help_text="اتركه فارغاً إذا كنت لا تريد تغيير كلمة المرور.",
+    )
 
     class Meta:
         model = User
         fields = ["username","password","full_name","role","national_id","is_active","is_staff"]
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        new_password = self.cleaned_data.get("new_password")
+        if new_password:
+            user.set_password(new_password)
+        if commit:
+            user.save()
+        return user

@@ -14,7 +14,7 @@ class UserAdmin(ModelAdmin):
     list_filter = [ "role"]
     search_fields = ["username", "full_name", "national_id"]
     fieldsets = (
-        ("معلومات الدخول", {"fields": ("username", "national_id", "password")}),
+        ("معلومات الدخول", {"fields": ("username", "national_id", "password", "new_password")}),
         ("المعلومات الشخصية", {"fields": ("full_name", "role")}),
         ("الصلاحيات", {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions")}),
     )
