@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}دخول المشرفين — رحّال{% endblock %}
+
+{% block side_pitch %}
+<h2>تابع بيئتك،<br>وارصد إنجازات فريقك.</h2>
+<p>الحضور، التسميع، والمهام — كلها في مكان واحد.</p>
+{% endblock %}
+
+{% block form_content %}
+<div class="eyebrow">دخول المشرفين</div>
+<h1>مرحبًا بك مجددًا</h1>
+<p class="lead">أدخل اسم المستخدم وكلمة المرور الخاصة بحسابك.</p>
+
+{% if form.errors %}
+<div class="form-error">اسم المستخدم أو كلمة المرور غير صحيحة. تأكد من البيانات وحاول مرة ثانية.</div>
+{% endif %}
+
+<form method="post" action="{% url 'accounts:login_supervisor' %}" novalidate>
+  {% csrf_token %}
+  <div class="field">
+    <label for="id_username">اسم المستخدم</label>
+    <input
+      type="text"
+      dir="ltr"
+      id="id_username"
+      name="username"
+      autocomplete="username"
+      required
+      autofocus
+    >
+  </div>
+  <div class="field">
+    <label for="id_password">كلمة المرور</label>
+    <input
+      type="password"
+      dir="ltr"
+      id="id_password"
+      name="password"
+      autocomplete="current-password"
+      required
+    >
+  </div>
+  <button type="submit" class="btn btn-gold">دخول</button>
+</form>
+
+<div class="switch-portal">
+  مشارك في البرنامج؟ <a href="{% url 'accounts:login_participant' %}">ادخل من هنا</a>
+</div>
+{% endblock %}

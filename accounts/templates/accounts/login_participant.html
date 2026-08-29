@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}دخول المشارك — رحّال{% endblock %}
+
+{% block side_pitch %}
+<h2>سجّل حضورك،<br>واجمع أميالك.</h2>
+<p>كل حلقة وكل تسميع وكل مهمة تقربك خطوة من رحلة النخبة.</p>
+{% endblock %}
+
+{% block form_content %}
+<div class="eyebrow">دخول المشارك</div>
+<h1>هلا فيك، رحّالنا</h1>
+<p class="lead">أدخل رقم الهوية أو الإقامة عشان تشوف أميالك ومهامك.</p>
+
+{% if form.errors %}
+<div class="form-error">رقم الهوية اللذي أدخلته غير مسجّل، أو الحساب غير مفعّل. تأكد من الرقم وحاول مرة ثانية.</div>
+{% endif %}
+
+<form method="post" action="{% url 'accounts:login_participant' %}" novalidate>
+  {% csrf_token %}
+  <div class="field">
+    <label for="id_national_id">رقم الهوية / الإقامة</label>
+    <input
+      type="text"
+      inputmode="numeric"
+      dir="ltr"
+      id="id_national_id"
+      name="username"
+      autocomplete="username"
+      required
+      autofocus
+    >
+    <div class="hint">١٠ أرقام، بدون مسافات.</div>
+  </div>
+  <button type="submit" class="btn btn-gold">دخول</button>
+</form>
+
+<div class="switch-portal">
+  مشرف أو إداري؟ <a href="{% url 'accounts:login_supervisor' %}">ادخل من هنا</a>
+</div>
+{% endblock %}

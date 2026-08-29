@@ -1,0 +1,300 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>رحّال — برنامج أُفق التنموي</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --asphalt:#2B2F33;
+  --gold:#C79A3B;
+  --white:#FFFFFF;
+  --sand:#F7F3EA;
+  --line:#E2DCD0;
+  --slate:#5F676E;
+  --gold-ink:#8A6520;
+  --gold-soft:#F0E2C2;
+
+  --r-sm:8px; --r-md:14px; --r-lg:22px;
+  --s1:8px; --s2:16px; --s3:24px; --s4:40px; --s5:64px; --s6:96px;
+  --shadow:0 1px 2px rgba(43,47,51,.06),0 12px 32px -18px rgba(43,47,51,.35);
+
+  --font-display:"Tajawal","Cairo","Segoe UI",sans-serif;
+  --font-ui:"IBM Plex Sans Arabic","Tajawal",sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  background:var(--sand);
+  color:var(--asphalt);
+  font-family:var(--font-display);
+  font-weight:400;
+  font-size:17px;
+  line-height:1.7;
+  -webkit-font-smoothing:antialiased;
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+
+.wrap{max-width:1080px;margin:0 auto;padding:0 var(--s3)}
+
+.site-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:var(--s3);
+  padding:18px 0;
+}
+.brand{display:flex; align-items:center; gap:12px}
+.brand .wordmark{font-weight:800; font-size:24px}
+.brand .tag{font-family:var(--font-ui); font-size:11px; color:var(--gold-ink); letter-spacing:.08em}
+
+.btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  font-family:var(--font-ui);
+  font-weight:600;
+  font-size:15px;
+  border-radius:99px;
+  padding:12px 24px;
+  border:1.5px solid transparent;
+  cursor:pointer;
+  text-decoration:none;
+  transition:.18s;
+  min-height:44px;
+}
+.btn-gold{background:var(--gold); color:#241F14}
+.btn-gold:hover{background:#B98B2E}
+.btn-ghost{background:transparent; color:var(--asphalt); border-color:var(--asphalt)}
+.btn-ghost:hover{background:var(--asphalt); color:#fff}
+.btn:focus-visible{outline:3px solid var(--gold); outline-offset:2px}
+
+.hero{
+  background:var(--asphalt);
+  color:#fff;
+  border-radius:var(--r-lg);
+  padding:clamp(32px,6vw,64px);
+  margin-top:var(--s3);
+  position:relative;
+  overflow:hidden;
+}
+.hero:after{
+  content:"";
+  position:absolute;
+  inset-block-start:0;
+  inset-inline-start:0;
+  width:38%;
+  height:100%;
+  background:radial-gradient(120% 90% at 0% 0%,rgba(199,154,59,.20),transparent 62%);
+  pointer-events:none;
+}
+.hero .in{position:relative; max-width:640px}
+.hero .chip{
+  display:inline-block;
+  border:1px solid rgba(255,255,255,.25);
+  border-radius:99px;
+  padding:5px 14px;
+  font-family:var(--font-ui);
+  font-size:12px;
+  color:#EDE7DA;
+  margin-bottom:var(--s2);
+}
+.hero h1{
+  font-weight:900;
+  font-size:clamp(30px,5vw,46px);
+  line-height:1.25;
+  margin:0 0 var(--s2);
+}
+.hero p{
+  font-family:var(--font-ui);
+  color:#D8D2C5;
+  font-size:16px;
+  max-width:50ch;
+  margin:0 0 var(--s3);
+}
+.hero .cta{display:flex; gap:12px; flex-wrap:wrap}
+
+.stat-strip{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:var(--s2);
+  margin-top:var(--s3);
+}
+@media(max-width:720px){.stat-strip{grid-template-columns:repeat(2,1fr)}}
+.stat-strip .card{
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:var(--r-md);
+  padding:18px;
+  text-align:center;
+}
+.stat-strip .card b{
+  display:block;
+  font-size:26px;
+  font-weight:800;
+  color:var(--asphalt);
+}
+.stat-strip .card span{
+  font-family:var(--font-ui);
+  font-size:12px;
+  color:var(--slate);
+}
+
+.portals{
+  margin-top:var(--s5);
+}
+.portals h2{
+  font-weight:800;
+  font-size:clamp(22px,3vw,28px);
+  margin:0 0 var(--s3);
+  text-align:center;
+}
+.portal-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:var(--s2);
+}
+@media(max-width:820px){.portal-grid{grid-template-columns:1fr}}
+.portal-card{
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:var(--r-md);
+  padding:var(--s3);
+  text-align:center;
+  display:flex;
+  flex-direction:column;
+  gap:var(--s2);
+}
+.portal-card .icon{
+  width:48px;
+  height:48px;
+  border-radius:50%;
+  background:var(--gold-soft);
+  display:grid;
+  place-items:center;
+  margin:0 auto;
+  font-size:20px;
+}
+.portal-card h3{font-size:18px; font-weight:700; margin:0}
+.portal-card p{
+  font-family:var(--font-ui);
+  font-size:13px;
+  color:var(--slate);
+  margin:0;
+  flex:1;
+}
+
+.about{
+  margin-top:var(--s5);
+  padding:var(--s4) 0;
+  border-top:1px dashed var(--line);
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:var(--s3);
+  align-items:start;
+}
+@media(max-width:820px){.about{grid-template-columns:1fr}}
+.about h2{font-weight:800; font-size:24px; margin:0 0 var(--s2)}
+.about p{font-family:var(--font-ui); font-size:15px; color:var(--slate); margin:0 0 var(--s2)}
+.about ul{margin:0; padding-inline-start:20px; font-family:var(--font-ui); font-size:14px}
+.about ul li{margin-bottom:8px}
+
+.site-footer{
+  margin-top:var(--s5);
+  background:var(--asphalt);
+  color:#C9C3B6;
+  padding:var(--s4) 0;
+  font-family:var(--font-ui);
+  font-size:13px;
+  text-align:center;
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="site-header">
+    <div class="brand">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M4 20c2-8 6-8 8-16 2 8 6 8 8 16" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div>
+        <div class="wordmark">رحّال</div>
+        <div class="tag">تعلم &middot; أنجز &middot; انطلق</div>
+      </div>
+    </div>
+    <a href="{% url 'accounts:login_supervisor' %}" class="btn btn-ghost">دخول المشرفين</a>
+  </header>
+
+  <section class="hero">
+    <div class="in">
+      <span class="chip">برنامج أُفق التنموي &middot; جمعية صقيل لتنمية الشباب</span>
+      <h1>١٤ أسبوعًا، وطريق واحد نحو التميز</h1>
+      <p>حلقة يومية، محطة أسبوعية، ومهمة تطبيقية. كل إنجاز يتحوّل أميالًا تقربك من رحلة النخبة.</p>
+      <div class="cta">
+        <a href="{% url 'accounts:login_participant' %}" class="btn btn-gold">دخول المشارك</a>
+        <a href="{% url 'accounts:login_supervisor' %}" class="btn btn-ghost" style="color:#fff;border-color:rgba(255,255,255,.5)">دخول المشرفين والإداريين</a>
+      </div>
+    </div>
+  </section>
+
+  <div class="stat-strip">
+    <div class="card"><b>14</b><span>أسبوعًا</span></div>
+    <div class="card"><b>3</b><span>بيئات</span></div>
+    <div class="card"><b>105</b><span>مشاركًا</span></div>
+    <div class="card"><b>4</b><span>أدوار إدارية</span></div>
+  </div>
+
+  <section class="portals">
+    <h2>بوابتك حسب دورك</h2>
+    <div class="portal-grid">
+      <div class="portal-card">
+        <div class="icon">👤</div>
+        <h3>مشارك</h3>
+        <p>ادخل برقم الهوية أو الإقامة لمتابعة أميالك ونقاطك ومهامك الأسبوعية.</p>
+        <a href="{% url 'accounts:login_participant' %}" class="btn btn-gold">دخول المشارك</a>
+      </div>
+      <div class="portal-card">
+        <div class="icon">🧭</div>
+        <h3>مشرف بيئة</h3>
+        <p>سجّل حضور مشاركي بيئتك بالحلقة واللقاء الأسبوعي.</p>
+        <a href="{% url 'accounts:login_supervisor' %}" class="btn btn-ghost">دخول المشرفين</a>
+      </div>
+      <div class="portal-card">
+        <div class="icon">⚙️</div>
+        <h3>مشرف عام / إداري</h3>
+        <p>تابع المهام والتقييم والمتجر عبر كل البيئات، أو أدر النظام كاملًا.</p>
+        <a href="{% url 'accounts:login_supervisor' %}" class="btn btn-ghost">دخول المشرفين</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="about">
+    <div>
+      <h2>عن برنامج أُفق</h2>
+      <p>برنامج قيمي مهاري تابع لجمعية صقيل لتنمية الشباب، يجمع بين القيمة والمهارة والتجربة العملية عبر لقاءات أسبوعية منظمة لثلاث بيئات من الناشئة والشباب.</p>
+    </div>
+    <div>
+      <h2>مكونات المسار</h2>
+      <ul>
+        <li>حلقة أسبوعية (٥ أيام) لتحفيظ القرآن ومتابعة التسميع.</li>
+        <li>لقاء جماعي أسبوعي يجمع البيئة كاملة.</li>
+        <li>مهمة تطبيقية أسبوعية تُقيَّم من المشرف.</li>
+        <li>نظام أميال ونقاط شرائية يُصرف في متجر البرنامج.</li>
+      </ul>
+    </div>
+  </section>
+</div>
+
+<footer class="site-footer">
+  برنامج أُفق التنموي — من تنفيذ جمعية صقيل لتنمية الشباب
+</footer>
+
+</body>
+</html>
