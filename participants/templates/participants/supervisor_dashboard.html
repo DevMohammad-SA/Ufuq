@@ -237,9 +237,7 @@ table.roster input[type="checkbox"]{
 <div class="wrap">
   <header class="site-header">
     <div class="brand">
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M4 20c2-8 6-8 8-16 2 8 6 8 8 16" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
+      <img src="{% static 'images/logo.png' %}" alt="رحّال" style="height:32px; width:auto;">
       <div>
         <div class="wordmark">رحّال</div>
         <div class="env">مشرف البيئة{% if group %} · <b>{{ group.name }}</b>{% endif %}</div>

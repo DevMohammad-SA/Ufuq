@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -195,9 +196,7 @@ body{
   <div class="auth-shell">
     <div class="auth-side">
       <div class="lockup">
-        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M4 20c2-8 6-8 8-16 2 8 6 8 8 16" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
+        <img src="{% static 'images/logo.png' %}" alt="رحّال" style="height:44px; width:auto;">
         <div>
           <div class="wordmark">رحّال</div>
           <div class="tag">تعلم &middot; أنجز &middot; انطلق</div>
