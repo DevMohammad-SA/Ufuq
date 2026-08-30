@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+{%load static%}
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
@@ -212,8 +213,7 @@ table.report tr:last-child td{border-bottom:none}
       <button type="submit" class="btn">استيراد</button>
     </form>
     <p class="template-link">
-      <!-- TODO: رابط تحميل القالب الفعلي -->
-      <a href="#">تحميل قالب الإكسل الفارغ</a>
+          <a href="{% static 'templates/participants_import_template.xlsx' %}" download>تحميل قالب الإكسل الفارغ</a>
     </p>
   </section>
 
