@@ -56,6 +56,7 @@ class Participant(models.Model):
     class Meta:
         verbose_name = "مشارك"
         verbose_name_plural = "المشاركون"
+        ordering = ["user__full_name"]
 
     def __str__(self):
         group_name = self.group.name if self.group else "بدون بيئة"
@@ -68,9 +69,12 @@ class CircleAttendance(models.Model):
     the circle meets (up to 5 records/week per participant, per the program's
     weekly points table: 15 points total = 3 points/day).
 
-    Converting attended records into actual points/miles is handled by
-    separate logic OUTSIDE this model (not automatically on save()) — this
-    model's only job is to record what happened on a given day.
+    This model itself has no overridden save() or signals — it only records
+    what happened on a given day. Converting attendance into actual
+    points/miles/purchase_points happens explicitly in participants/views.py
+    (see apply_points_delta and circle_attendance_points), triggered when a
+    supervisor submits the attendance form, not automatically whenever this
+    model is saved through any other code path (e.g. the admin or a shell).
     """
 
     participant = models.ForeignKey(
