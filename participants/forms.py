@@ -31,3 +31,7 @@ class MeetingAttendanceForm(forms.ModelForm):
         widgets = {
             "week_start_date": forms.DateInput(attrs={"type": "date"}),
         }
+
+
+class ParticipantImportForm(forms.Form):
+    excel_file = forms.FileField(label="ملف الإكسل")

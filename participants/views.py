@@ -2,15 +2,18 @@ from django.shortcuts import render
 
 # Create your views here.
 
+import openpyxl
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.db import IntegrityError, transaction
 from django.db.models import Max, Min
 from django.shortcuts import redirect
 from django.urls import reverse
-from django.views.generic import TemplateView
+from django.utils.crypto import get_random_string
+from django.views.generic import FormView, TemplateView
 
-from accounts.models import Role
-from .forms import CircleAttendanceForm, MeetingAttendanceForm
-from .models import CircleAttendance, MeetingAttendance, Participant
+from accounts.models import Role, User
+from .forms import CircleAttendanceForm, MeetingAttendanceForm, ParticipantImportForm
+from .models import CircleAttendance, Group, MeetingAttendance, Participant
 
 # Official weekly points table values for the Horizon program.
 CIRCLE_DAY_POINTS = 3
@@ -216,3 +219,160 @@ class SupervisorDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateV
             apply_points_delta(participant, delta)
 
         return redirect("participants:supervisor_dashboard")
+
+
+# ---------------------------------------------------------------------------
+# Bulk participant import (Excel)
+# ---------------------------------------------------------------------------
+
+# Maps the Arabic display label used in the Excel template's "المرحلة الدراسية"
+# column to AcademicStage's internal value. Verified against
+# AcademicStage.choices in participants/models.py — matches exactly, no
+# correction needed.
+ACADEMIC_STAGE_LABEL_TO_VALUE = {
+    "خامس ابتدائي": "grade_5",
+    "سادس ابتدائي": "grade_6",
+    "أول متوسط": "grade_7",
+    "ثاني متوسط": "grade_8",
+    "ثالث متوسط": "grade_9",
+}
+
+# The import template ships with a frozen sheet name and a fixed column order.
+IMPORT_SHEET_NAME = "المشاركون"
+# Row 1 = headers, row 2 = the italic example row (always skipped regardless of
+# its content), so real data begins at row 3.
+IMPORT_FIRST_DATA_ROW = 3
+
+
+def _cell_text(value):
+    """
+    Normalise a raw openpyxl cell value to a stripped string.
+
+    Excel commonly stores digit strings (national ids, phone numbers) as
+    numbers, which openpyxl hands back as int/float — turn an integer-valued
+    float like 1234567890.0 into "1234567890" rather than "1234567890.0".
+    Returns "" for a blank cell.
+    """
+    if value is None:
+        return ""
+    if isinstance(value, float) and value.is_integer():
+        value = int(value)
+    return str(value).strip()
+
+
+class ParticipantImportView(LoginRequiredMixin, UserPassesTestMixin, FormView):
+    template_name = "participants/import_participants.html"
+    form_class = ParticipantImportForm
+
+    def test_func(self):
+        # Same access pattern as SupervisorDashboardView.test_func, but this
+        # page is open to BOTH general supervisors and superadmins.
+        return self.request.user.role in (Role.GENERAL_SUPERVISOR, Role.SUPERADMIN)
+
+    def form_valid(self, form):
+        result = self._process_import(form.cleaned_data["excel_file"])
+        context = self.get_context_data(form=form)
+        context["import_result"] = result
+        return self.render_to_response(context)
+
+    def _process_import(self, excel_file):
+        try:
+            workbook = openpyxl.load_workbook(excel_file, data_only=True)
+        except Exception:
+            return {"error": "تعذّرت قراءة الملف. تأكد أنه ملف إكسل صالح بصيغة xlsx."}
+
+        if IMPORT_SHEET_NAME not in workbook.sheetnames:
+            return {"error": f'الملف لا يحتوي على ورقة باسم "{IMPORT_SHEET_NAME}".'}
+
+        sheet = workbook[IMPORT_SHEET_NAME]
+
+        created_count = 0
+        rejected_rows = []
+
+        for row_number in range(IMPORT_FIRST_DATA_ROW, sheet.max_row + 1):
+            raw = [sheet.cell(row=row_number, column=c).value for c in range(1, 7)]
+
+            # Skip fully empty rows (common trailing rows in a spreadsheet).
+            if not any(v not in (None, "") for v in raw):
+                continue
+
+            full_name = _cell_text(raw[0])
+            national_id = _cell_text(raw[1])
+            group_name = _cell_text(raw[2])
+            stage_label = _cell_text(raw[3])
+            phone = _cell_text(raw[4])
+            guardian_phone = _cell_text(raw[5])
+
+            error = self._validate_row(full_name, national_id, stage_label)
+            if error:
+                rejected_rows.append({"row": row_number, "reason": error})
+                continue
+
+            group = None
+            if group_name:
+                # Exact match on Group.name (the unique name field). A missing
+                # environment rejects the row — environments are never created
+                # automatically.
+                group = Group.objects.filter(name=group_name).first()
+                if group is None:
+                    rejected_rows.append({
+                        "row": row_number,
+                        "reason": f'البيئة "{group_name}" غير موجودة بالنظام',
+                    })
+                    continue
+
+            academic_stage_value = ACADEMIC_STAGE_LABEL_TO_VALUE[stage_label]
+
+            try:
+                with transaction.atomic():
+                    # Participants authenticate by national_id only (via
+                    # NationalIDOrUsernameBackend) and never use a password, but
+                    # AbstractBaseUser still needs one stored — mirror
+                    # UserCreationForm.save()'s approach exactly.
+                    user = User.objects.create_user(
+                        national_id=national_id,
+                        full_name=full_name,
+                        role=Role.PARTICIPANT,
+                        password=get_random_string(50),
+                    )
+                    Participant.objects.create(
+                        user=user,
+                        group=group,
+                        academic_stage=academic_stage_value,
+                        phone=phone,
+                        guardian_phone=guardian_phone,
+                    )
+            except IntegrityError:
+                # A duplicate national id that slipped past the exists() check
+                # — a second occurrence of the same id later in this same file,
+                # or a concurrent import of it.
+                rejected_rows.append({
+                    "row": row_number,
+                    "reason": "رقم الهوية مسجّل مسبقًا في النظام",
+                })
+                continue
+
+            created_count += 1
+
+        return {"created_count": created_count, "rejected_rows": rejected_rows}
+
+    def _validate_row(self, full_name, national_id, stage_label):
+        if not full_name:
+            return "الاسم الكامل مطلوب"
+
+        if not national_id:
+            return "رقم الهوية / الإقامة مطلوب"
+
+        if len(national_id) != 10 or not national_id.isdigit():
+            return "رقم الهوية / الإقامة يجب أن يتكون من 10 أرقام"
+
+        if User.objects.filter(national_id=national_id).exists():
+            return "رقم الهوية مسجّل مسبقًا في النظام"
+
+        if not stage_label:
+            return "المرحلة الدراسية مطلوبة"
+
+        if stage_label not in ACADEMIC_STAGE_LABEL_TO_VALUE:
+            return "المرحلة الدراسية غير معروفة"
+
+        return None
