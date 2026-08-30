@@ -9,4 +9,5 @@ urlpatterns = [
     path("supervisor/dashboard/", views.SupervisorDashboardView.as_view(), name="supervisor_dashboard"),
     path("import/", views.ParticipantImportView.as_view(), name="import_participants"),
     path("general-supervisor/dashboard/", views.GeneralSupervisorDashboardView.as_view(), name="general_supervisor_dashboard"),
+    path("data/", views.ParticipantsDataView.as_view(), name="participants_data"),
 ]

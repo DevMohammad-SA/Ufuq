@@ -252,6 +252,8 @@ table.roster input[type="checkbox"]{
   <h1 class="page-title">تحضير اللقاء الأسبوعي</h1>
   <p class="page-sub">اختر تاريخ اللقاء، ثم علّم حضور مشاركي بيئتك واحفظ الجدول دفعة واحدة. اضغط على عنوان أي عمود للفرز حسبه.</p>
 
+  <p><a href="{% url 'participants:participants_data' %}" class="btn-inline">بيانات المشاركين</a></p>
+
   {% if not group %}
     <div class="card">
       <p class="empty-note">لا توجد بيئة مرتبطة بحسابك بعد. تواصل مع الإدارة لربط بيئتك قبل بدء التحضير.</p>

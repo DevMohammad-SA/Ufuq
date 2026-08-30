@@ -7,7 +7,7 @@ import datetime
 import openpyxl
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db import IntegrityError, transaction
-from django.db.models import Max, Min
+from django.db.models import Count, Max, Min, Q
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.crypto import get_random_string
@@ -410,3 +410,71 @@ class GeneralSupervisorDashboardView(LoginRequiredMixin, UserPassesTestMixin, Te
             Participant.objects.update(points=0)
 
         return redirect("participants:general_supervisor_dashboard")
+
+
+# ---------------------------------------------------------------------------
+# Participants data table (scoped by role)
+# ---------------------------------------------------------------------------
+
+
+class ParticipantsDataView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+    """
+    Read-only, searchable/sortable table of participant data.
+
+    Open to all three admin roles. A GROUP_SUPERVISOR only sees their own
+    environment's participants; a GENERAL_SUPERVISOR and a SUPERADMIN see
+    every participant across every environment, unfiltered.
+
+    The two attendance-count columns are cumulative totals since the start of
+    the program (no date window): each is the number of that participant's
+    attendance records with attended=True. They are computed with annotated
+    Count(..., distinct=True) — distinct is required because both counts are
+    joined onto the same Participant row in one query, and without it each
+    count would be multiplied by the number of rows in the other join.
+    """
+
+    template_name = "participants/participants_data.html"
+    login_url = "accounts:login_supervisor"
+
+    def test_func(self):
+        return self.request.user.role in (
+            Role.GROUP_SUPERVISOR,
+            Role.GENERAL_SUPERVISOR,
+            Role.SUPERADMIN,
+        )
+
+    def get_queryset(self):
+        # GROUP_SUPERVISOR is linked to their Group via Group.supervisor, an
+        # unnamed ForeignKey, so the reverse accessor from User is Django's
+        # default "group_set" — same pattern as SupervisorDashboardView.get_group().
+        if self.request.user.role == Role.GROUP_SUPERVISOR:
+            group = self.request.user.group_set.first()
+            base_queryset = (
+                Participant.objects.filter(group=group)
+                if group
+                else Participant.objects.none()
+            )
+        else:
+            base_queryset = Participant.objects.all()
+
+        # CircleAttendance.participant / MeetingAttendance.participant carry
+        # explicit related_name values ("circle_attendances" /
+        # "meeting_attendances"), so those are the reverse accessors used here.
+        return base_queryset.select_related("user", "group").annotate(
+            circle_days_attended=Count(
+                "circle_attendances",
+                filter=Q(circle_attendances__attended=True),
+                distinct=True,
+            ),
+            meetings_attended=Count(
+                "meeting_attendances",
+                filter=Q(meeting_attendances__attended=True),
+                distinct=True,
+            ),
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["participants"] = self.get_queryset()
+        context["is_scoped_to_group"] = self.request.user.role == Role.GROUP_SUPERVISOR
+        return context
