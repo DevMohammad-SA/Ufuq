@@ -2,6 +2,8 @@ from django.shortcuts import render
 
 # Create your views here.
 
+import datetime
+
 import openpyxl
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db import IntegrityError, transaction
@@ -12,7 +14,7 @@ from django.utils.crypto import get_random_string
 from django.views.generic import FormView, TemplateView
 
 from accounts.models import Role, User
-from .forms import CircleAttendanceForm, MeetingAttendanceForm, ParticipantImportForm
+from .forms import CircleAttendanceForm, ParticipantImportForm
 from .models import CircleAttendance, Group, MeetingAttendance, Participant
 
 # Official weekly points table values for the Horizon program.
@@ -94,6 +96,22 @@ class ParticipantDashboardView(LoginRequiredMixin, TemplateView):
 
 
 class SupervisorDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+    """
+    Weekly-meeting attendance for a whole environment at once.
+
+    One table lists every participant of the supervisor's group with two
+    checkbox columns ("early arrival" / "attended"). A date picker at the top
+    selects which meeting day is being prepared (defaults to today; any past
+    or future date is allowed — no time restriction, per the project owner's
+    explicit decision). Changing the date is a plain GET reload; saving is a
+    single POST that upserts the whole table in one shot.
+
+    Note on `MeetingAttendance.week_start_date`: the field name is unchanged,
+    but this design has no concept of a "week". The date chosen in the UI is
+    stored verbatim as `week_start_date` — it is treated purely as "the
+    selected meeting date", with no first-day-of-week calculation.
+    """
+
     template_name = "participants/supervisor_dashboard.html"
     login_url = "accounts:login_supervisor"
 
@@ -106,119 +124,109 @@ class SupervisorDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateV
         # from User is Django's default "group_set".
         return self.request.user.group_set.first()
 
+    def get_selected_date(self):
+        # Defaults to today. The date travels as ?date=YYYY-MM-DD on a GET
+        # reload and as a hidden POST field on save, so both are accepted
+        # (POST wins when present). Any date parses — past or future — with
+        # no restriction, per the explicit decision. A malformed value falls
+        # back to today rather than erroring.
+        raw = self.request.POST.get("date") or self.request.GET.get("date")
+        if raw:
+            try:
+                return datetime.date.fromisoformat(raw)
+            except ValueError:
+                pass
+        return datetime.date.today()
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         group = self.get_group()
+        selected_date = self.get_selected_date()
 
         context["group"] = group
-        context["participants"] = (
-            Participant.objects.filter(group=group).select_related("user")
-            if group
-            else Participant.objects.none()
-        )
-        # setdefault so that post() can inject an already-bound form (with its
-        # errors) via **kwargs while the other, untouched form is still built
-        # blank here — it was never submitted, so it must not appear "reset".
-        context.setdefault("circle_form", CircleAttendanceForm())
-        context.setdefault("meeting_form", MeetingAttendanceForm())
+        context["selected_date"] = selected_date
+
+        if group:
+            participants = Participant.objects.filter(group=group).select_related(
+                "user"
+            )
+            existing_records = {
+                record.participant_id: record
+                for record in MeetingAttendance.objects.filter(
+                    participant__group=group,
+                    week_start_date=selected_date,
+                )
+            }
+            roster = []
+            for participant in participants:
+                record = existing_records.get(participant.id)
+                roster.append({
+                    "participant": participant,
+                    "attended": record.attended if record else False,
+                    "is_early": record.is_early if record else False,
+                })
+            context["roster"] = roster
+        else:
+            context["roster"] = []
 
         return context
 
     def post(self, request, *args, **kwargs):
         group = self.get_group()
+        selected_date = self.get_selected_date()
+
+        if not group:
+            # Nothing to save for a supervisor with no environment linked —
+            # just re-render the (empty) page.
+            return self.get(request, *args, **kwargs)
+
+        # The loop below iterates ONLY over this supervisor's own participant
+        # ids and reads POST fields whose names are built from those ids, so
+        # a crafted request naming a participant from another environment
+        # simply has no effect — it is never looked at.
         participant_ids = set(
             Participant.objects.filter(group=group).values_list("id", flat=True)
-        ) if group else set()
+        )
 
-        form_type = request.POST.get("form_type")
+        for participant_id in participant_ids:
+            attended = request.POST.get(f"attended_{participant_id}") == "on"
+            is_early = request.POST.get(f"early_{participant_id}") == "on"
+            participant = Participant.objects.get(id=participant_id)
 
-        if form_type == "circle":
-            return self._handle_circle(request, participant_ids)
-        elif form_type == "meeting":
-            return self._handle_meeting(request, participant_ids)
-
-        return redirect("participants:supervisor_dashboard")
-
-    def _handle_circle(self, request, participant_ids):
-        # Look up whether a record already exists for this participant+date
-        # BEFORE binding the new form data, so we can compute the points delta
-        # (correction) instead of re-awarding from scratch.
-        participant_id = request.POST.get("participant")
-        date = request.POST.get("date")
-
-        existing = None
-        if participant_id and date:
-            existing = CircleAttendance.objects.filter(
-                participant_id=participant_id, date=date
-            ).first()
-
-        form = CircleAttendanceForm(request.POST, instance=existing)
-
-        if not form.is_valid():
-            context = self.get_context_data(circle_form=form)
-            return self.render_to_response(context)
-
-        participant = form.cleaned_data["participant"]
-        if participant.id not in participant_ids:
-            # Security check: a supervisor must not be able to record
-            # attendance for a participant outside their own group, even
-            # if they manually crafted the request.
-            return redirect("participants:supervisor_dashboard")
-
-        old_points = circle_attendance_points(existing.attended) if existing else 0
-        new_points = circle_attendance_points(form.cleaned_data["attended"])
-
-        attendance = form.save(commit=False)
-        attendance.recorded_by = request.user
-        attendance.save()
-
-        delta = new_points - old_points
-        if delta != 0:
-            apply_points_delta(participant, delta)
-
-        return redirect("participants:supervisor_dashboard")
-
-    def _handle_meeting(self, request, participant_ids):
-        participant_id = request.POST.get("participant")
-        week_start_date = request.POST.get("week_start_date")
-
-        existing = None
-        if participant_id and week_start_date:
             existing = MeetingAttendance.objects.filter(
-                participant_id=participant_id, week_start_date=week_start_date
+                participant_id=participant_id,
+                week_start_date=selected_date,
             ).first()
 
-        form = MeetingAttendanceForm(request.POST, instance=existing)
+            old_points = (
+                meeting_attendance_points(existing.attended, existing.is_early)
+                if existing
+                else 0
+            )
+            new_points = meeting_attendance_points(attended, is_early)
 
-        if not form.is_valid():
-            context = self.get_context_data(meeting_form=form)
-            return self.render_to_response(context)
+            if existing:
+                existing.attended = attended
+                existing.is_early = is_early
+                existing.recorded_by = request.user
+                existing.save()
+            else:
+                MeetingAttendance.objects.create(
+                    participant_id=participant_id,
+                    week_start_date=selected_date,
+                    attended=attended,
+                    is_early=is_early,
+                    recorded_by=request.user,
+                )
 
-        participant = form.cleaned_data["participant"]
-        if participant.id not in participant_ids:
-            # Security check: a supervisor must not be able to record
-            # attendance for a participant outside their own group, even
-            # if they manually crafted the request.
-            return redirect("participants:supervisor_dashboard")
+            delta = new_points - old_points
+            if delta != 0:
+                apply_points_delta(participant, delta)
 
-        old_points = (
-            meeting_attendance_points(existing.attended, existing.is_early)
-            if existing
-            else 0
+        return redirect(
+            f"{reverse('participants:supervisor_dashboard')}"
+            f"?date={selected_date.isoformat()}"
         )
-        new_points = meeting_attendance_points(
-            form.cleaned_data["attended"], form.cleaned_data["is_early"]
-        )
-
-        attendance = form.save(commit=False)
-        attendance.recorded_by = request.user
-        attendance.save()
-
-        delta = new_points - old_points
-        if delta != 0:
-            apply_points_delta(participant, delta)
-
-        return redirect("participants:supervisor_dashboard")
 
 
 # ---------------------------------------------------------------------------
@@ -376,3 +384,29 @@ class ParticipantImportView(LoginRequiredMixin, UserPassesTestMixin, FormView):
             return "المرحلة الدراسية غير معروفة"
 
         return None
+
+
+# ---------------------------------------------------------------------------
+# General supervisor dashboard
+# ---------------------------------------------------------------------------
+
+
+class GeneralSupervisorDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+    template_name = "participants/general_supervisor_dashboard.html"
+    login_url = "accounts:login_supervisor"
+
+    def test_func(self):
+        return self.request.user.role in (Role.GENERAL_SUPERVISOR, Role.SUPERADMIN)
+
+    def post(self, request, *args, **kwargs):
+        # The only POST action on this page today: a full, program-wide
+        # points reset. Confirmation happens client-side (a JS confirm()
+        # dialog in the template) before the form ever submits — this is a
+        # deliberate, wide-reaching action affecting every participant.
+        if request.POST.get("action") == "reset_points":
+            # Only `points` is reset — `miles` (permanent) and
+            # `purchase_points` (never reset, spent in the store) must never
+            # be touched by this action.
+            Participant.objects.update(points=0)
+
+        return redirect("participants:general_supervisor_dashboard")

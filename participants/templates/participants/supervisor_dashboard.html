@@ -131,23 +131,25 @@ table.roster td{white-space:nowrap}
 }
 .roster-scroll{overflow-x:auto}
 
-.form-grid{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:var(--s3);
+/* أعمدة قابلة للفرز */
+th.sortable{
+  cursor:pointer;
+  user-select:none;
+  white-space:nowrap;
 }
-@media(max-width:760px){.form-grid{grid-template-columns:1fr}}
-
-.form-error{
-  background:#FBEEEA;
-  border:1px solid var(--alert);
-  border-radius:var(--r-sm);
-  padding:12px 14px;
-  font-family:var(--font-ui);
-  font-size:13px;
-  color:var(--alert);
-  margin-bottom:var(--s2);
+th.sortable:hover{color:var(--asphalt)}
+th.sortable .sort-arrow{
+  display:inline-block;
+  margin-inline-start:4px;
+  font-size:10px;
+  color:var(--line);
+  transition:color .12s;
 }
+th.sortable.sort-asc .sort-arrow,
+th.sortable.sort-desc .sort-arrow{color:var(--gold-ink)}
+th.sortable.sort-asc .sort-arrow:after{content:"▲"}
+th.sortable.sort-desc .sort-arrow:after{content:"▼"}
+th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
 
 .att-form p{margin:0 0 var(--s2)}
 .att-form label{
@@ -157,9 +159,7 @@ table.roster td{white-space:nowrap}
   color:var(--slate);
   margin-bottom:4px;
 }
-.att-form select,
-.att-form input[type="date"],
-.att-form input[type="text"]{
+.att-form select, .att-form input[type="date"], .att-form input[type="text"]{
   width:100%;
   font-family:var(--font-ui);
   font-size:14px;
@@ -193,6 +193,67 @@ table.roster td{white-space:nowrap}
   margin-top:var(--s1);
 }
 .btn:hover{background:#1f2225}
+
+.date-bar{
+  display:flex;
+  align-items:flex-end;
+  gap:var(--s2);
+  flex-wrap:wrap;
+  margin-bottom:var(--s3);
+}
+.date-bar .field{display:flex; flex-direction:column; gap:4px}
+.date-bar label{
+  font-family:var(--font-ui);
+  font-size:13px;
+  color:var(--slate);
+}
+.date-bar input[type="date"]{
+  font-family:var(--font-ui);
+  font-size:14px;
+  padding:9px 12px;
+  border:1.5px solid var(--line);
+  border-radius:var(--r-sm);
+  background:#fff;
+  color:var(--asphalt);
+}
+.btn-inline{
+  border:1.5px solid var(--line);
+  background:#fff;
+  color:var(--asphalt);
+  font-family:var(--font-ui);
+  font-weight:600;
+  font-size:13px;
+  padding:9px 20px;
+  border-radius:99px;
+  cursor:pointer;
+}
+.btn-inline:hover{border-color:var(--asphalt)}
+
+table.roster td.check-cell,
+table.roster th.check-col{text-align:center}
+table.roster td.num-cell{text-align:center; font-variant-numeric:tabular-nums}
+table.roster input[type="checkbox"]{
+  width:18px;
+  height:18px;
+  vertical-align:middle;
+  cursor:pointer;
+  accent-color:var(--gold-ink);
+}
+.select-all{
+  display:block;
+  margin-top:6px;
+  background:none;
+  border:none;
+  padding:0;
+  font-family:var(--font-ui);
+  font-size:11px;
+  font-weight:600;
+  color:var(--gold-ink);
+  cursor:pointer;
+  text-decoration:underline;
+}
+.save-bar{margin-top:var(--s3)}
+.save-bar .btn{max-width:280px}
 </style>
 </head>
 <body>
@@ -214,8 +275,8 @@ table.roster td{white-space:nowrap}
     </form>
   </header>
 
-  <h1 class="page-title">تحضير البيئة</h1>
-  <p class="page-sub">سجّل حضور الحلقة اليومية وحضور اللقاء الأسبوعي لمشاركي بيئتك.</p>
+  <h1 class="page-title">تحضير اللقاء الأسبوعي</h1>
+  <p class="page-sub">اختر تاريخ اللقاء، ثم علّم حضور مشاركي بيئتك واحفظ الجدول دفعة واحدة. اضغط على عنوان أي عمود للفرز حسبه.</p>
 
   {% if not group %}
     <div class="card">
@@ -223,86 +284,144 @@ table.roster td{white-space:nowrap}
     </div>
   {% else %}
     <section class="card">
-      <h2>مشاركو البيئة ({{ participants|length }})</h2>
-      {% if participants %}
-        <input type="text" id="roster-search" class="roster-search" placeholder="ابحث بالاسم أو رقم الهوية…" autocomplete="off">
-        <div class="roster-scroll">
-          <table class="roster">
-            <thead>
-              <tr>
-                <th>الاسم الكامل</th>
-                <th>رقم الهوية</th>
-                <th>الأميال</th>
-                <th>النقاط</th>
-                <th>النقاط الشرائية</th>
-                <th>رقم جوال ولي الأمر</th>
-              </tr>
-            </thead>
-            <tbody id="roster-body">
-              {% for participant in participants %}
-                <tr data-search="{{ participant.user.full_name|default:''|lower }} {{ participant.user.national_id|default:''|lower }}">
-                  <td>{{ participant.user.full_name|default:"—" }}</td>
-                  <td>{{ participant.user.national_id|default:"—" }}</td>
-                  <td>{{ participant.miles }}</td>
-                  <td>{{ participant.points }}</td>
-                  <td>{{ participant.purchase_points }}</td>
-                  <td>{{ participant.guardian_phone|default:"—" }}</td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+      <h2>تحضير بيئة {{ group.name }}</h2>
+
+      <form class="date-bar" method="get" action="{% url 'participants:supervisor_dashboard' %}">
+        <div class="field">
+          <label for="meeting-date">تاريخ اللقاء</label>
+          <input type="date" id="meeting-date" name="date" value="{{ selected_date|date:'Y-m-d' }}">
         </div>
-        <p class="empty-note" id="roster-empty" hidden>لا توجد نتائج مطابقة للبحث.</p>
+        <button type="submit" class="btn-inline">عرض</button>
+      </form>
+
+      {% if roster %}
+        <input type="text" id="roster-search" class="roster-search" placeholder="ابحث بالاسم أو رقم الهوية…" autocomplete="off">
+
+        <form method="post" action="{% url 'participants:supervisor_dashboard' %}">
+          {% csrf_token %}
+          <input type="hidden" name="date" value="{{ selected_date|date:'Y-m-d' }}">
+
+          <div class="roster-scroll">
+            <table class="roster" id="roster-table">
+              <thead>
+                <tr>
+                  <th class="sortable" data-sort="text" data-col="0">الاسم الكامل<span class="sort-arrow"></span></th>
+                  <th>رقم الهوية</th>
+                  <th class="sortable" data-sort="number" data-col="2">الأميال<span class="sort-arrow"></span></th>
+                  <th class="sortable" data-sort="number" data-col="3">النقاط<span class="sort-arrow"></span></th>
+                  <th class="check-col">
+                    حضور مبكر
+                    <button type="button" class="select-all" data-target="early">تحديد الكل</button>
+                  </th>
+                  <th class="check-col">
+                    حضور اللقاء
+                    <button type="button" class="select-all" data-target="attended">تحديد الكل</button>
+                  </th>
+                </tr>
+              </thead>
+              <tbody id="roster-body">
+                {% for entry in roster %}
+                  <tr data-search="{{ entry.participant.user.full_name|default:''|lower }} {{ entry.participant.user.national_id|default:''|lower }}">
+                    <td>{{ entry.participant.user.full_name|default:"—" }}</td>
+                    <td>{{ entry.participant.user.national_id|default:"—" }}</td>
+                    <td class="num-cell">{{ entry.participant.miles }}</td>
+                    <td class="num-cell">{{ entry.participant.points }}</td>
+                    <td class="check-cell">
+                      <input type="checkbox" data-col="early" name="early_{{ entry.participant.id }}"{% if entry.is_early %} checked{% endif %}>
+                    </td>
+                    <td class="check-cell">
+                      <input type="checkbox" data-col="attended" name="attended_{{ entry.participant.id }}"{% if entry.attended %} checked{% endif %}>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <p class="empty-note" id="roster-empty" hidden>لا توجد نتائج مطابقة للبحث.</p>
+
+          <div class="save-bar">
+            <button type="submit" class="btn">حفظ التحضير</button>
+          </div>
+        </form>
       {% else %}
         <p class="empty-note">لا يوجد مشاركون في هذه البيئة حتى الآن.</p>
       {% endif %}
     </section>
-
-    <div class="form-grid">
-      <section class="card">
-        <h2>حضور الحلقة اليومية</h2>
-        {% if circle_form.errors %}
-          <div class="form-error">تعذّر حفظ سجل حضور الحلقة. تأكد من اختيار مشارك من بيئتك وتحديد تاريخ صحيح، وأن اليوم غير مسجّل مسبقًا.</div>
-        {% endif %}
-        <form class="att-form" method="post">
-          {% csrf_token %}
-          <input type="hidden" name="form_type" value="circle">
-          {{ circle_form.as_p }}
-          <button type="submit" class="btn">حفظ حضور الحلقة</button>
-        </form>
-      </section>
-
-      <section class="card">
-        <h2>حضور اللقاء الأسبوعي</h2>
-        {% if meeting_form.errors %}
-          <div class="form-error">تعذّر حفظ سجل حضور اللقاء. تأكد من اختيار مشارك من بيئتك وتحديد بداية أسبوع صحيحة، وأن الأسبوع غير مسجّل مسبقًا.</div>
-        {% endif %}
-        <form class="att-form" method="post">
-          {% csrf_token %}
-          <input type="hidden" name="form_type" value="meeting">
-          {{ meeting_form.as_p }}
-          <button type="submit" class="btn">حفظ حضور اللقاء</button>
-        </form>
-      </section>
-    </div>
   {% endif %}
 </div>
 
 <script>
 (function () {
-  var search = document.getElementById("roster-search");
-  if (!search) return;
-  var rows = document.querySelectorAll("#roster-body tr");
-  var empty = document.getElementById("roster-empty");
-  search.addEventListener("input", function () {
-    var q = search.value.trim().toLowerCase();
-    var visible = 0;
-    rows.forEach(function (row) {
-      var match = (row.getAttribute("data-search") || "").indexOf(q) !== -1;
-      row.hidden = !match;
-      if (match) visible++;
+  // تحديد الكل لكل عمود تشيك بوكس
+  var selectAllButtons = document.querySelectorAll(".select-all");
+  selectAllButtons.forEach(function (button) {
+    button.addEventListener("click", function () {
+      var col = button.getAttribute("data-target");
+      var boxes = document.querySelectorAll('input[type="checkbox"][data-col="' + col + '"]');
+      var allChecked = Array.prototype.every.call(boxes, function (box) { return box.checked; });
+      boxes.forEach(function (box) { box.checked = !allChecked; });
     });
-    if (empty) empty.hidden = visible !== 0;
+  });
+
+  // البحث
+  var search = document.getElementById("roster-search");
+  var tbody = document.getElementById("roster-body");
+  var empty = document.getElementById("roster-empty");
+  if (search && tbody) {
+    search.addEventListener("input", function () {
+      var q = search.value.trim().toLowerCase();
+      var visible = 0;
+      Array.prototype.forEach.call(tbody.querySelectorAll("tr"), function (row) {
+        var match = (row.getAttribute("data-search") || "").indexOf(q) !== -1;
+        row.hidden = !match;
+        if (match) visible++;
+      });
+      if (empty) empty.hidden = visible !== 0;
+    });
+  }
+
+  // الفرز بالضغط على رأس العمود
+  var table = document.getElementById("roster-table");
+  if (!table || !tbody) return;
+
+  var currentSort = { col: null, dir: null };
+
+  function getCellValue(row, colIndex, type) {
+    var cell = row.children[colIndex];
+    var text = cell ? cell.textContent.trim() : "";
+    if (type === "number") {
+      var n = parseFloat(text.replace(/[^\d.-]/g, ""));
+      return isNaN(n) ? -Infinity : n;
+    }
+    return text.toLocaleLowerCase("ar");
+  }
+
+  table.querySelectorAll("th.sortable").forEach(function (header) {
+    header.addEventListener("click", function () {
+      var colIndex = parseInt(header.getAttribute("data-col"), 10);
+      var type = header.getAttribute("data-sort");
+
+      var dir = "asc";
+      if (currentSort.col === colIndex && currentSort.dir === "asc") {
+        dir = "desc";
+      }
+      currentSort = { col: colIndex, dir: dir };
+
+      table.querySelectorAll("th.sortable").forEach(function (h) {
+        h.classList.remove("sort-asc", "sort-desc");
+      });
+      header.classList.add(dir === "asc" ? "sort-asc" : "sort-desc");
+
+      var rows = Array.prototype.slice.call(tbody.querySelectorAll("tr"));
+      rows.sort(function (a, b) {
+        var va = getCellValue(a, colIndex, type);
+        var vb = getCellValue(b, colIndex, type);
+        if (va < vb) return dir === "asc" ? -1 : 1;
+        if (va > vb) return dir === "asc" ? 1 : -1;
+        return 0;
+      });
+      rows.forEach(function (row) { tbody.appendChild(row); });
+    });
   });
 })();
 </script>
