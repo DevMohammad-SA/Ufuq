@@ -23,6 +23,8 @@ class SupervisorLoginView(LoginView):
         role = self.request.user.role
         if role == Role.GROUP_SUPERVISOR:
             return reverse("participants:supervisor_dashboard")
+        if role in (Role.GENERAL_SUPERVISOR, Role.SUPERADMIN):
+            return reverse("participants:general_supervisor_dashboard")
         return reverse("home")
 
 
