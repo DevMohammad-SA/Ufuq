@@ -36,6 +36,98 @@ MEETING_FULL_POINTS = 8
 MEETING_EARLY_BONUS_POINTS = 2
 
 
+# ---------------------------------------------------------------------------
+# Shared in-app navbar (app_base.html)
+# ---------------------------------------------------------------------------
+#
+# Every post-login page extends participants/app_base.html, which renders a
+# role-aware navbar (horizontal on desktop, fixed bottom bar on mobile) from a
+# `navbar_items` context list. This helper builds that list; each view calls it
+# with the key of the entry that represents the page currently being shown so
+# that entry is highlighted. It carries NO business logic — it only produces
+# display data for the template.
+#
+# Navbar icons are hand-written inline SVG (outline style, stroke=currentColor)
+# rather than Unicode emoji, so every OS/browser renders them identically and
+# they inherit the surrounding text colour (including the `is-active` state)
+# with no extra CSS. The template prints these strings through the `|safe`
+# filter. Keep them dependency-free — plain geometric paths only.
+ICON_HOME = (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+    'stroke-linecap="round" stroke-linejoin="round" width="20" height="20">'
+    '<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>'
+)
+ICON_TASKS = (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+    'stroke-linecap="round" stroke-linejoin="round" width="20" height="20">'
+    '<rect x="5" y="4" width="14" height="17" rx="2"/>'
+    '<path d="M9 3h6v3H9z"/><path d="M8.5 11h7"/><path d="M8.5 15h7"/></svg>'
+)
+ICON_STORE = (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+    'stroke-linecap="round" stroke-linejoin="round" width="20" height="20">'
+    '<path d="M6 8h12l1.2 12H4.8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>'
+)
+ICON_DATA = (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+    'stroke-linecap="round" stroke-linejoin="round" width="20" height="20">'
+    '<circle cx="9" cy="8" r="3.2"/><path d="M3.5 20c0-3.3 2.5-5.5 5.5-5.5s5.5 2.2 5.5 5.5"/>'
+    '<path d="M16 5.2a3 3 0 0 1 0 5.6"/><path d="M17.5 14.7c2 .9 3.5 2.8 3.5 5.3"/></svg>'
+)
+ICON_IMPORT = (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+    'stroke-linecap="round" stroke-linejoin="round" width="20" height="20">'
+    '<path d="M12 15V4"/><path d="M7 9l5-5 5 5"/><path d="M5 19h14"/></svg>'
+)
+ICON_ATTENDANCE = (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+    'stroke-linecap="round" stroke-linejoin="round" width="20" height="20">'
+    '<rect x="4" y="5" width="16" height="16" rx="2"/><path d="M4 9h16"/>'
+    '<path d="M8 3v4"/><path d="M16 3v4"/><path d="M9 14.5l2 2 4-4.5"/></svg>'
+)
+ICON_LOGOUT = (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+    'stroke-linecap="round" stroke-linejoin="round" width="20" height="20">'
+    '<path d="M14 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8"/>'
+    '<path d="M18 8l4 4-4 4"/><path d="M22 12H10"/></svg>'
+)
+
+
+def build_navbar(user, active_key):
+    if user.role == Role.PARTICIPANT:
+        entries = [
+            ("home", "الرئيسية", "participants:dashboard", ICON_HOME),
+            ("tasks", "المهام", "participants:task_submission", ICON_TASKS),
+            ("store", "المتجر", "participants:store_placeholder", ICON_STORE),
+        ]
+    elif user.role == Role.GROUP_SUPERVISOR:
+        # A group supervisor has no dashboard separate from the attendance
+        # roster, so "الرئيسية" and "التحضير" would be the exact same link.
+        # Rather than list one URL twice, this is a single "التحضير" entry.
+        entries = [
+            ("attendance", "التحضير", "participants:supervisor_dashboard", ICON_ATTENDANCE),
+            ("data", "بيانات المشاركين", "participants:participants_data", ICON_DATA),
+        ]
+    else:  # GENERAL_SUPERVISOR / SUPERADMIN
+        entries = [
+            ("home", "الرئيسية", "participants:general_supervisor_dashboard", ICON_HOME),
+            ("tasks", "المهام", "participants:weekly_task_review", ICON_TASKS),
+            ("import", "الاستيراد", "participants:import_participants", ICON_IMPORT),
+            ("data", "بيانات المشاركين", "participants:participants_data", ICON_DATA),
+        ]
+
+    return [
+        {
+            "key": key,
+            "label": label,
+            "url": reverse(url_name),
+            "icon": icon,
+            "active": key == active_key,
+        }
+        for key, label, url_name, icon in entries
+    ]
+
+
 def apply_points_delta(participant, points_delta):
     """
     Applies a points delta to a participant's triple-currency balances,
@@ -84,6 +176,7 @@ class ParticipantDashboardView(LoginRequiredMixin, TemplateView):
             participant,
         )
 
+        context["navbar_items"] = build_navbar(self.request.user, "home")
         return context
 
     def _build_range(self, queryset, participant):
@@ -184,6 +277,7 @@ class SupervisorDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateV
         else:
             context["roster"] = []
 
+        context["navbar_items"] = build_navbar(self.request.user, "attendance")
         return context
 
     def post(self, request, *args, **kwargs):
@@ -291,6 +385,11 @@ class ParticipantImportView(LoginRequiredMixin, UserPassesTestMixin, FormView):
         # Same access pattern as SupervisorDashboardView.test_func, but this
         # page is open to BOTH general supervisors and superadmins.
         return self.request.user.role in (Role.GENERAL_SUPERVISOR, Role.SUPERADMIN)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["navbar_items"] = build_navbar(self.request.user, "import")
+        return context
 
     def form_valid(self, form):
         result = self._process_import(form.cleaned_data["excel_file"])
@@ -419,6 +518,11 @@ class GeneralSupervisorDashboardView(
     def test_func(self):
         return self.request.user.role in (Role.GENERAL_SUPERVISOR, Role.SUPERADMIN)
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["navbar_items"] = build_navbar(self.request.user, "home")
+        return context
+
     def post(self, request, *args, **kwargs):
         # The only POST action on this page today: a full, program-wide
         # points reset. Confirmation happens client-side (a JS confirm()
@@ -498,6 +602,13 @@ class ParticipantsDataView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
         context = super().get_context_data(**kwargs)
         context["participants"] = self.get_queryset()
         context["is_scoped_to_group"] = self.request.user.role == Role.GROUP_SUPERVISOR
+        # Unique environment names present in the rows above, for the
+        # client-side environment filter dropdown. Built from the already
+        # evaluated queryset — get_queryset() itself is untouched.
+        context["group_names"] = sorted(
+            {p.group.name for p in context["participants"] if p.group}
+        )
+        context["navbar_items"] = build_navbar(self.request.user, "data")
         return context
 
 
@@ -524,6 +635,7 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
             ).order_by("-submitted_at")
         else:
             context["submissions"] = TaskSubmission.objects.none()
+        context["navbar_items"] = build_navbar(self.request.user, "tasks")
         return context
 
     def post(self, request, *args, **kwargs):
@@ -580,6 +692,7 @@ class TaskSubmissionView(LoginRequiredMixin, UserPassesTestMixin, FormView):
         else:
             context["existing_submission"] = None
 
+        context["navbar_items"] = build_navbar(self.request.user, "tasks")
         return context
 
     def post(self, request, *args, **kwargs):
@@ -608,3 +721,27 @@ class TaskSubmissionView(LoginRequiredMixin, UserPassesTestMixin, FormView):
             submission.save()
 
         return redirect("participants:task_submission")
+
+
+# ---------------------------------------------------------------------------
+# Store (placeholder)
+# ---------------------------------------------------------------------------
+
+
+class StorePlaceholderView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+    """
+    Stand-in page for the not-yet-built participant store. The participant
+    navbar links here so the "المتجر" entry has a real destination; the page
+    itself carries no logic beyond a "coming soon" message.
+    """
+
+    template_name = "participants/store_placeholder.html"
+    login_url = "accounts:login_participant"
+
+    def test_func(self):
+        return self.request.user.role == Role.PARTICIPANT
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["navbar_items"] = build_navbar(self.request.user, "store")
+        return context

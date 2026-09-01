@@ -1,102 +1,9 @@
+{% extends "participants/app_base.html" %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>المهمة الأسبوعية — رحّال</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-:root{
-  --asphalt:#2B2F33;
-  --gold:#C79A3B;
-  --white:#FFFFFF;
-  --sand:#F7F3EA;
-  --line:#E2DCD0;
-  --slate:#5F676E;
-  --gold-ink:#8A6520;
-  --gold-soft:#F0E2C2;
-  --done:#4E7A55;
-  --alert:#B4553B;
 
-  --r-sm:8px; --r-md:14px; --r-lg:22px;
-  --s1:8px; --s2:16px; --s3:24px; --s4:40px;
-  --shadow:0 1px 2px rgba(43,47,51,.06),0 12px 32px -18px rgba(43,47,51,.35);
+{% block title %}المهمة الأسبوعية — رحّال{% endblock %}
 
-  --font-display:"Tajawal","Cairo","Segoe UI",sans-serif;
-  --font-ui:"IBM Plex Sans Arabic","Tajawal",sans-serif;
-}
-*{box-sizing:border-box}
-body{
-  margin:0;
-  background:var(--sand);
-  color:var(--asphalt);
-  font-family:var(--font-display);
-  font-size:17px;
-  line-height:1.7;
-  -webkit-font-smoothing:antialiased;
-}
-@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
-
-.wrap{max-width:960px;margin:0 auto;padding:0 var(--s3) var(--s4)}
-
-.site-header{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:var(--s2);
-  padding:18px 0;
-}
-.brand{display:flex; align-items:center; gap:10px}
-.brand .wordmark{font-weight:800; font-size:20px}
-.brand .env{font-family:var(--font-ui); font-size:13px; color:var(--slate)}
-.brand .env b{color:var(--asphalt)}
-
-.logout-form button{
-  background:transparent;
-  border:1.5px solid var(--line);
-  border-radius:99px;
-  padding:8px 18px;
-  font-family:var(--font-ui);
-  font-size:13px;
-  color:var(--slate);
-  cursor:pointer;
-}
-.logout-form button:hover{border-color:var(--asphalt); color:var(--asphalt)}
-
-.page-title{
-  font-size:26px;
-  font-weight:800;
-  margin:var(--s2) 0 var(--s1);
-}
-.page-sub{
-  font-family:var(--font-ui);
-  font-size:13px;
-  color:var(--slate);
-  margin-bottom:var(--s3);
-}
-
-.card{
-  background:#fff;
-  border:1px solid var(--line);
-  border-radius:var(--r-md);
-  padding:var(--s3);
-  margin-top:var(--s3);
-}
-.card h2{
-  font-size:18px;
-  font-weight:800;
-  margin:0 0 var(--s2);
-}
-.card p{
-  font-family:var(--font-ui);
-  font-size:14px;
-  color:var(--slate);
-  margin:0 0 var(--s2);
-}
-
+{% block extra_style %}
 .field{margin-bottom:var(--s2)}
 .field label{
   display:block;
@@ -170,14 +77,6 @@ body{
   margin-bottom:0;
 }
 
-.empty-note{
-  font-family:var(--font-ui);
-  font-size:14px;
-  color:var(--slate);
-  text-align:center;
-  padding:var(--s3) 0;
-}
-
 .table-scroll{overflow-x:auto}
 table{
   width:100%;
@@ -209,25 +108,9 @@ th{color:var(--slate); font-weight:600; font-size:12px}
 
 .file-link{color:var(--gold-ink); font-weight:600; text-decoration:none}
 .file-link:hover{text-decoration:underline}
-</style>
-</head>
-<body>
+{% endblock %}
 
-<div class="wrap">
-  <header class="site-header">
-    <div class="brand">
-      <img src="{% static 'images/logo.png' %}" alt="رحّال" style="height:32px; width:auto;">
-      <div>
-        <div class="wordmark">رحّال</div>
-        <div class="env">المشرف العام</div>
-      </div>
-    </div>
-    <form class="logout-form" method="post" action="{% url 'accounts:logout' %}">
-      {% csrf_token %}
-      <button type="submit">تسجيل الخروج</button>
-    </form>
-  </header>
-
+{% block content %}
   <h1 class="page-title">المهمة الأسبوعية</h1>
   <p class="page-sub">إنشاء مهمة الأسبوع ومراجعة تسليمات المشاركين.</p>
 
@@ -339,7 +222,4 @@ th{color:var(--slate); font-weight:600; font-size:12px}
       <p class="empty-note">لا توجد تسليمات بعد.</p>
     {% endif %}
   </section>
-</div>
-
-</body>
-</html>
+{% endblock %}
