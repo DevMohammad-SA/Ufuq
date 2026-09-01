@@ -1,3 +1,5 @@
+import datetime
+
 from django.conf import settings
 from django.db import models
 from accounts.models import Role
@@ -143,3 +145,111 @@ class MeetingAttendance(models.Model):
 
     def __str__(self):
         return f"{self.participant.user.full_name} - {self.week_start_date}"
+
+
+class WeeklyTask(models.Model):
+    """
+    A single week's assigned task for the whole program (not per-group).
+    A NEW record is created each week by the General Supervisor — old
+    records are never edited in place, they remain as historical archive.
+    """
+
+    class AllowedFormat(models.TextChoices):
+        PDF = "pdf", "ملف PDF"
+        IMAGE = "image", "صورة"
+        AUDIO = "audio", "مقطع صوتي"
+        VIDEO = "video", "مقطع فيديو"
+
+    title = models.CharField(max_length=200, verbose_name="عنوان المهمة")
+    description = models.TextField(verbose_name="وصف المهمة")
+    due_date = models.DateField(verbose_name="موعد التسليم")
+    # Which formats this specific task accepts — a task may accept more
+    # than one. Stored as a comma-separated list of AllowedFormat values.
+    allowed_formats = models.CharField(
+        max_length=100,
+        verbose_name="الصيغ المسموحة",
+        help_text="قائمة مفصولة بفواصل من: pdf, image, audio, video",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        verbose_name="أنشأها",
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الإنشاء")
+
+    class Meta:
+        verbose_name = "مهمة أسبوعية"
+        verbose_name_plural = "المهام الأسبوعية"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.title} ({self.due_date})"
+
+    def get_allowed_formats_list(self):
+        return [f.strip() for f in self.allowed_formats.split(",") if f.strip()]
+
+    def is_past_due(self):
+        return datetime.date.today() > self.due_date
+
+
+class TaskSubmission(models.Model):
+    """
+    A participant's file submission for a specific WeeklyTask.
+
+    Status is either PENDING (awaiting review) or a final decision
+    (ACCEPTED/REJECTED) made by the General Supervisor. There is no
+    partial grading — acceptance awards the full 10 points, rejection
+    awards 0. Points are NOT applied automatically by this model's save()
+    — the review view applies them explicitly and exactly once per
+    decision, mirroring the same pattern used for attendance points.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "قيد المراجعة"
+        ACCEPTED = "accepted", "مقبولة"
+        REJECTED = "rejected", "مرفوضة"
+
+    task = models.ForeignKey(
+        WeeklyTask,
+        on_delete=models.CASCADE,
+        related_name="submissions",
+        verbose_name="المهمة",
+    )
+    participant = models.ForeignKey(
+        Participant,
+        on_delete=models.CASCADE,
+        related_name="task_submissions",
+        verbose_name="المشارك",
+    )
+    file = models.FileField(upload_to="task_submissions/%Y/%W/", verbose_name="الملف")
+    status = models.CharField(
+        max_length=10,
+        choices=Status.choices,
+        default=Status.PENDING,
+        verbose_name="الحالة",
+    )
+    submitted_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الرفع")
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name="راجعها",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True, verbose_name="تاريخ المراجعة")
+
+    class Meta:
+        verbose_name = "تسليم مهمة"
+        verbose_name_plural = "تسليمات المهام"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["task", "participant"],
+                name="unique_submission_per_task_per_participant",
+            )
+        ]
+        ordering = ["-submitted_at"]
+
+    def __str__(self):
+        return f"{self.participant.user.full_name} - {self.task.title} - {self.get_status_display()}"

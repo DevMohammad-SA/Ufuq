@@ -10,12 +10,25 @@ from django.db import IntegrityError, transaction
 from django.db.models import Count, Max, Min, Q
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.crypto import get_random_string
 from django.views.generic import FormView, TemplateView
 
 from accounts.models import Role, User
-from .forms import CircleAttendanceForm, ParticipantImportForm
-from .models import CircleAttendance, Group, MeetingAttendance, Participant
+from .forms import (
+    CircleAttendanceForm,
+    ParticipantImportForm,
+    TaskSubmissionForm,
+    WeeklyTaskForm,
+)
+from .models import (
+    CircleAttendance,
+    Group,
+    MeetingAttendance,
+    Participant,
+    TaskSubmission,
+    WeeklyTask,
+)
 
 # Official weekly points table values for the Horizon program.
 CIRCLE_DAY_POINTS = 3
@@ -478,3 +491,112 @@ class ParticipantsDataView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
         context["participants"] = self.get_queryset()
         context["is_scoped_to_group"] = self.request.user.role == Role.GROUP_SUPERVISOR
         return context
+
+
+# ---------------------------------------------------------------------------
+# Weekly task (upload + review)
+# ---------------------------------------------------------------------------
+
+
+class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+    template_name = "participants/weekly_task_review.html"
+    login_url = "accounts:login_supervisor"
+
+    def test_func(self):
+        return self.request.user.role in (Role.GENERAL_SUPERVISOR, Role.SUPERADMIN)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        current_task = WeeklyTask.objects.order_by("-created_at").first()
+        context["current_task"] = current_task
+        context.setdefault("create_form", WeeklyTaskForm())
+        if current_task:
+            context["submissions"] = current_task.submissions.select_related(
+                "participant__user"
+            ).order_by("-submitted_at")
+        else:
+            context["submissions"] = TaskSubmission.objects.none()
+        return context
+
+    def post(self, request, *args, **kwargs):
+        action = request.POST.get("action")
+
+        if action == "create_task":
+            form = WeeklyTaskForm(request.POST)
+            if form.is_valid():
+                task = form.save(commit=False)
+                task.created_by = request.user
+                task.save()
+            else:
+                context = self.get_context_data(create_form=form)
+                return self.render_to_response(context)
+
+        elif action in ("accept", "reject"):
+            submission_id = request.POST.get("submission_id")
+            submission = TaskSubmission.objects.filter(id=submission_id).first()
+            if submission and submission.status == TaskSubmission.Status.PENDING:
+                submission.status = (
+                    TaskSubmission.Status.ACCEPTED
+                    if action == "accept"
+                    else TaskSubmission.Status.REJECTED
+                )
+                submission.reviewed_by = request.user
+                submission.reviewed_at = timezone.now()
+                submission.save()
+
+                if action == "accept":
+                    apply_points_delta(submission.participant, 10)
+
+        return redirect("participants:weekly_task_review")
+
+
+class TaskSubmissionView(LoginRequiredMixin, UserPassesTestMixin, FormView):
+    template_name = "participants/task_submission_form.html"
+    form_class = TaskSubmissionForm
+
+    def test_func(self):
+        return self.request.user.role == Role.PARTICIPANT
+
+    def get_current_task(self):
+        return WeeklyTask.objects.order_by("-created_at").first()
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        task = self.get_current_task()
+        context["task"] = task
+
+        if task:
+            context["existing_submission"] = TaskSubmission.objects.filter(
+                task=task, participant=self.request.user.participant
+            ).first()
+        else:
+            context["existing_submission"] = None
+
+        return context
+
+    def post(self, request, *args, **kwargs):
+        task = self.get_current_task()
+        participant = request.user.participant
+
+        if not task:
+            return redirect("participants:task_submission")
+
+        # Never allow a submission after the due date has passed, and never
+        # allow a second submission for a task the participant already
+        # submitted for — both checks happen here in the view, not only in
+        # the template, since a crafted request could bypass a disabled UI
+        # button.
+        if task.is_past_due():
+            return redirect("participants:task_submission")
+
+        if TaskSubmission.objects.filter(task=task, participant=participant).exists():
+            return redirect("participants:task_submission")
+
+        form = TaskSubmissionForm(request.POST, request.FILES)
+        if form.is_valid():
+            submission = form.save(commit=False)
+            submission.task = task
+            submission.participant = participant
+            submission.save()
+
+        return redirect("participants:task_submission")
