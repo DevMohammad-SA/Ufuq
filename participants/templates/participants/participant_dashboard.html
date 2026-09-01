@@ -47,31 +47,35 @@
   border-radius:var(--r-md);
   padding:var(--s3);
 }
-.tabs{
-  display:flex;
-  gap:6px;
-  background:var(--sand);
-  border-radius:99px;
-  padding:4px;
-  margin-bottom:var(--s3);
-  width:fit-content;
+.section-title{
+  font-size:18px;
+  font-weight:800;
+  margin:0 0 var(--s3);
 }
-.tab-btn{
-  font-family:var(--font-ui);
-  font-size:13px;
-  font-weight:600;
-  border:none;
-  background:transparent;
-  color:var(--slate);
-  padding:8px 18px;
-  border-radius:99px;
-  cursor:pointer;
-  transition:.15s;
-}
-.tab-btn.on{background:#fff; color:var(--asphalt); box-shadow:var(--shadow)}
 
-.tab-panel{display:none}
-.tab-panel.on{display:block}
+.elite-card{
+  margin-top:var(--s3);
+  background:#fff;
+  border:1px solid var(--line);
+  border-inline-start:4px solid var(--line);
+  border-radius:var(--r-md);
+  padding:var(--s3);
+}
+.elite-card.elite-qualified{border-inline-start-color:var(--gold-ink)}
+.elite-card.elite-not_qualified{border-inline-start-color:var(--slate)}
+.elite-card .label{
+  font-family:var(--font-ui);
+  font-size:12px;
+  color:var(--slate);
+  margin-bottom:6px;
+}
+.elite-card .elite-message{
+  font-size:20px;
+  font-weight:800;
+  font-family:var(--font-display);
+  color:var(--asphalt);
+}
+.elite-card.elite-qualified .elite-message{color:var(--gold-ink)}
 
 .range-track{
   position:relative;
@@ -148,56 +152,27 @@
     </div>
   </div>
 
+  {% if elite_status %}
+    <section class="elite-card elite-{{ elite_status.eliteStatus }}">
+      <div class="label">التبشير برحلة النخبة</div>
+      <div class="elite-message">{{ elite_status.message }}</div>
+    </section>
+  {% endif %}
+
   <section class="progress-section">
-    <div class="tabs" role="tablist">
-      <button class="tab-btn on" role="tab" data-tab="group" onclick="rahhal.showTab('group')">داخل بيئتي</button>
-      <button class="tab-btn" role="tab" data-tab="program" onclick="rahhal.showTab('program')">على مستوى البرنامج</button>
-    </div>
-
-    <div class="tab-panel on" id="tab-group">
-      {% if group_range %}
-        <div class="range-track">
-          <div class="fill" style="width:100%"></div>
-          <div class="me" style="inset-inline-start:{{ group_range.position_percent }}%"></div>
-        </div>
-        <div class="range-labels">
-          <span>الأقل أميالًا<br><b>{{ group_range.min_miles }}</b></span>
-          <span style="text-align:left">الأعلى أميالًا<br><b>{{ group_range.max_miles }}</b></span>
-        </div>
-        <p class="range-note">موقعك بين مشاركي بيئتك</p>
-      {% else %}
-        <p class="empty-note">ما فيه بيانات كافية لعرض مقارنة بيئتك حاليًا.</p>
-      {% endif %}
-    </div>
-
-    <div class="tab-panel" id="tab-program">
-      {% if program_range %}
-        <div class="range-track">
-          <div class="fill" style="width:100%"></div>
-          <div class="me" style="inset-inline-start:{{ program_range.position_percent }}%"></div>
-        </div>
-        <div class="range-labels">
-          <span>الأقل أميالًا<br><b>{{ program_range.min_miles }}</b></span>
-          <span style="text-align:left">الأعلى أميالًا<br><b>{{ program_range.max_miles }}</b></span>
-        </div>
-        <p class="range-note">موقعك بين كل مشاركي البرنامج</p>
-      {% else %}
-        <p class="empty-note">ما فيه بيانات كافية لعرض مقارنة البرنامج حاليًا.</p>
-      {% endif %}
-    </div>
+    <h2 class="section-title">مقارنة الأميال على مستوى البرنامج</h2>
+    {% if program_range %}
+      <div class="range-track">
+        <div class="fill" style="width:100%"></div>
+        <div class="me" style="inset-inline-start:{{ program_range.position_percent }}%"></div>
+      </div>
+      <div class="range-labels">
+        <span>الأقل أميالًا<br><b>{{ program_range.min_miles }}</b></span>
+        <span style="text-align:left">الأعلى أميالًا<br><b>{{ program_range.max_miles }}</b></span>
+      </div>
+      <p class="range-note">موقعك بين كل مشاركي البرنامج</p>
+    {% else %}
+      <p class="empty-note">ما فيه بيانات كافية لعرض مقارنة البرنامج حاليًا.</p>
+    {% endif %}
   </section>
-{% endblock %}
-
-{% block scripts %}
-<script>
-window.rahhal = window.rahhal || {};
-rahhal.showTab = function(name){
-  document.querySelectorAll('.tab-btn').forEach(function(b){
-    b.classList.toggle('on', b.dataset.tab === name);
-  });
-  document.querySelectorAll('.tab-panel').forEach(function(p){
-    p.classList.toggle('on', p.id === 'tab-' + name);
-  });
-};
-</script>
 {% endblock %}

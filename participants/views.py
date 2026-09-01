@@ -165,19 +165,91 @@ class ParticipantDashboardView(LoginRequiredMixin, TemplateView):
         participant = self.request.user.participant
         context["participant"] = participant
 
-        context["group_range"] = self._build_range(
-            Participant.objects.filter(group=participant.group)
-            if participant.group is not None
-            else Participant.objects.none(),
-            participant,
-        )
+        # Only the program-wide miles comparison is shown on the dashboard;
+        # the per-environment miles tab was dropped, so `group_range` is no
+        # longer built (it would be an unused extra aggregate query).
         context["program_range"] = self._build_range(
             Participant.objects.all(),
             participant,
         )
 
+        # Elite-trip ("رحلة النخبة") indicator: a per-request, never-stored
+        # message telling the participant only their distance to / safety
+        # margin from the 20-seat nomination cutoff inside their own
+        # environment. No other participant's rank, points, or name is
+        # exposed — see get_elite_status().
+        context["elite_status"] = self.get_elite_status(participant)
+
         context["navbar_items"] = build_navbar(self.request.user, "home")
         return context
+
+    def get_elite_status(self, participant):
+        """
+        Compute the elite-trip nomination status for `participant` within
+        their environment, following آلية_مؤشر_التبشير_برحلة_النخبة.md.
+
+        Returns None when there is no environment or the participant is not
+        found in the ranking; otherwise a dict with exactly:
+        {"eliteStatus": "qualified"|"not_qualified", "difference": int|None,
+         "message": str}. Nothing about other participants is returned.
+
+        Everything is recomputed here on every page load — no value is
+        persisted.
+        """
+        if participant.group is None:
+            return None
+
+        # Same ordering the rest of the app would use for a ranking:
+        # highest points = rank 1. A secondary "-id" would be arbitrary;
+        # "id" ascending is a stable, deterministic tie-breaker so two
+        # participants on identical points always resolve the same way
+        # across repeated requests (the spec does not define tie handling).
+        group_ranking = list(
+            Participant.objects.filter(group=participant.group)
+            .order_by("-points", "id")
+            .values_list("id", "points")
+        )
+
+        participant_index = next(
+            (i for i, (pid, _) in enumerate(group_ranking) if pid == participant.id),
+            None,
+        )
+        if participant_index is None:
+            return None
+
+        rank = participant_index + 1  # 1-indexed, matching the spec's "المركز 20/21"
+
+        def points_at_rank(target_rank):
+            if target_rank < 1 or target_rank > len(group_ranking):
+                return None
+            return group_ranking[target_rank - 1][1]
+
+        if rank > 20:
+            rank_20_points = points_at_rank(20)
+            if rank_20_points is None:
+                return None
+            difference = rank_20_points - participant.points
+            return {
+                "eliteStatus": "not_qualified",
+                "difference": difference,
+                "message": f"بقي لك {difference} نقطة لتصل إلى رحلة النخبة",
+            }
+        else:
+            rank_21_points = points_at_rank(21)
+            if rank_21_points is None:
+                # Fewer than 21 participants in the group — everyone within
+                # the top 20 is safely qualified with no one to compare against.
+                return {
+                    "eliteStatus": "qualified",
+                    "difference": None,
+                    "message": "أنت ضمن المرشحين لرحلة النخبة",
+                }
+            difference = participant.points - rank_21_points
+            return {
+                "eliteStatus": "qualified",
+                "difference": difference,
+                "message": f"بينك وبين عدم الترشيح {difference} نقطة",
+            }
 
     def _build_range(self, queryset, participant):
         aggregates = queryset.aggregate(min_miles=Min("miles"), max_miles=Max("miles"))
