@@ -257,9 +257,8 @@ th{color:var(--slate); font-weight:600; font-size:12px}
       </div>
 
       <div class="field">
-        <label for="id_allowed_formats">الصيغ المسموحة</label>
+        <label for="id_allowed_formats">الصيغة المسموحة</label>
         {{ create_form.allowed_formats }}
-        <div class="hint">اكتب الصيغ مفصولة بفواصل من: pdf, image, audio, video — مثال: pdf,image</div>
         {% if create_form.allowed_formats.errors %}<div class="errors">{{ create_form.allowed_formats.errors|join:"، " }}</div>{% endif %}
       </div>
 
@@ -273,7 +272,7 @@ th{color:var(--slate); font-weight:600; font-size:12px}
       <div class="current-task-title">{{ current_task.title }}</div>
       <div class="current-task-meta">
         موعد التسليم: {{ current_task.due_date }}
-        · الصيغ المسموحة: {{ current_task.get_allowed_formats_list|join:"، " }}
+        · الصيغة المسموحة: {{ current_task.get_allowed_formats_display }}
         {% if current_task.is_past_due %} · <span style="color:var(--alert)">انتهى الموعد</span>{% endif %}
       </div>
       <p class="current-task-desc">{{ current_task.description }}</p>

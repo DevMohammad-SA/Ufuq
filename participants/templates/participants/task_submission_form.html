@@ -218,7 +218,7 @@ body{
       <p>{{ task.description }}</p>
       <div class="task-meta">
         موعد التسليم: <b>{{ task.due_date }}</b>
-        · الصيغ المسموحة: <b>{{ task.get_allowed_formats_list|join:"، " }}</b>
+        · الصيغة المسموحة: <b>{{ task.get_allowed_formats_display }}</b>
       </div>
 
       <form method="post" enctype="multipart/form-data">

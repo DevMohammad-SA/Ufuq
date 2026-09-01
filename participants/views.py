@@ -173,11 +173,13 @@ class SupervisorDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateV
             roster = []
             for participant in participants:
                 record = existing_records.get(participant.id)
-                roster.append({
-                    "participant": participant,
-                    "attended": record.attended if record else False,
-                    "is_early": record.is_early if record else False,
-                })
+                roster.append(
+                    {
+                        "participant": participant,
+                        "attended": record.attended if record else False,
+                        "is_early": record.is_early if record else False,
+                    }
+                )
             context["roster"] = roster
         else:
             context["roster"] = []
@@ -336,10 +338,12 @@ class ParticipantImportView(LoginRequiredMixin, UserPassesTestMixin, FormView):
                 # automatically.
                 group = Group.objects.filter(name=group_name).first()
                 if group is None:
-                    rejected_rows.append({
-                        "row": row_number,
-                        "reason": f'البيئة "{group_name}" غير موجودة بالنظام',
-                    })
+                    rejected_rows.append(
+                        {
+                            "row": row_number,
+                            "reason": f'البيئة "{group_name}" غير موجودة بالنظام',
+                        }
+                    )
                     continue
 
             academic_stage_value = ACADEMIC_STAGE_LABEL_TO_VALUE[stage_label]
@@ -367,10 +371,12 @@ class ParticipantImportView(LoginRequiredMixin, UserPassesTestMixin, FormView):
                 # A duplicate national id that slipped past the exists() check
                 # — a second occurrence of the same id later in this same file,
                 # or a concurrent import of it.
-                rejected_rows.append({
-                    "row": row_number,
-                    "reason": "رقم الهوية مسجّل مسبقًا في النظام",
-                })
+                rejected_rows.append(
+                    {
+                        "row": row_number,
+                        "reason": "رقم الهوية مسجّل مسبقًا في النظام",
+                    }
+                )
                 continue
 
             created_count += 1
@@ -404,7 +410,9 @@ class ParticipantImportView(LoginRequiredMixin, UserPassesTestMixin, FormView):
 # ---------------------------------------------------------------------------
 
 
-class GeneralSupervisorDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+class GeneralSupervisorDashboardView(
+    LoginRequiredMixin, UserPassesTestMixin, TemplateView
+):
     template_name = "participants/general_supervisor_dashboard.html"
     login_url = "accounts:login_supervisor"
 
