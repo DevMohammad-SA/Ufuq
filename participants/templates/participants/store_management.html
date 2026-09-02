@@ -1,0 +1,227 @@
+{% extends "participants/app_base.html" %}
+{% load static %}
+
+{% block title %}طلبات المتجر — رحّال{% endblock %}
+
+{% block extra_style %}
+.table-scroll{overflow-x:auto}
+table.roster{width:100%; border-collapse:collapse; font-family:var(--font-ui); font-size:14px}
+table.roster th,table.roster td{text-align:right; padding:10px 12px; border-bottom:1px solid var(--line)}
+table.roster th{color:var(--slate); font-weight:600; font-size:12px}
+table.roster tr:last-child td{border-bottom:none}
+
+.status-pill{display:inline-block; border-radius:99px; padding:4px 12px; font-size:12px; font-weight:700}
+.status-pending{background:var(--gold-soft); color:var(--gold-ink)}
+.status-completed{background:#E4EFE5; color:var(--done)}
+.status-refunded{background:#FBEEEA; color:var(--alert)}
+
+.btn-inline{
+  border:1.5px solid var(--line); background:#fff; color:var(--asphalt);
+  font-family:var(--font-ui); font-weight:600; font-size:13px;
+  padding:6px 14px; border-radius:99px; cursor:pointer;
+}
+.btn-inline:hover{border-color:var(--asphalt)}
+.btn-inline--danger{border-color:var(--alert); color:var(--alert)}
+.btn-inline--danger:hover{border-color:var(--alert); background:#FBEEEA}
+.inline-form{display:inline}
+.muted{font-family:var(--font-ui); font-size:12px; color:var(--slate)}
+
+.subtable-title{font-size:15px; font-weight:800; margin:0 0 var(--s2)}
+
+.warn-note{
+  background:#FBEEEA;
+  border:1px solid var(--alert);
+  border-radius:var(--r-sm);
+  padding:12px 14px;
+  font-family:var(--font-ui);
+  font-size:13px;
+  color:var(--alert);
+  margin-bottom:var(--s2);
+}
+.product-form p{margin:0 0 var(--s2)}
+.product-form label{
+  display:block; font-family:var(--font-ui); font-weight:600;
+  font-size:13px; color:var(--slate); margin-bottom:4px;
+}
+.product-form input[type="text"],
+.product-form input[type="number"],
+.product-form textarea{
+  width:100%; box-sizing:border-box; font-family:var(--font-ui); font-size:14px;
+  padding:8px 10px; border:1.5px solid var(--line); border-radius:var(--r-sm);
+}
+.product-thumb{width:44px; height:44px; object-fit:cover; border-radius:var(--r-sm)}
+{% endblock %}
+
+{% block content %}
+  <h1 class="page-title">طلبات المتجر</h1>
+  <p class="page-sub">حوّل الطلبات المعلّقة إلى مكتملة بعد التسليم الفعلي، واسترجع الطلبات عند الحاجة.</p>
+
+  <section class="card">
+    <h2 class="subtable-title" style="margin-top:0">
+      {% if editing_product %}تعديل منتج{% else %}إضافة منتج جديد{% endif %}
+    </h2>
+
+    {% if delete_error %}
+      <div class="warn-note">{{ delete_error }}</div>
+    {% endif %}
+
+    {% if product_form.errors %}
+      <div class="warn-note">تعذّر حفظ المنتج. تحقق من الحقول المدخلة.</div>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data" class="product-form">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="{% if editing_product %}edit_product{% else %}add_product{% endif %}">
+      {% if editing_product %}
+        <input type="hidden" name="product_id" value="{{ editing_product.id }}">
+      {% endif %}
+      {{ product_form.as_p }}
+      <button type="submit" class="btn-inline">
+        {% if editing_product %}حفظ التعديلات{% else %}إضافة المنتج{% endif %}
+      </button>
+      {% if editing_product %}
+        <a href="{% url 'participants:store_management' %}" class="btn-inline">إلغاء التعديل</a>
+      {% endif %}
+    </form>
+  </section>
+
+  <section class="card">
+    <h2 class="subtable-title" style="margin-top:0">المنتجات الحالية ({{ products|length }})</h2>
+    {% if products %}
+      <div class="table-scroll">
+        <table class="roster">
+          <thead>
+            <tr>
+              <th>الصورة</th>
+              <th>الاسم</th>
+              <th>السعر</th>
+              <th>المخزون</th>
+              <th>إجراءات</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for product in products %}
+              <tr>
+                <td>
+                  {% if product.image %}
+                    <img class="product-thumb" src="{{ product.image.url }}" alt="{{ product.name }}">
+                  {% else %}
+                    <span class="muted">—</span>
+                  {% endif %}
+                </td>
+                <td>{{ product.name }}</td>
+                <td>{{ product.price }}</td>
+                <td>{{ product.stock }}</td>
+                <td>
+                  <a href="?edit={{ product.id }}" class="btn-inline">تعديل</a>
+                  <form class="inline-form" method="post"
+                        onsubmit="return confirm('تأكيد حذف هذا المنتج؟')">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="delete_product">
+                    <input type="hidden" name="product_id" value="{{ product.id }}">
+                    <button type="submit" class="btn-inline btn-inline--danger">حذف</button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="empty-note">لا توجد منتجات بعد.</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2 class="subtable-title" style="margin-top:0">طلبات قيد التنفيذ ({{ pending_orders|length }})</h2>
+    {% if pending_orders %}
+      <div class="table-scroll">
+        <table class="roster">
+          <thead>
+            <tr>
+              <th>المشارك</th>
+              <th>المنتج</th>
+              <th>السعر وقت الطلب</th>
+              <th>تاريخ الطلب</th>
+              <th>إجراء</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for order in pending_orders %}
+              <tr>
+                <td>{{ order.participant.user.full_name|default:"—" }}</td>
+                <td>{{ order.product.name }}</td>
+                <td>{{ order.price_at_order }}</td>
+                <td>{{ order.ordered_at|date:"Y-m-d H:i" }}</td>
+                <td>
+                  <form class="inline-form" method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="complete">
+                    <input type="hidden" name="order_id" value="{{ order.id }}">
+                    <button type="submit" class="btn-inline">تحويل إلى مكتمل</button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="empty-note">لا توجد طلبات قيد التنفيذ.</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2 class="subtable-title" style="margin-top:0">كل الطلبات ({{ all_orders|length }})</h2>
+    {% if all_orders %}
+      <div class="table-scroll">
+        <table class="roster">
+          <thead>
+            <tr>
+              <th>المشارك</th>
+              <th>المنتج</th>
+              <th>السعر وقت الطلب</th>
+              <th>تاريخ الطلب</th>
+              <th>الحالة</th>
+              <th>استرجاع</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for order in all_orders %}
+              <tr>
+                <td>{{ order.participant.user.full_name|default:"—" }}</td>
+                <td>{{ order.product.name }}</td>
+                <td>{{ order.price_at_order }}</td>
+                <td>{{ order.ordered_at|date:"Y-m-d H:i" }}</td>
+                <td>
+                  {% if order.status == "pending" %}
+                    <span class="status-pill status-pending">قيد التنفيذ</span>
+                  {% elif order.status == "completed" %}
+                    <span class="status-pill status-completed">مكتمل</span>
+                  {% else %}
+                    <span class="status-pill status-refunded">مسترجَع</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if order.status == "refunded" %}
+                    <span class="muted">تم الاسترجاع</span>
+                  {% else %}
+                    <form class="inline-form" method="post"
+                          onsubmit="return confirm('تأكيد استرجاع هذا الطلب؟ ستُعاد النقاط الشرائية للمشارك وتُعاد قطعة للمخزون.')">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="refund">
+                      <input type="hidden" name="order_id" value="{{ order.id }}">
+                      <button type="submit" class="btn-inline btn-inline--danger">استرجاع</button>
+                    </form>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="empty-note">لا توجد طلبات بعد.</p>
+    {% endif %}
+  </section>
+{% endblock %}

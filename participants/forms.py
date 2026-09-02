@@ -1,6 +1,12 @@
 from django import forms
 
-from .models import CircleAttendance, Participant, TaskSubmission, WeeklyTask
+from .models import (
+    CircleAttendance,
+    Participant,
+    StoreProduct,
+    TaskSubmission,
+    WeeklyTask,
+)
 
 
 class CircleAttendanceForm(forms.ModelForm):
@@ -65,3 +71,12 @@ class TaskSubmissionForm(forms.ModelForm):
                     f"صيغة الملف غير مقبولة لهذه المهمة. الصيغة المطلوبة: {allowed_display}"
                 )
         return file
+
+
+class StoreProductForm(forms.ModelForm):
+    class Meta:
+        model = StoreProduct
+        fields = ["name", "description", "image", "price", "stock"]
+        widgets = {
+            "description": forms.Textarea(attrs={"rows": 3}),
+        }

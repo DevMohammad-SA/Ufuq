@@ -5,9 +5,10 @@ from django.shortcuts import render
 import datetime
 
 import openpyxl
+from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Max, Min, Q
+from django.db.models import Count, Max, Min, ProtectedError, Q
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils import timezone
@@ -18,6 +19,7 @@ from accounts.models import Role, User
 from .forms import (
     CircleAttendanceForm,
     ParticipantImportForm,
+    StoreProductForm,
     TaskSubmissionForm,
     WeeklyTaskForm,
 )
@@ -26,6 +28,8 @@ from .models import (
     Group,
     MeetingAttendance,
     Participant,
+    StoreOrder,
+    StoreProduct,
     TaskSubmission,
     WeeklyTask,
 )
@@ -98,6 +102,12 @@ ICON_ARCHIVE = (
     '<path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"/>'
     '<path d="M10 12h4"/></svg>'
 )
+ICON_CART = (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+    'stroke-linecap="round" stroke-linejoin="round" width="20" height="20">'
+    '<circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/>'
+    '<path d="M3 4h2l2.4 12.2a1 1 0 0 0 1 .8h9.2a1 1 0 0 0 1-.8L21 8H6"/></svg>'
+)
 
 
 def build_navbar(user, active_key):
@@ -105,7 +115,7 @@ def build_navbar(user, active_key):
         entries = [
             ("home", "الرئيسية", "participants:dashboard", ICON_HOME),
             ("tasks", "المهام", "participants:task_submission", ICON_TASKS),
-            ("store", "المتجر", "participants:store_placeholder", ICON_STORE),
+            ("store", "المتجر", "participants:store", ICON_STORE),
         ]
     elif user.role == Role.GROUP_SUPERVISOR:
         # A group supervisor has no dashboard separate from the attendance
@@ -134,6 +144,12 @@ def build_navbar(user, active_key):
                 "أرشيف المهام",
                 "participants:tasks_archive",
                 ICON_ARCHIVE,
+            ),
+            (
+                "store_management",
+                "طلبات المتجر",
+                "participants:store_management",
+                ICON_CART,
             ),
             ("import", "الاستيراد", "participants:import_participants", ICON_IMPORT),
             ("data", "بيانات المشاركين", "participants:participants_data", ICON_DATA),
@@ -906,18 +922,18 @@ class TasksArchiveView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
 
 
 # ---------------------------------------------------------------------------
-# Store (placeholder)
+# Store (products, orders, refunds)
 # ---------------------------------------------------------------------------
+#
+# The store touches only `purchase_points`. It never calls apply_points_delta
+# (which moves points/miles/purchase_points together on a fixed ratio) — every
+# balance change here is a direct, isolated write to `purchase_points` alone,
+# with `points` and `miles` untouched. Stock and balance are always enforced
+# server-side regardless of any disabled-button hint in the UI.
 
 
-class StorePlaceholderView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
-    """
-    Stand-in page for the not-yet-built participant store. The participant
-    navbar links here so the "المتجر" entry has a real destination; the page
-    itself carries no logic beyond a "coming soon" message.
-    """
-
-    template_name = "participants/store_placeholder.html"
+class StoreView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+    template_name = "participants/store.html"
     login_url = "accounts:login_participant"
 
     def test_func(self):
@@ -925,5 +941,210 @@ class StorePlaceholderView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        participant = self.request.user.participant
+
+        context["participant"] = participant
+        context["products"] = StoreProduct.objects.filter(stock__gt=0)
+        context["my_orders"] = StoreOrder.objects.filter(
+            participant=participant
+        ).select_related("product")
         context["navbar_items"] = build_navbar(self.request.user, "store")
         return context
+
+    def post(self, request, *args, **kwargs):
+        participant = request.user.participant
+        product_id = request.POST.get("product_id")
+        product = StoreProduct.objects.filter(id=product_id).first()
+
+        if product is None:
+            messages.error(request, "المنتج المطلوب غير موجود.")
+            return redirect("participants:store")
+
+        # Server-side enforcement — never trust the disabled-button UI hint.
+        if product.stock <= 0:
+            messages.error(
+                request, f'نفد مخزون "{product.name}"، لا يمكن إتمام الطلب.'
+            )
+            return redirect("participants:store")
+
+        if participant.purchase_points < product.price:
+            messages.error(
+                request,
+                f'رصيدك من النقاط الشرائية لا يكفي لطلب "{product.name}".',
+            )
+            return redirect("participants:store")
+
+        with transaction.atomic():
+            # Re-check stock inside the transaction to guard against a race
+            # between two participants ordering the last unit at nearly the
+            # same time.
+            product = StoreProduct.objects.select_for_update().get(id=product.id)
+            if product.stock <= 0:
+                messages.error(
+                    request,
+                    f'نفد مخزون "{product.name}" للتو، لا يمكن إتمام الطلب.',
+                )
+                return redirect("participants:store")
+
+            # Re-read the participant under lock and re-check the balance so a
+            # second concurrent order cannot overspend purchase_points.
+            participant = Participant.objects.select_for_update().get(
+                id=participant.id
+            )
+            if participant.purchase_points < product.price:
+                messages.error(
+                    request,
+                    f'رصيدك من النقاط الشرائية لا يكفي لطلب "{product.name}".',
+                )
+                return redirect("participants:store")
+
+            product.stock -= 1
+            product.save(update_fields=["stock"])
+
+            # purchase_points ONLY — points and miles are unrelated currencies
+            # and are never touched by the store.
+            participant.purchase_points -= product.price
+            participant.save(update_fields=["purchase_points"])
+
+            StoreOrder.objects.create(
+                participant=participant,
+                product=product,
+                price_at_order=product.price,
+            )
+
+        messages.success(
+            request,
+            f'تم طلب "{product.name}" بنجاح! يمكنك متابعة حالته من تبويب "طلباتي".',
+        )
+        return redirect("participants:store")
+
+
+class StoreManagementView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+    template_name = "participants/store_management.html"
+    login_url = "accounts:login_supervisor"
+
+    def test_func(self):
+        return self.request.user.role in (Role.GENERAL_SUPERVISOR, Role.SUPERADMIN)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["pending_orders"] = StoreOrder.objects.filter(
+            status=StoreOrder.Status.PENDING
+        ).select_related("participant__user", "product")
+        context["all_orders"] = StoreOrder.objects.all().select_related(
+            "participant__user", "product"
+        )
+
+        # Product management section (added on top of the orders view). The
+        # setdefault calls mirror SupervisorDashboardView: post() can hand an
+        # errored form / an in-progress edit target / a delete error message
+        # back through **kwargs and it must not be clobbered by a fresh one.
+        context["products"] = StoreProduct.objects.all()
+        context.setdefault("product_form", StoreProductForm())
+        context.setdefault("editing_product", None)
+        context.setdefault("delete_error", None)
+
+        # GET ?edit=<id> puts the section into edit mode: the form is
+        # pre-filled with that product's data. Only honoured when post()
+        # hasn't already supplied its own editing_product via **kwargs.
+        edit_id = self.request.GET.get("edit")
+        if edit_id and "editing_product" not in kwargs:
+            editing_product = StoreProduct.objects.filter(id=edit_id).first()
+            if editing_product:
+                context["editing_product"] = editing_product
+                context["product_form"] = StoreProductForm(instance=editing_product)
+
+        context["navbar_items"] = build_navbar(self.request.user, "store_management")
+        return context
+
+    def post(self, request, *args, **kwargs):
+        action = request.POST.get("action")
+
+        # --- Product management actions (add / edit / delete) ---------------
+        # These are wholly independent of the complete/refund order handling
+        # below; an early return keeps the two paths from ever overlapping.
+        if action == "add_product":
+            form = StoreProductForm(request.POST, request.FILES)
+            if form.is_valid():
+                form.save()
+                return redirect("participants:store_management")
+            context = self.get_context_data(product_form=form)
+            return self.render_to_response(context)
+
+        if action == "edit_product":
+            product = StoreProduct.objects.filter(
+                id=request.POST.get("product_id")
+            ).first()
+            if product is None:
+                return redirect("participants:store_management")
+            form = StoreProductForm(request.POST, request.FILES, instance=product)
+            if form.is_valid():
+                form.save()
+                return redirect("participants:store_management")
+            context = self.get_context_data(
+                product_form=form, editing_product=product
+            )
+            return self.render_to_response(context)
+
+        if action == "delete_product":
+            product = StoreProduct.objects.filter(
+                id=request.POST.get("product_id")
+            ).first()
+            if product is not None:
+                try:
+                    product.delete()
+                except ProtectedError:
+                    # StoreOrder.product is on_delete=PROTECT — a product with
+                    # existing orders cannot be deleted. Surface a clear Arabic
+                    # message instead of a 500 error page.
+                    context = self.get_context_data(
+                        delete_error=(
+                            "لا يمكن حذف هذا المنتج لوجود طلبات مرتبطة به. "
+                            "يمكنك تصفير المخزون بدلًا من ذلك."
+                        )
+                    )
+                    return self.render_to_response(context)
+            return redirect("participants:store_management")
+
+        # --- Existing order actions (unchanged) ----------------------------
+        order_id = request.POST.get("order_id")
+        order = StoreOrder.objects.filter(id=order_id).first()
+
+        if order is None:
+            return redirect("participants:store_management")
+
+        if action == "complete" and order.status == StoreOrder.Status.PENDING:
+            order.status = StoreOrder.Status.COMPLETED
+            order.completed_at = timezone.now()
+            order.save(update_fields=["status", "completed_at"])
+
+        elif action == "refund" and order.status != StoreOrder.Status.REFUNDED:
+            # Refund is allowed from BOTH pending and completed (a participant
+            # may have already received the item before an error surfaced),
+            # but the status != REFUNDED guard blocks a double refund — a
+            # second click never re-credits points or re-adds stock.
+            with transaction.atomic():
+                order = StoreOrder.objects.select_for_update().get(id=order.id)
+                if order.status == StoreOrder.Status.REFUNDED:
+                    return redirect("participants:store_management")
+
+                order.status = StoreOrder.Status.REFUNDED
+                order.refunded_at = timezone.now()
+                order.save(update_fields=["status", "refunded_at"])
+
+                # Refund restores BOTH the participant's purchase_points and
+                # the product's stock — purchase_points only, never points or
+                # miles (unrelated currencies).
+                participant = Participant.objects.select_for_update().get(
+                    id=order.participant_id
+                )
+                participant.purchase_points += order.price_at_order
+                participant.save(update_fields=["purchase_points"])
+
+                product = StoreProduct.objects.select_for_update().get(
+                    id=order.product_id
+                )
+                product.stock += 1
+                product.save(update_fields=["stock"])
+
+        return redirect("participants:store_management")
