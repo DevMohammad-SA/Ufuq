@@ -40,6 +40,53 @@ table.roster th.num-col{text-align:center}
 }
 .roster-scroll{overflow-x:auto}
 
+/* فلتر البيئات متعدد الاختيار */
+.group-filter-bar{
+  margin-top:8px;
+  margin-bottom:var(--s2);
+}
+.group-filter-actions{
+  display:flex;
+  gap:12px;
+  margin-bottom:8px;
+}
+.group-filter-checkboxes{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+}
+.group-filter-item{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-family:var(--font-ui);
+  font-size:13px;
+  color:var(--asphalt);
+  background:var(--sand);
+  border:1px solid var(--line);
+  border-radius:99px;
+  padding:6px 12px;
+  cursor:pointer;
+}
+.group-filter-item input[type="checkbox"]{
+  width:16px;
+  height:16px;
+  cursor:pointer;
+  accent-color:var(--gold-ink);
+}
+/* نفس نمط .select-all في supervisor_dashboard.html */
+.select-all{
+  background:none;
+  border:none;
+  padding:0;
+  font-family:var(--font-ui);
+  font-size:11px;
+  font-weight:600;
+  color:var(--gold-ink);
+  cursor:pointer;
+  text-decoration:underline;
+}
+
 /* أعمدة قابلة للفرز */
 th.sortable{
   cursor:pointer;
@@ -82,12 +129,20 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
       <input type="text" id="roster-search" class="roster-search" placeholder="ابحث بالاسم أو رقم الهوية…" autocomplete="off">
 
       {% if group_names|length > 1 %}
-        <select id="group-filter" class="roster-search" style="margin-top:8px;">
-          <option value="">كل البيئات</option>
-          {% for group_name in group_names %}
-            <option value="{{ group_name }}">{{ group_name }}</option>
-          {% endfor %}
-        </select>
+        <div class="group-filter-bar">
+          <div class="group-filter-actions">
+            <button type="button" class="select-all" id="group-filter-all">تحديد الكل</button>
+            <button type="button" class="select-all" id="group-filter-none">إلغاء تحديد الكل</button>
+          </div>
+          <div class="group-filter-checkboxes">
+            {% for group_name in group_names %}
+              <label class="group-filter-item">
+                <input type="checkbox" class="group-filter-checkbox" value="{{ group_name }}" checked>
+                <span>{{ group_name }}</span>
+              </label>
+            {% endfor %}
+          </div>
+        </div>
       {% endif %}
 
       <div class="roster-scroll">
@@ -134,20 +189,35 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
 {% block scripts %}
 <script>
 (function () {
-  // البحث النصي + فلتر البيئة (يعملان معًا: يظهر الصف فقط إذا طابق الشرطين)
+  // البحث النصي + فلتر البيئات متعدد الاختيار (يعملان معًا: يظهر الصف فقط إذا طابق الشرطين)
   var search = document.getElementById("roster-search");
-  var groupFilter = document.getElementById("group-filter");
   var tbody = document.getElementById("roster-body");
   var empty = document.getElementById("roster-empty");
+
+  var groupCheckboxes = document.querySelectorAll(".group-filter-checkbox");
+  var selectAllBtn = document.getElementById("group-filter-all");
+  var selectNoneBtn = document.getElementById("group-filter-none");
+
+  function getSelectedGroups() {
+    var selected = [];
+    groupCheckboxes.forEach(function (cb) {
+      if (cb.checked) selected.push(cb.value);
+    });
+    return selected;
+  }
 
   function applyFilters() {
     if (!tbody) return;
     var q = search ? search.value.trim().toLowerCase() : "";
-    var selectedGroup = groupFilter ? groupFilter.value : "";
+    var selectedGroups = getSelectedGroups();
+    // إذا لم توجد أي بيئة مُحدَّدة، تُخفى كل الصفوف (المشرف اختار صراحةً عدم رؤية أي بيئة).
+    // عندما لا توجد مجموعة checkboxes أصلًا (بيئة واحدة فقط) لا يُطبَّق فلتر البيئة إطلاقًا.
+    var groupFilterActive = groupCheckboxes.length > 0;
     var visible = 0;
     Array.prototype.forEach.call(tbody.querySelectorAll("tr"), function (row) {
       var matchesSearch = !q || (row.getAttribute("data-search") || "").indexOf(q) !== -1;
-      var matchesGroup = !selectedGroup || (row.getAttribute("data-group") || "") === selectedGroup;
+      var matchesGroup = !groupFilterActive
+        || selectedGroups.indexOf(row.getAttribute("data-group") || "") !== -1;
       var match = matchesSearch && matchesGroup;
       row.hidden = !match;
       if (match) visible++;
@@ -156,7 +226,24 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
   }
 
   if (search) search.addEventListener("input", applyFilters);
-  if (groupFilter) groupFilter.addEventListener("change", applyFilters);
+
+  groupCheckboxes.forEach(function (cb) {
+    cb.addEventListener("change", applyFilters);
+  });
+
+  if (selectAllBtn) {
+    selectAllBtn.addEventListener("click", function () {
+      groupCheckboxes.forEach(function (cb) { cb.checked = true; });
+      applyFilters();
+    });
+  }
+
+  if (selectNoneBtn) {
+    selectNoneBtn.addEventListener("click", function () {
+      groupCheckboxes.forEach(function (cb) { cb.checked = false; });
+      applyFilters();
+    });
+  }
 
   // الفرز بالضغط على رأس العمود
   var table = document.getElementById("roster-table");
