@@ -108,6 +108,64 @@ th{color:var(--slate); font-weight:600; font-size:12px}
 
 .file-link{color:var(--gold-ink); font-weight:600; text-decoration:none}
 .file-link:hover{text-decoration:underline}
+
+.file-actions{display:flex; gap:8px; align-items:center}
+.btn-inline{
+  border:1.5px solid var(--line);
+  background:#fff;
+  color:var(--asphalt);
+  font-family:var(--font-ui);
+  font-weight:600;
+  font-size:13px;
+  padding:6px 14px;
+  border-radius:99px;
+  cursor:pointer;
+}
+.btn-inline:hover{border-color:var(--asphalt)}
+
+/* معاينة الملف داخل نافذة منبثقة */
+.modal-overlay{
+  position:fixed;
+  inset:0;
+  background:rgba(43,47,51,.7);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:100;
+  padding:var(--s3);
+}
+.modal-overlay[hidden]{display:none}
+.modal-box{
+  background:#fff;
+  border-radius:var(--r-md);
+  padding:var(--s3);
+  max-width:90vw;
+  max-height:90vh;
+  overflow:auto;
+  position:relative;
+}
+.modal-close{
+  position:absolute;
+  top:10px;
+  left:10px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background:var(--asphalt);
+  color:#fff;
+  border:none;
+  border-radius:50%;
+  width:32px;
+  height:32px;
+  cursor:pointer;
+}
+.modal-close:hover{background:#1f2225}
+#modal-content{margin-top:28px}
+#modal-content img,
+#modal-content video{max-width:80vw; max-height:75vh; display:block}
+#modal-content iframe{width:80vw; height:75vh; border:none}
+#modal-content audio{width:min(80vw,420px); display:block}
+#modal-content p{font-family:var(--font-ui); font-size:14px; color:var(--slate); margin:0}
 {% endblock %}
 
 {% block content %}
@@ -183,7 +241,14 @@ th{color:var(--slate); font-weight:600; font-size:12px}
               <tr>
                 <td>{{ submission.participant.user.full_name }}</td>
                 <td>{{ submission.submitted_at }}</td>
-                <td><a class="file-link" href="{{ submission.file.url }}" target="_blank">تحميل</a></td>
+                <td>
+                  <div class="file-actions">
+                    <a class="file-link" href="{{ submission.file.url }}" target="_blank">تحميل</a>
+                    <button type="button" class="btn-inline preview-btn"
+                            data-url="{{ submission.file.url }}"
+                            data-type="{{ current_task.allowed_formats }}">معاينة</button>
+                  </div>
+                </td>
                 <td>
                   {% if submission.status == "pending" %}
                     <span class="status-pill status-pending">قيد المراجعة</span>
@@ -222,4 +287,69 @@ th{color:var(--slate); font-weight:600; font-size:12px}
       <p class="empty-note">لا توجد تسليمات بعد.</p>
     {% endif %}
   </section>
+
+  <div id="preview-modal" class="modal-overlay" hidden>
+    <div class="modal-box">
+      <button type="button" class="modal-close" id="modal-close-btn" aria-label="إغلاق">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg>
+      </button>
+      <div id="modal-content"></div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var modal = document.getElementById("preview-modal");
+  var content = document.getElementById("modal-content");
+  var closeBtn = document.getElementById("modal-close-btn");
+  if (!modal || !content || !closeBtn) return;
+
+  function openPreview(url, type) {
+    content.innerHTML = "";
+    var el;
+    if (type === "image") {
+      el = document.createElement("img");
+      el.src = url;
+      el.alt = "معاينة الملف";
+    } else if (type === "pdf") {
+      el = document.createElement("iframe");
+      el.src = url;
+    } else if (type === "video") {
+      el = document.createElement("video");
+      el.src = url;
+      el.controls = true;
+    } else if (type === "audio") {
+      el = document.createElement("audio");
+      el.src = url;
+      el.controls = true;
+    } else {
+      el = document.createElement("p");
+      el.textContent = "لا يمكن معاينة هذا النوع من الملفات.";
+    }
+    content.appendChild(el);
+    modal.hidden = false;
+  }
+
+  function closePreview() {
+    modal.hidden = true;
+    content.innerHTML = "";  // يوقف تشغيل الفيديو/الصوت عند الإغلاق
+  }
+
+  document.querySelectorAll(".preview-btn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      openPreview(btn.getAttribute("data-url"), btn.getAttribute("data-type"));
+    });
+  });
+
+  closeBtn.addEventListener("click", closePreview);
+  modal.addEventListener("click", function (e) {
+    if (e.target === modal) closePreview();  // إغلاق بالضغط خارج المحتوى
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !modal.hidden) closePreview();
+  });
+})();
+</script>
 {% endblock %}
