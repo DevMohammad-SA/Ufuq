@@ -91,6 +91,13 @@ ICON_LOGOUT = (
     '<path d="M14 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8"/>'
     '<path d="M18 8l4 4-4 4"/><path d="M22 12H10"/></svg>'
 )
+ICON_ARCHIVE = (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+    'stroke-linecap="round" stroke-linejoin="round" width="20" height="20">'
+    '<rect x="3" y="4" width="18" height="4" rx="1"/>'
+    '<path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"/>'
+    '<path d="M10 12h4"/></svg>'
+)
 
 
 def build_navbar(user, active_key):
@@ -105,13 +112,29 @@ def build_navbar(user, active_key):
         # roster, so "الرئيسية" and "التحضير" would be the exact same link.
         # Rather than list one URL twice, this is a single "التحضير" entry.
         entries = [
-            ("attendance", "التحضير", "participants:supervisor_dashboard", ICON_ATTENDANCE),
+            (
+                "attendance",
+                "التحضير",
+                "participants:supervisor_dashboard",
+                ICON_ATTENDANCE,
+            ),
             ("data", "بيانات المشاركين", "participants:participants_data", ICON_DATA),
         ]
     else:  # GENERAL_SUPERVISOR / SUPERADMIN
         entries = [
-            ("home", "الرئيسية", "participants:general_supervisor_dashboard", ICON_HOME),
+            (
+                "home",
+                "الرئيسية",
+                "participants:general_supervisor_dashboard",
+                ICON_HOME,
+            ),
             ("tasks", "المهام", "participants:weekly_task_review", ICON_TASKS),
+            (
+                "tasks_archive",
+                "أرشيف المهام",
+                "participants:tasks_archive",
+                ICON_ARCHIVE,
+            ),
             ("import", "الاستيراد", "participants:import_participants", ICON_IMPORT),
             ("data", "بيانات المشاركين", "participants:participants_data", ICON_DATA),
         ]
@@ -867,7 +890,7 @@ class TasksArchiveView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
         context["selected_task"] = selected_task
         context["submitted"] = submitted
         context["not_submitted"] = not_submitted
-        context["navbar_items"] = build_navbar(self.request.user, "tasks")
+        context["navbar_items"] = build_navbar(self.request.user, "tasks_archive")
         return context
 
     def post(self, request, *args, **kwargs):

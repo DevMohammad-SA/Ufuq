@@ -292,5 +292,34 @@ table.roster input[type="checkbox"]{
     });
   });
 })();
+
+(function () {
+  // تعليم "حضور مبكر" يُعلِّم "حضور اللقاء" تلقائيًا لنفس المشارك (الحضور
+  // المبكر يستلزم الحضور أصلًا). العكس غير صحيح عمدًا: تعليم "حضور اللقاء"
+  // وحده لا يُفعِّل "حضور مبكر" — الطالب قد يكون حضر متأخرًا.
+  var earlyBoxes = document.querySelectorAll('input[type="checkbox"][data-col="early"]');
+
+  function syncRow(earlyBox) {
+    if (!earlyBox.checked) return; // اتجاه واحد فقط: لا شيء عند إلغاء التحديد
+    var row = earlyBox.closest("tr");
+    if (!row) return;
+    var attendedBox = row.querySelector('input[type="checkbox"][data-col="attended"]');
+    if (attendedBox) attendedBox.checked = true;
+  }
+
+  earlyBoxes.forEach(function (earlyBox) {
+    earlyBox.addEventListener("change", function () { syncRow(earlyBox); });
+  });
+
+  // زر "تحديد الكل" لعمود "مبكر" يضبط checked برمجيًا دون إطلاق حدث change،
+  // لذا نعيد تطبيق نفس القاعدة على كل الصفوف بعد أن ينفّذ معالج .select-all
+  // الموجود (هذا المستمع مُسجَّل بعده، فيعمل تِلوه على نفس نقرة الزر).
+  var earlySelectAll = document.querySelector('.select-all[data-target="early"]');
+  if (earlySelectAll) {
+    earlySelectAll.addEventListener("click", function () {
+      earlyBoxes.forEach(syncRow);
+    });
+  }
+})();
 </script>
 {% endblock %}
