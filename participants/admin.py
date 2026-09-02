@@ -1,7 +1,7 @@
 from django.contrib import admin
 from unfold.admin import ModelAdmin
 
-from .models import Group, Participant, TaskSubmission, WeeklyTask
+from .models import Group, Participant, StoreProduct, TaskSubmission, WeeklyTask
 # Register your models here.
 
 @admin.register(Group)
@@ -31,3 +31,10 @@ class WeeklyTaskAdmin(ModelAdmin):
 class TaskSubmissionAdmin(ModelAdmin):
     list_display = ["participant", "task", "status", "submitted_at"]
     list_filter = ["status", "task"]
+
+
+@admin.register(StoreProduct)
+class StoreProductAdmin(ModelAdmin):
+    list_display = ["name", "price", "stock"]
+    list_filter = ["stock"]
+    search_fields = ["name"]

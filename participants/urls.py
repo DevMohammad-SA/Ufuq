@@ -13,5 +13,6 @@ urlpatterns = [
     path("tasks/review/", views.WeeklyTaskReviewView.as_view(), name="weekly_task_review"),
     path("tasks/archive/", views.TasksArchiveView.as_view(), name="tasks_archive"),
     path("tasks/submit/", views.TaskSubmissionView.as_view(), name="task_submission"),
-    path("store/", views.StorePlaceholderView.as_view(), name="store_placeholder"),
+    path("store/", views.StoreView.as_view(), name="store"),
+    path("store/management/", views.StoreManagementView.as_view(), name="store_management"),
 ]

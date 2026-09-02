@@ -253,3 +253,80 @@ class TaskSubmission(models.Model):
 
     def __str__(self):
         return f"{self.participant.user.full_name} - {self.task.title} - {self.get_status_display()}"
+
+
+class StoreProduct(models.Model):
+    """
+    A store item participants can purchase with purchase_points.
+    Managed entirely through the Django admin (Unfold) given the tight
+    timeline — no custom management UI beyond what's needed for orders.
+    """
+
+    name = models.CharField(max_length=150, verbose_name="اسم المنتج")
+    description = models.TextField(blank=True, verbose_name="الوصف")
+    image = models.ImageField(
+        upload_to="store_products/", blank=True, null=True, verbose_name="الصورة"
+    )
+    price = models.PositiveIntegerField(verbose_name="السعر (نقاط شرائية)")
+    stock = models.PositiveIntegerField(default=0, verbose_name="الكمية المتوفرة")
+
+    class Meta:
+        verbose_name = "منتج"
+        verbose_name_plural = "المنتجات"
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+    def is_available(self):
+        return self.stock > 0
+
+
+class StoreOrder(models.Model):
+    """
+    A single participant's order for exactly one unit of one product.
+    price_at_order snapshots StoreProduct.price at order time, so later
+    price changes never retroactively affect an existing order (same
+    snapshot philosophy used elsewhere in the project, e.g. attendance
+    points-at-grant time).
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "قيد التنفيذ"
+        COMPLETED = "completed", "مكتمل"
+        REFUNDED = "refunded", "مسترجَع"
+
+    participant = models.ForeignKey(
+        Participant,
+        on_delete=models.CASCADE,
+        related_name="store_orders",
+        verbose_name="المشارك",
+    )
+    product = models.ForeignKey(
+        StoreProduct,
+        on_delete=models.PROTECT,
+        related_name="orders",
+        verbose_name="المنتج",
+    )
+    price_at_order = models.PositiveIntegerField(verbose_name="السعر وقت الطلب")
+    status = models.CharField(
+        max_length=10,
+        choices=Status.choices,
+        default=Status.PENDING,
+        verbose_name="الحالة",
+    )
+    ordered_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الطلب")
+    completed_at = models.DateTimeField(
+        null=True, blank=True, verbose_name="تاريخ الاكتمال"
+    )
+    refunded_at = models.DateTimeField(
+        null=True, blank=True, verbose_name="تاريخ الاسترجاع"
+    )
+
+    class Meta:
+        verbose_name = "طلب"
+        verbose_name_plural = "الطلبات"
+        ordering = ["-ordered_at"]
+
+    def __str__(self):
+        return f"{self.participant.user.full_name} - {self.product.name} ({self.get_status_display()})"
