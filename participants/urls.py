@@ -11,6 +11,7 @@ urlpatterns = [
     path("general-supervisor/dashboard/", views.GeneralSupervisorDashboardView.as_view(), name="general_supervisor_dashboard"),
     path("data/", views.ParticipantsDataView.as_view(), name="participants_data"),
     path("tasks/review/", views.WeeklyTaskReviewView.as_view(), name="weekly_task_review"),
+    path("tasks/archive/", views.TasksArchiveView.as_view(), name="tasks_archive"),
     path("tasks/submit/", views.TaskSubmissionView.as_view(), name="task_submission"),
     path("store/", views.StorePlaceholderView.as_view(), name="store_placeholder"),
 ]

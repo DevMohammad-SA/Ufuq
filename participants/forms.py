@@ -36,3 +36,32 @@ class TaskSubmissionForm(forms.ModelForm):
     class Meta:
         model = TaskSubmission
         fields = ["file"]
+
+    # Server-side gate: the uploaded file's extension must match the single
+    # format the task accepts. The browser's file picker `accept` attribute
+    # is trivially bypassed, so this check is the real enforcement.
+    FORMAT_EXTENSIONS = {
+        "pdf": [".pdf"],
+        "image": [".jpg", ".jpeg", ".png"],
+        "audio": [".mp3", ".wav", ".m4a"],
+        "video": [".mp4", ".mov", ".webm"],
+    }
+
+    def __init__(self, *args, **kwargs):
+        # The task this submission is for must be known to validate the
+        # file's extension against its allowed_formats — passed explicitly
+        # by the view rather than inferred from initial/instance data.
+        self.task = kwargs.pop("task", None)
+        super().__init__(*args, **kwargs)
+
+    def clean_file(self):
+        file = self.cleaned_data.get("file")
+        if file and self.task:
+            allowed = self.FORMAT_EXTENSIONS.get(self.task.allowed_formats, [])
+            filename = file.name.lower()
+            if not any(filename.endswith(ext) for ext in allowed):
+                allowed_display = self.task.get_allowed_formats_display()
+                raise forms.ValidationError(
+                    f"صيغة الملف غير مقبولة لهذه المهمة. الصيغة المطلوبة: {allowed_display}"
+                )
+        return file

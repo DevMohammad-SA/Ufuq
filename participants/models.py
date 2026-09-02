@@ -225,6 +225,10 @@ class TaskSubmission(models.Model):
         default=Status.PENDING,
         verbose_name="الحالة",
     )
+    reopened_for_resubmission = models.BooleanField(
+        default=False,
+        verbose_name="أُتيح للتسليم مجددًا",
+    )
     submitted_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الرفع")
     reviewed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

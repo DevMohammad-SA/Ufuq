@@ -774,25 +774,112 @@ class TaskSubmissionView(LoginRequiredMixin, UserPassesTestMixin, FormView):
         if not task:
             return redirect("participants:task_submission")
 
-        # Never allow a submission after the due date has passed, and never
-        # allow a second submission for a task the participant already
-        # submitted for — both checks happen here in the view, not only in
-        # the template, since a crafted request could bypass a disabled UI
-        # button.
-        if task.is_past_due():
+        existing = TaskSubmission.objects.filter(
+            task=task, participant=participant
+        ).first()
+
+        # One submission per participant per task. A second attempt is only
+        # allowed when a supervisor has explicitly reopened this participant's
+        # submission (reopened_for_resubmission=True) — every check is here in
+        # the view, not only in the template, since a crafted request could
+        # bypass a disabled UI button.
+        if existing and not existing.reopened_for_resubmission:
             return redirect("participants:task_submission")
 
-        if TaskSubmission.objects.filter(task=task, participant=participant).exists():
+        # With no prior submission the normal deadline gate applies. An
+        # explicit reopen overrides the deadline for THIS participant only
+        # (a reopened submission always has `existing` set).
+        if existing is None and task.is_past_due():
             return redirect("participants:task_submission")
 
-        form = TaskSubmissionForm(request.POST, request.FILES)
+        # instance=existing makes a successful save UPDATE the same row
+        # (respecting the task+participant UniqueConstraint) instead of
+        # trying to insert a second one. On a fresh submission existing is
+        # None and this behaves exactly like the old create path.
+        form = TaskSubmissionForm(
+            request.POST, request.FILES, task=task, instance=existing
+        )
         if form.is_valid():
             submission = form.save(commit=False)
             submission.task = task
             submission.participant = participant
+            # A new upload always goes back to the review queue from scratch,
+            # even if the previous decision was ACCEPTED, and consumes the
+            # one-time reopen grant.
+            submission.status = TaskSubmission.Status.PENDING
+            submission.reviewed_by = None
+            submission.reviewed_at = None
+            submission.reopened_for_resubmission = False
             submission.save()
+            return redirect("participants:task_submission")
 
-        return redirect("participants:task_submission")
+        # Invalid (e.g. wrong file format) — re-render so the participant
+        # actually sees the Arabic error message instead of a silent bounce.
+        return self.render_to_response(self.get_context_data(form=form))
+
+
+class TasksArchiveView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+    """
+    Full archive of every WeeklyTask (not just the latest), for the general
+    supervisor / superadmin. Picking a task via ?task=<id> lists, for that
+    task, who submitted (with their current status) and who did not — the
+    weekly task is program-wide, so "not submitted" spans every Participant.
+
+    The one POST action is `reopen`: it flips a chosen submission's
+    `reopened_for_resubmission` flag on, letting that one participant upload
+    again (even past the deadline). The old file/status/dates stay untouched
+    until the participant actually re-uploads.
+    """
+
+    template_name = "participants/tasks_archive.html"
+    login_url = "accounts:login_supervisor"
+
+    def test_func(self):
+        return self.request.user.role in (Role.GENERAL_SUPERVISOR, Role.SUPERADMIN)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["tasks"] = WeeklyTask.objects.all()
+
+        selected_task_id = self.request.GET.get("task")
+        selected_task = None
+        submitted = []
+        not_submitted = []
+
+        if selected_task_id:
+            selected_task = WeeklyTask.objects.filter(id=selected_task_id).first()
+
+        if selected_task:
+            submissions_by_participant = {
+                s.participant_id: s
+                for s in TaskSubmission.objects.filter(
+                    task=selected_task
+                ).select_related("participant__user")
+            }
+            all_participants = Participant.objects.select_related("user").all()
+
+            for p in all_participants:
+                if p.id in submissions_by_participant:
+                    submitted.append(submissions_by_participant[p.id])
+                else:
+                    not_submitted.append(p)
+
+        context["selected_task"] = selected_task
+        context["submitted"] = submitted
+        context["not_submitted"] = not_submitted
+        context["navbar_items"] = build_navbar(self.request.user, "tasks")
+        return context
+
+    def post(self, request, *args, **kwargs):
+        if request.POST.get("action") == "reopen":
+            submission_id = request.POST.get("submission_id")
+            submission = TaskSubmission.objects.filter(id=submission_id).first()
+            if submission:
+                submission.reopened_for_resubmission = True
+                submission.save(update_fields=["reopened_for_resubmission"])
+
+        task_id = request.POST.get("task_id", "")
+        return redirect(f"{reverse('participants:tasks_archive')}?task={task_id}")
 
 
 # ---------------------------------------------------------------------------
