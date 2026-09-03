@@ -89,9 +89,15 @@ body{
   position:absolute;
   inset-block-start:0;
   inset-inline-start:0;
-  width:38%;
+  width:100%;
   height:100%;
-  background:radial-gradient(120% 90% at 0% 0%,rgba(199,154,59,.20),transparent 62%);
+  /* Full-bleed layer so the glow fades out purely through the gradient's
+     own stops — the old width:38% clipped the still-visible part of the
+     ellipse and left a hard vertical seam mid-hero. Same colour, same
+     .20 peak opacity, same top inline-start origin; the ending-shape and
+     final stop are retuned so the fade to full transparency stays inside
+     roughly the same corner region now that the box no longer bounds it. */
+  background:radial-gradient(46% 90% at 0% 0%,rgba(199,154,59,.20),transparent 70%);
   pointer-events:none;
 }
 .hero .in{position:relative; max-width:640px}
