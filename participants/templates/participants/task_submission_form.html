@@ -110,6 +110,10 @@
       <div class="task-meta">
         موعد التسليم: <b>{{ task.due_date }}</b>
         · الصيغة المسموحة: <b>{{ task.get_allowed_formats_display }}</b>
+        {% if task.allowed_formats == "pdf" %}· الحد الأقصى للحجم: <b>10 ميجابايت</b>
+        {% elif task.allowed_formats == "audio" %}· الحد الأقصى للحجم: <b>15 ميجابايت</b>
+        {% elif task.allowed_formats == "video" %}· الحد الأقصى للحجم: <b>50 ميجابايت</b>
+        {% endif %}
       </div>
 
       <form method="post" enctype="multipart/form-data">

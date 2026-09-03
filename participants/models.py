@@ -1,8 +1,57 @@
 import datetime
+import io
 
 from django.conf import settings
+from django.core.files.base import ContentFile
 from django.db import models
+from PIL import Image
+
 from accounts.models import Role
+
+# Uploaded images are downscaled to fit within this box (px) and re-encoded as
+# JPEG at this quality on save. Images are never rejected for size — they are
+# compressed instead (see compress_image_field and the save() overrides below).
+MAX_IMAGE_DIMENSION = 1600
+IMAGE_QUALITY = 80
+
+
+def compress_image_field(image_field):
+    """
+    Resizes an uploaded image to fit within MAX_IMAGE_DIMENSION x
+    MAX_IMAGE_DIMENSION (preserving aspect ratio, never upscaling smaller
+    images), re-encodes it as JPEG at IMAGE_QUALITY, and returns a new
+    ContentFile ready to replace the original field's content. Called
+    explicitly from save() on models with an ImageField that needs this —
+    never runs automatically via a signal, keeping the behavior visible and
+    easy to trace from each model's own save() method.
+
+    Returns None when there is nothing to do.
+    """
+    if not image_field:
+        return None
+
+    image_field.seek(0)
+    img = Image.open(image_field)
+    # JPEG has no alpha channel: flatten anything with transparency (RGBA, LA,
+    # palette-with-transparency) onto a white background rather than letting
+    # Pillow pick an arbitrary fill. Opaque images convert straight to RGB.
+    if img.mode in ("RGBA", "LA") or (
+        img.mode == "P" and "transparency" in img.info
+    ):
+        rgba = img.convert("RGBA")
+        background = Image.new("RGB", rgba.size, (255, 255, 255))
+        background.paste(rgba, mask=rgba.split()[-1])
+        img = background
+    else:
+        img = img.convert("RGB")
+    img.thumbnail((MAX_IMAGE_DIMENSION, MAX_IMAGE_DIMENSION), Image.LANCZOS)
+
+    buffer = io.BytesIO()
+    img.save(buffer, format="JPEG", quality=IMAGE_QUALITY)
+    buffer.seek(0)
+
+    original_name = image_field.name.rsplit(".", 1)[0]
+    return ContentFile(buffer.read(), name=f"{original_name}.jpg")
 
 
 # Create your models here.
@@ -254,6 +303,24 @@ class TaskSubmission(models.Model):
     def __str__(self):
         return f"{self.participant.user.full_name} - {self.task.title} - {self.get_status_display()}"
 
+    def save(self, *args, **kwargs):
+        # Compress ONLY a freshly uploaded image, and only for image tasks.
+        # `_committed` is False exactly when `self.file` holds a new upload
+        # that has not been written to storage yet; a file loaded back from
+        # the database is already committed, so later saves (accept/reject,
+        # reopen) never re-encode it and cause JPEG generation loss.
+        # `self.task_id` avoids a needless task query when it is unset.
+        if (
+            self.task_id
+            and self.file
+            and not self.file._committed
+            and self.task.allowed_formats == "image"
+        ):
+            compressed = compress_image_field(self.file)
+            if compressed:
+                self.file = compressed
+        super().save(*args, **kwargs)
+
 
 class StoreProduct(models.Model):
     """
@@ -280,6 +347,18 @@ class StoreProduct(models.Model):
 
     def is_available(self):
         return self.stock > 0
+
+    def save(self, *args, **kwargs):
+        # Compress the image only when it is a new upload. `_committed` is
+        # False for a just-assigned upload and True for a value loaded from
+        # the database, so a plain field edit (e.g. changing price/stock via
+        # StoreProductForm without re-picking the image) re-saves the row
+        # without ever re-encoding the stored image.
+        if self.image and not self.image._committed:
+            compressed = compress_image_field(self.image)
+            if compressed:
+                self.image = compressed
+        super().save(*args, **kwargs)
 
 
 class StoreOrder(models.Model):

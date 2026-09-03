@@ -53,6 +53,15 @@ class TaskSubmissionForm(forms.ModelForm):
         "video": [".mp4", ".mov", ".webm"],
     }
 
+    # Hard upload ceilings per format. "image" is intentionally absent —
+    # images are never rejected for size, they are downscaled/re-encoded in
+    # TaskSubmission.save() (see compress_image_field).
+    MAX_FILE_SIZES = {
+        "pdf": 10 * 1024 * 1024,  # 10 MB
+        "audio": 15 * 1024 * 1024,  # 15 MB
+        "video": 50 * 1024 * 1024,  # 50 MB
+    }
+
     def __init__(self, *args, **kwargs):
         # The task this submission is for must be known to validate the
         # file's extension against its allowed_formats — passed explicitly
@@ -69,6 +78,15 @@ class TaskSubmissionForm(forms.ModelForm):
                 allowed_display = self.task.get_allowed_formats_display()
                 raise forms.ValidationError(
                     f"صيغة الملف غير مقبولة لهذه المهمة. الصيغة المطلوبة: {allowed_display}"
+                )
+
+            # Size ceiling — checked only after the extension is accepted.
+            # Images have no entry here (compressed on save, never rejected).
+            max_size = self.MAX_FILE_SIZES.get(self.task.allowed_formats)
+            if max_size and file.size > max_size:
+                max_mb = max_size // (1024 * 1024)
+                raise forms.ValidationError(
+                    f"حجم الملف يتجاوز الحد المسموح ({max_mb} ميجابايت) لهذا النوع."
                 )
         return file
 

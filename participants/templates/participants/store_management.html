@@ -76,6 +76,7 @@ table.roster tr:last-child td{border-bottom:none}
         <input type="hidden" name="product_id" value="{{ editing_product.id }}">
       {% endif %}
       {{ product_form.as_p }}
+      <p class="muted">تُضغط صور المنتجات تلقائيًا وتُحوَّل إلى JPEG بحد أقصى 1600×1600 بكسل عند الحفظ.</p>
       <button type="submit" class="btn-inline">
         {% if editing_product %}حفظ التعديلات{% else %}إضافة المنتج{% endif %}
       </button>
