@@ -170,6 +170,87 @@ body{
   body{padding-bottom:74px}
 }
 
+/* زر "المزيد" + الورقة السفلية — الجوال فقط (للأدوار ذات أكثر من 3 عناصر) */
+.app-nav__more-btn{
+  background:none;
+  border:none;
+  font-family:inherit;
+}
+
+.mobile-more-overlay{
+  position:fixed;
+  inset:0;
+  background:rgba(43,47,51,.5);
+  z-index:60;
+  display:flex;
+  align-items:flex-end;
+}
+.mobile-more-overlay[hidden]{display:none}
+
+.mobile-more-sheet{
+  background:#fff;
+  width:100%;
+  border-radius:16px 16px 0 0;
+  padding:var(--s3);
+  padding-bottom:calc(var(--s3) + env(safe-area-inset-bottom));
+}
+
+.mobile-more-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  font-family:var(--font-ui);
+  font-weight:700;
+  font-size:15px;
+  margin-bottom:var(--s2);
+  padding-bottom:var(--s2);
+  border-bottom:1px solid var(--line);
+}
+.mobile-more-close{
+  background:var(--sand);
+  border:none;
+  border-radius:50%;
+  width:28px;
+  height:28px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  color:var(--asphalt);
+}
+
+.mobile-more-links{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.mobile-more-links form{margin:0}
+.mobile-more-link{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:12px 8px;
+  border-radius:var(--r-sm);
+  text-decoration:none;
+  color:var(--asphalt);
+  font-family:var(--font-ui);
+  font-weight:600;
+  font-size:14px;
+  background:none;
+  border:none;
+  width:100%;
+  text-align:right;
+  cursor:pointer;
+}
+.mobile-more-link:hover,
+.mobile-more-link.is-active{background:var(--sand); color:var(--gold-ink)}
+.mobile-more-link .app-nav__icon svg{width:20px; height:20px}
+.mobile-more-logout{color:var(--alert)}
+
+@media (min-width:721px){
+  .mobile-more-overlay{display:none !important}
+}
+
 {% block extra_style %}{% endblock %}
 </style>
 </head>
@@ -205,22 +286,91 @@ body{
 
 <nav class="app-nav app-nav--bottom">
   <div class="app-nav__inner">
-    {% for item in navbar_items %}
+    {% for item in navbar_items|slice:":3" %}
       <a href="{{ item.url }}" class="app-nav__link{% if item.active %} is-active{% endif %}">
         <span class="app-nav__icon">{{ item.icon|safe }}</span>
         <span class="app-nav__label">{{ item.label }}</span>
       </a>
     {% endfor %}
-    <form class="app-nav__logout" method="post" action="{% url 'accounts:logout' %}">
-      {% csrf_token %}
-      <button type="submit">
-        <span class="app-nav__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M14 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8"/><path d="M18 8l4 4-4 4"/><path d="M22 12H10"/></svg></span>
-        <span class="app-nav__label">خروج</span>
+
+    {% if navbar_items|length > 3 %}
+      <button type="button" class="app-nav__link app-nav__more-btn" id="mobileMoreBtn"
+              aria-haspopup="true" aria-expanded="false" aria-controls="mobileMoreSheet">
+        <span class="app-nav__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></span>
+        <span class="app-nav__label">المزيد</span>
       </button>
-    </form>
+    {% else %}
+      {% for item in navbar_items|slice:"3:" %}
+        <a href="{{ item.url }}" class="app-nav__link{% if item.active %} is-active{% endif %}">
+          <span class="app-nav__icon">{{ item.icon|safe }}</span>
+          <span class="app-nav__label">{{ item.label }}</span>
+        </a>
+      {% endfor %}
+      <form class="app-nav__logout" method="post" action="{% url 'accounts:logout' %}">
+        {% csrf_token %}
+        <button type="submit">
+          <span class="app-nav__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M14 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8"/><path d="M18 8l4 4-4 4"/><path d="M22 12H10"/></svg></span>
+          <span class="app-nav__label">خروج</span>
+        </button>
+      </form>
+    {% endif %}
   </div>
 </nav>
 
+{% if navbar_items|length > 3 %}
+  <div id="mobileMoreSheet" class="mobile-more-overlay" hidden>
+    <div class="mobile-more-sheet" role="dialog" aria-modal="true" aria-label="قائمة المزيد">
+      <div class="mobile-more-header">
+        <span>المزيد</span>
+        <button type="button" id="mobileMoreClose" class="mobile-more-close" aria-label="إغلاق">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div class="mobile-more-links">
+        {% for item in navbar_items|slice:"3:" %}
+          <a href="{{ item.url }}" class="mobile-more-link{% if item.active %} is-active{% endif %}">
+            <span class="app-nav__icon">{{ item.icon|safe }}</span>
+            <span>{{ item.label }}</span>
+          </a>
+        {% endfor %}
+        <form method="post" action="{% url 'accounts:logout' %}">
+          {% csrf_token %}
+          <button type="submit" class="mobile-more-link mobile-more-logout">
+            <span class="app-nav__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M14 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8"/><path d="M18 8l4 4-4 4"/><path d="M22 12H10"/></svg></span>
+            <span>خروج</span>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+{% endif %}
+
 {% block scripts %}{% endblock %}
+<script>
+(function () {
+  var moreBtn = document.getElementById("mobileMoreBtn");
+  var moreSheet = document.getElementById("mobileMoreSheet");
+  var closeBtn = document.getElementById("mobileMoreClose");
+  if (!moreBtn || !moreSheet || !closeBtn) return;
+
+  function openSheet() {
+    moreSheet.hidden = false;
+    moreBtn.setAttribute("aria-expanded", "true");
+  }
+  function closeSheet() {
+    moreSheet.hidden = true;
+    moreBtn.setAttribute("aria-expanded", "false");
+  }
+
+  moreBtn.addEventListener("click", openSheet);
+  closeBtn.addEventListener("click", closeSheet);
+  moreSheet.addEventListener("click", function (e) {
+    if (e.target === moreSheet) closeSheet();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !moreSheet.hidden) closeSheet();
+  });
+})();
+</script>
 </body>
 </html>
