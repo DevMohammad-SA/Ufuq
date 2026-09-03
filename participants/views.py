@@ -8,7 +8,7 @@ import openpyxl
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Max, Min, ProtectedError, Q
+from django.db.models import Avg, Count, Max, Min, ProtectedError, Q
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils import timezone
@@ -632,6 +632,91 @@ class GeneralSupervisorDashboardView(
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["navbar_items"] = build_navbar(self.request.user, "home")
+
+        # ----------------------------------------------------------------
+        # Overview charts. Every series below is derived from existing
+        # models with one aggregate query each (no per-row Python loops);
+        # the whole bundle is handed to the template as a single dict and
+        # rendered via {{ ...|json_script }} so the browser gets valid,
+        # XSS-safe JSON (group names are user-entered — a raw |safe on a
+        # Python list repr would neither be valid JSON nor script-safe).
+        # ----------------------------------------------------------------
+
+        # Chart 1: participant count per group.
+        # Group.participants -> Participant.group has related_name="participants"
+        # (participants/models.py: Participant.group ForeignKey).
+        group_counts = list(
+            Group.objects.annotate(participant_count=Count("participants"))
+            .order_by("name")
+            .values_list("name", "participant_count")
+        )
+
+        # Chart 3: average points per group (same reverse relation).
+        group_avg_points = list(
+            Group.objects.annotate(avg_points=Avg("participants__points"))
+            .order_by("name")
+            .values_list("name", "avg_points")
+        )
+
+        # Chart 2: submission-status breakdown for the most recent weekly task.
+        # TaskSubmission has UniqueConstraint(task, participant), so each
+        # participant has at most one submission per task — "not submitted"
+        # is a clean subtraction with no double-counting.
+        latest_task = WeeklyTask.objects.order_by("-created_at").first()
+        if latest_task:
+            total_participants = Participant.objects.count()
+            status_counts = {
+                row["status"]: row["n"]
+                for row in TaskSubmission.objects.filter(task=latest_task)
+                .values("status")
+                .annotate(n=Count("id"))
+            }
+            accepted = status_counts.get(TaskSubmission.Status.ACCEPTED, 0)
+            rejected = status_counts.get(TaskSubmission.Status.REJECTED, 0)
+            pending = status_counts.get(TaskSubmission.Status.PENDING, 0)
+            not_submitted = max(
+                0, total_participants - (accepted + rejected + pending)
+            )
+            latest_task_title = latest_task.title
+            task_data = [accepted, rejected, pending, not_submitted]
+        else:
+            latest_task_title = None
+            task_data = [0, 0, 0, 0]
+
+        # Chart 4: store orders by status, program-wide.
+        order_status_counts = {
+            row["status"]: row["n"]
+            for row in StoreOrder.objects.values("status").annotate(n=Count("id"))
+        }
+
+        context["latest_task_title"] = latest_task_title
+        context["charts_data"] = {
+            "groupLabels": [name for name, _ in group_counts],
+            "groupCounts": [count for _, count in group_counts],
+            "latestTaskTitle": latest_task_title,
+            "taskData": task_data,
+            "avgLabels": [name for name, _ in group_avg_points],
+            "avgPoints": [
+                round(float(avg or 0), 1) for _, avg in group_avg_points
+            ],
+            "ordersData": [
+                order_status_counts.get(StoreOrder.Status.PENDING, 0),
+                order_status_counts.get(StoreOrder.Status.COMPLETED, 0),
+                order_status_counts.get(StoreOrder.Status.REFUNDED, 0),
+            ],
+        }
+
+        # Headline KPI tiles (rendered above the charts). "Open tasks" counts
+        # every pending submission across ALL weekly tasks, not just the
+        # latest one — a different figure from chart 2's pending slice.
+        context["kpi_total_participants"] = Participant.objects.count()
+        context["kpi_open_tasks"] = TaskSubmission.objects.filter(
+            status=TaskSubmission.Status.PENDING
+        ).count()
+        context["kpi_pending_orders"] = StoreOrder.objects.filter(
+            status=StoreOrder.Status.PENDING
+        ).count()
+
         return context
 
     def post(self, request, *args, **kwargs):

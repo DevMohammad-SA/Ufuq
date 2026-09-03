@@ -15,14 +15,45 @@
   margin-bottom:var(--s2);
 }
 
-.soon-list{
-  font-family:var(--font-ui);
-  font-size:14px;
-  color:var(--slate);
-  margin:0;
-  padding-right:20px;
+.chart-grid{
+  display:grid;
+  grid-template-columns:repeat(2, 1fr);
+  gap:var(--s3);
+  margin-top:var(--s3);
 }
-.soon-list li{margin-bottom:4px}
+@media (max-width:820px){
+  .chart-grid{grid-template-columns:1fr}
+}
+.chart-grid canvas{max-height:280px}
+
+.kpi-grid{
+  display:grid;
+  grid-template-columns:repeat(3, 1fr);
+  gap:var(--s2);
+  margin:var(--s3) 0;
+}
+@media (max-width:720px){
+  .kpi-grid{grid-template-columns:1fr}
+}
+.kpi-card{
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:var(--r-md);
+  padding:var(--s3);
+  text-align:center;
+}
+.kpi-label{
+  font-family:var(--font-ui);
+  font-size:13px;
+  color:var(--slate);
+  margin-bottom:6px;
+}
+.kpi-value{
+  font-size:34px;
+  font-weight:800;
+  color:var(--gold-ink);
+  font-family:var(--font-display);
+}
 
 .btn{
   display:inline-flex;
@@ -54,6 +85,51 @@
   <h1 class="page-title">لوحة المشرف العام</h1>
   <p class="page-sub">إدارة بيانات المشاركين على مستوى البرنامج بالكامل.</p>
 
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label">إجمالي المشاركين</div>
+      <div class="kpi-value">{{ kpi_total_participants }}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">مهام قيد المراجعة</div>
+      <div class="kpi-value">{{ kpi_open_tasks }}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">طلبات متجر قيد التنفيذ</div>
+      <div class="kpi-value">{{ kpi_pending_orders }}</div>
+    </div>
+  </div>
+
+  <h2 class="page-title" style="font-size:20px; margin-top:var(--s2)">نظرة عامة على البرنامج</h2>
+
+  <div class="chart-grid">
+    <section class="card">
+      <h2>عدد المشاركين لكل بيئة</h2>
+      <canvas id="chartGroups"></canvas>
+    </section>
+
+    <section class="card">
+      <h2>حالة تسليم آخر مهمة{% if latest_task_title %}: {{ latest_task_title }}{% endif %}</h2>
+      {% if latest_task_title %}
+        <canvas id="chartTasks"></canvas>
+      {% else %}
+        <p class="empty-note">لا توجد مهمة أسبوعية بعد.</p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>متوسط النقاط لكل بيئة</h2>
+      <canvas id="chartAvgPoints"></canvas>
+    </section>
+
+    <section class="card">
+      <h2>طلبات المتجر حسب الحالة</h2>
+      <canvas id="chartOrders"></canvas>
+    </section>
+  </div>
+
+  {{ charts_data|json_script:"charts-data" }}
+
   <section class="card">
     <h2>استيراد المشاركين</h2>
     <p>أنشئ حسابات المشاركين وبياناتهم البرنامجية دفعة واحدة من ملف إكسل معبّأ.</p>
@@ -79,13 +155,85 @@
       <button type="submit" class="btn btn-danger">تصفير نقاط جميع المشاركين</button>
     </form>
   </section>
+{% endblock %}
 
-  <section class="card">
-    <h2>قريبًا</h2>
-    <p>ميزات إضافية قيد التطوير وستُتاح لاحقًا من هذه اللوحة:</p>
-    <ul class="soon-list">
-      <li>إدارة المهام</li>
-      <li>إدارة المتجر</li>
-    </ul>
-  </section>
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script>
+(function () {
+  var data = JSON.parse(document.getElementById("charts-data").textContent);
+
+  var goldColor = "#C79A3B";
+  var asphaltColor = "#2B2F33";
+  var doneColor = "#4E7A55";
+  var alertColor = "#B4553B";
+  var slateColor = "#5F676E";
+
+  new Chart(document.getElementById("chartGroups"), {
+    type: "bar",
+    data: {
+      labels: data.groupLabels,
+      datasets: [{
+        label: "عدد المشاركين",
+        data: data.groupCounts,
+        backgroundColor: goldColor,
+      }],
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+    },
+  });
+
+  var tasksCanvas = document.getElementById("chartTasks");
+  if (tasksCanvas) {
+    new Chart(tasksCanvas, {
+      type: "doughnut",
+      data: {
+        labels: ["مقبول", "مرفوض", "قيد المراجعة", "لم يسلّم"],
+        datasets: [{
+          data: data.taskData,
+          backgroundColor: [doneColor, alertColor, goldColor, slateColor],
+        }],
+      },
+      options: { responsive: true },
+    });
+  }
+
+  new Chart(document.getElementById("chartAvgPoints"), {
+    type: "bar",
+    data: {
+      labels: data.avgLabels,
+      datasets: [{
+        label: "متوسط النقاط",
+        data: data.avgPoints,
+        backgroundColor: asphaltColor,
+      }],
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true } },
+    },
+  });
+
+  new Chart(document.getElementById("chartOrders"), {
+    type: "bar",
+    data: {
+      labels: ["قيد التنفيذ", "مكتمل", "مسترجَع"],
+      datasets: [{
+        label: "عدد الطلبات",
+        data: data.ordersData,
+        backgroundColor: [goldColor, doneColor, alertColor],
+      }],
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+    },
+  });
+})();
+</script>
 {% endblock %}
