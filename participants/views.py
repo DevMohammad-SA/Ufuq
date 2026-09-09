@@ -9,6 +9,7 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db import IntegrityError, transaction
 from django.db.models import Avg, Count, Max, Min, ProtectedError, Q
+from django.db.models.functions import TruncSecond
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils import timezone
@@ -27,6 +28,7 @@ from .models import (
     Group,
     MeetingAttendance,
     Participant,
+    PointsResetSnapshot,
     StoreOrder,
     StoreProduct,
     TaskSubmission,
@@ -935,7 +937,24 @@ class GeneralSupervisorDashboardView(
             # Only `points` is reset — `miles` (permanent) and
             # `purchase_points` (never reset, spent in the store) must never
             # be touched by this action.
-            Participant.objects.update(points=0)
+            with transaction.atomic():
+                # Snapshot every participant's current points BEFORE zeroing
+                # them, one row per participant, all sharing this batch's
+                # timestamp. This is what later lets us answer "who scored
+                # highest between reset A and reset B" even though `points`
+                # itself is long gone. Snapshot + reset are one atomic unit:
+                # if the snapshot insert fails, the reset never happens.
+                snapshots = [
+                    PointsResetSnapshot(
+                        participant=participant,
+                        points_before_reset=participant.points,
+                        reset_by=request.user,
+                    )
+                    for participant in Participant.objects.all()
+                ]
+                PointsResetSnapshot.objects.bulk_create(snapshots)
+
+                Participant.objects.update(points=0)
 
         elif action == "approve_password_reset":
             # Approve a participant's forgot-password request: reset their
@@ -959,6 +978,60 @@ class GeneralSupervisorDashboardView(
                 )
 
         return redirect("participants:general_supervisor_dashboard")
+
+
+class PointsSnapshotHistoryView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+    """
+    Read-only history of every program-wide points reset. Each reset click
+    writes one PointsResetSnapshot row per participant (see
+    GeneralSupervisorDashboardView.post reset_points branch); this view
+    lists those resets as distinct "events" and, on selecting one, shows
+    every participant's points at that moment ranked high-to-low.
+    """
+
+    template_name = "participants/points_snapshot_history.html"
+    login_url = "accounts:login_supervisor"
+
+    def test_func(self):
+        return self.request.user.role in (Role.GENERAL_SUPERVISOR, Role.SUPERADMIN)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Group distinct reset events by truncating reset_at to the second
+        # — every row from one bulk_create() call lands within the same
+        # second in practice, so this is a reliable way to list "reset
+        # events" without a separate batch-id column.
+        reset_events = (
+            PointsResetSnapshot.objects.annotate(
+                reset_second=TruncSecond("reset_at")
+            )
+            .values("reset_second")
+            .distinct()
+            .order_by("-reset_second")
+        )
+        context["reset_events"] = [e["reset_second"] for e in reset_events]
+
+        selected_event = self.request.GET.get("event")
+        selected_snapshots = []
+        if selected_event:
+            try:
+                event_dt = datetime.datetime.fromisoformat(selected_event)
+                selected_snapshots = (
+                    PointsResetSnapshot.objects.filter(
+                        reset_at__gte=event_dt,
+                        reset_at__lt=event_dt + datetime.timedelta(seconds=1),
+                    )
+                    .select_related("participant__user", "participant__group")
+                    .order_by("-points_before_reset")
+                )
+            except ValueError:
+                pass
+
+        context["selected_event"] = selected_event
+        context["selected_snapshots"] = selected_snapshots
+        context["navbar_items"] = build_navbar(self.request.user, "home")
+        return context
 
 
 # ---------------------------------------------------------------------------

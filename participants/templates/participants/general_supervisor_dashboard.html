@@ -173,6 +173,10 @@
       <input type="hidden" name="action" value="reset_points">
       <button type="submit" class="btn btn-danger">تصفير نقاط جميع المشاركين</button>
     </form>
+    <p style="margin-top:var(--s2)">
+      <a href="{% url 'participants:points_snapshot_history' %}"
+         style="display:inline-block;border:1.5px solid var(--line);background:#fff;color:var(--asphalt);font-family:var(--font-ui);font-weight:600;font-size:13px;padding:9px 20px;border-radius:99px;text-decoration:none">عرض سجل عمليات التصفير السابقة</a>
+    </p>
   </section>
 {% endblock %}
 

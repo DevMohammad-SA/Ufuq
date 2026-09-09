@@ -10,6 +10,7 @@ urlpatterns = [
     path("quran-circle/", views.QuranCircleAttendanceView.as_view(), name="quran_circle_attendance"),
     path("import/", views.ParticipantImportView.as_view(), name="import_participants"),
     path("general-supervisor/dashboard/", views.GeneralSupervisorDashboardView.as_view(), name="general_supervisor_dashboard"),
+    path("points-snapshots/", views.PointsSnapshotHistoryView.as_view(), name="points_snapshot_history"),
     path("data/", views.ParticipantsDataView.as_view(), name="participants_data"),
     path("tasks/review/", views.WeeklyTaskReviewView.as_view(), name="weekly_task_review"),
     path("tasks/archive/", views.TasksArchiveView.as_view(), name="tasks_archive"),

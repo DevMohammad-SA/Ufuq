@@ -410,3 +410,43 @@ class StoreOrder(models.Model):
 
     def __str__(self):
         return f"{self.participant.user.full_name} - {self.product.name} ({self.get_status_display()})"
+
+
+class PointsResetSnapshot(models.Model):
+    """
+    A single participant's points value captured at the exact moment of a
+    program-wide points reset, BEFORE the reset zeroes it out. One row per
+    participant per reset event (not one row per event) — this makes
+    querying "who had the most points during period X" a plain filter +
+    order_by, with no need to unpack a JSON blob.
+
+    Every row created by one reset click shares the same reset_at timestamp
+    down to the microsecond (all inserted in a single bulk_create call), so
+    the history view groups rows into "reset events" by truncating reset_at
+    to the second — precise enough in practice with no separate batch-id
+    column.
+    """
+
+    participant = models.ForeignKey(
+        Participant,
+        on_delete=models.CASCADE,
+        related_name="points_snapshots",
+        verbose_name="المشارك",
+    )
+    points_before_reset = models.PositiveIntegerField(verbose_name="النقاط قبل التصفير")
+    reset_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ التصفير")
+    reset_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="+",
+        verbose_name="نفّذه",
+    )
+
+    class Meta:
+        verbose_name = "لقطة نقاط قبل التصفير"
+        verbose_name_plural = "لقطات نقاط قبل التصفير"
+        ordering = ["-reset_at", "-points_before_reset"]
+
+    def __str__(self):
+        return f"{self.participant.user.full_name} - {self.points_before_reset} ({self.reset_at:%Y-%m-%d %H:%M})"

@@ -1,7 +1,14 @@
 from django.contrib import admin
 from unfold.admin import ModelAdmin
 
-from .models import Group, Participant, StoreProduct, TaskSubmission, WeeklyTask
+from .models import (
+    Group,
+    Participant,
+    PointsResetSnapshot,
+    StoreProduct,
+    TaskSubmission,
+    WeeklyTask,
+)
 # Register your models here.
 
 @admin.register(Group)
@@ -38,3 +45,18 @@ class StoreProductAdmin(ModelAdmin):
     list_display = ["name", "price", "stock"]
     list_filter = ["stock"]
     search_fields = ["name"]
+
+
+@admin.register(PointsResetSnapshot)
+class PointsResetSnapshotAdmin(ModelAdmin):
+    list_display = ["participant", "points_before_reset", "reset_at", "reset_by"]
+    list_filter = ["reset_at"]
+    search_fields = ["participant__user__full_name"]
+    readonly_fields = ["participant", "points_before_reset", "reset_at", "reset_by"]
+
+    # Automatic historical data — never created or edited by hand, only viewed.
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False

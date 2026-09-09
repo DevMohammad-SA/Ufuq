@@ -2,9 +2,17 @@ import datetime
 
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from accounts.models import Role, User
-from participants.models import CircleAttendance, Group, Participant
+from participants.models import (
+    CircleAttendance,
+    Group,
+    Participant,
+    PointsResetSnapshot,
+    StoreOrder,
+    StoreProduct,
+)
 
 
 class SupervisorPasswordChangeTests(TestCase):
@@ -206,3 +214,159 @@ class QuranCircleAttendanceTests(TestCase):
         # create_user without setting it, so default False. Still, role gate:
         resp = self.client.get(reverse("participants:quran_circle_attendance"))
         self.assertIn(resp.status_code, (302, 403))
+
+
+class PointsResetSnapshotTests(TestCase):
+    def setUp(self):
+        self.general = User.objects.create_user(
+            username="gen", password="pw12345678", role=Role.GENERAL_SUPERVISOR
+        )
+        self.group = Group.objects.create(name="بيئة أ")
+        self.p1 = self._participant("3000000001", 45)
+        self.p2 = self._participant("3000000002", 30)
+        self.p3 = self._participant("3000000003", 12)
+        self.url = reverse("participants:general_supervisor_dashboard")
+        self.history_url = reverse("participants:points_snapshot_history")
+
+    def _participant(self, national_id, points):
+        user = User.objects.create_user(
+            national_id=national_id,
+            full_name=f"مشارك {national_id}",
+            role=Role.PARTICIPANT,
+            password=national_id,
+        )
+        return Participant.objects.create(
+            user=user, group=self.group, academic_stage="grade_7", points=points
+        )
+
+    # 1. Reset snapshots every participant's points, then zeroes them.
+    def test_reset_creates_snapshots_then_zeroes(self):
+        self.client.login(username="gen", password="pw12345678")
+        resp = self.client.post(self.url, {"action": "reset_points"})
+        self.assertRedirects(resp, self.url)
+
+        snaps = {
+            s.participant_id: s.points_before_reset
+            for s in PointsResetSnapshot.objects.all()
+        }
+        self.assertEqual(snaps[self.p1.id], 45)
+        self.assertEqual(snaps[self.p2.id], 30)
+        self.assertEqual(snaps[self.p3.id], 12)
+        self.assertEqual(PointsResetSnapshot.objects.count(), 3)
+        self.assertTrue(all(s.reset_by_id == self.general.id for s in PointsResetSnapshot.objects.all()))
+
+        for p in (self.p1, self.p2, self.p3):
+            p.refresh_from_db()
+            self.assertEqual(p.points, 0)
+
+    # 2. History view lists one event; selecting it ranks participants high-to-low.
+    def test_history_view_single_event_ranked(self):
+        self.client.login(username="gen", password="pw12345678")
+        self.client.post(self.url, {"action": "reset_points"})
+
+        resp = self.client.get(self.history_url)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.context["reset_events"]), 1)
+
+        event_iso = resp.context["reset_events"][0].isoformat()
+        resp2 = self.client.get(self.history_url, {"event": event_iso})
+        rows = list(resp2.context["selected_snapshots"])
+        self.assertEqual([r.points_before_reset for r in rows], [45, 30, 12])
+
+    # 3. A second reset is a distinct event, not mixed with the first.
+    def test_second_reset_is_separate_event(self):
+        self.client.login(username="gen", password="pw12345678")
+
+        # First reset (45/30/12), then push its rows a minute into the past so
+        # the two batches fall in different seconds (both bulk_create calls run
+        # within the same wall-clock second inside a test).
+        self.client.post(self.url, {"action": "reset_points"})
+        PointsResetSnapshot.objects.update(
+            reset_at=timezone.now() - datetime.timedelta(minutes=1)
+        )
+
+        # New points, second reset.
+        Participant.objects.filter(id=self.p1.id).update(points=100)
+        Participant.objects.filter(id=self.p2.id).update(points=5)
+        # p3 stays at 0 from the first reset.
+        self.client.post(self.url, {"action": "reset_points"})
+
+        resp = self.client.get(self.history_url)
+        self.assertEqual(len(resp.context["reset_events"]), 2)
+        self.assertEqual(PointsResetSnapshot.objects.count(), 6)
+
+        newest = resp.context["reset_events"][0].isoformat()
+        oldest = resp.context["reset_events"][1].isoformat()
+
+        newest_rows = list(
+            self.client.get(self.history_url, {"event": newest}).context[
+                "selected_snapshots"
+            ]
+        )
+        self.assertEqual([r.points_before_reset for r in newest_rows], [100, 5, 0])
+
+        oldest_rows = list(
+            self.client.get(self.history_url, {"event": oldest}).context[
+                "selected_snapshots"
+            ]
+        )
+        self.assertEqual([r.points_before_reset for r in oldest_rows], [45, 30, 12])
+
+    # 4. Other post() branches still work after the reset_points change.
+    def test_other_post_branches_unbroken(self):
+        self.client.login(username="gen", password="pw12345678")
+
+        # approve_password_reset branch (same view's post()).
+        from accounts.models import PasswordResetRequest
+
+        target = self.p1.user
+        target.set_password("temp")
+        target.save()
+        req = PasswordResetRequest.objects.create(user=target)
+        resp = self.client.post(
+            self.url, {"action": "approve_password_reset", "reset_id": req.id}
+        )
+        self.assertRedirects(resp, self.url)
+        req.refresh_from_db()
+        self.assertTrue(req.resolved)
+
+        # StoreManagementView.post() product + order branches.
+        mgmt_url = reverse("participants:store_management")
+        resp = self.client.post(
+            mgmt_url,
+            {"action": "add_product", "name": "قلم", "description": "", "price": 5, "stock": 3},
+        )
+        self.assertRedirects(resp, mgmt_url)
+        product = StoreProduct.objects.get(name="قلم")
+
+        resp = self.client.post(
+            mgmt_url,
+            {"action": "edit_product", "product_id": product.id, "name": "قلم أزرق",
+             "description": "", "price": 6, "stock": 4},
+        )
+        self.assertRedirects(resp, mgmt_url)
+        product.refresh_from_db()
+        self.assertEqual(product.name, "قلم أزرق")
+
+        order = StoreOrder.objects.create(
+            participant=self.p2, product=product, price_at_order=6
+        )
+        resp = self.client.post(mgmt_url, {"action": "complete", "order_id": order.id})
+        self.assertRedirects(resp, mgmt_url)
+        order.refresh_from_db()
+        self.assertEqual(order.status, StoreOrder.Status.COMPLETED)
+
+        resp = self.client.post(mgmt_url, {"action": "refund", "order_id": order.id})
+        self.assertRedirects(resp, mgmt_url)
+        order.refresh_from_db()
+        self.assertEqual(order.status, StoreOrder.Status.REFUNDED)
+
+        resp = self.client.post(
+            mgmt_url, {"action": "delete_product", "product_id": product.id}
+        )
+        # product had an order -> ProtectedError -> the branch re-renders the
+        # page (200) with an Arabic error rather than redirecting, and the
+        # product is kept. Branch still executes correctly.
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "لا يمكن حذف هذا المنتج")
+        self.assertTrue(StoreProduct.objects.filter(id=product.id).exists())

@@ -1,0 +1,90 @@
+{% extends "participants/app_base.html" %}
+{% load static %}
+
+{% block title %}سجل عمليات التصفير — رحّال{% endblock %}
+
+{% block extra_style %}
+.archive-layout{display:grid; grid-template-columns:280px 1fr; gap:var(--s3); align-items:start}
+@media (max-width:820px){.archive-layout{grid-template-columns:1fr}}
+
+.event-list{display:flex; flex-direction:column; gap:8px}
+.event-list a{
+  display:block;
+  text-decoration:none;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:var(--r-sm);
+  padding:12px 14px;
+  color:var(--asphalt);
+}
+.event-list a.is-selected{border-color:var(--gold-ink); background:var(--gold-soft)}
+.event-list .e-date{font-weight:800; font-size:14px; font-family:var(--font-ui)}
+.event-list .e-meta{font-family:var(--font-ui); font-size:12px; color:var(--slate); margin-top:3px}
+
+.table-scroll{overflow-x:auto}
+table.roster{width:100%; border-collapse:collapse; font-family:var(--font-ui); font-size:14px}
+table.roster th,table.roster td{text-align:right; padding:10px 12px; border-bottom:1px solid var(--line)}
+table.roster th{color:var(--slate); font-weight:600; font-size:12px}
+table.roster tr:last-child td{border-bottom:none}
+table.roster td.num-cell{text-align:center; font-variant-numeric:tabular-nums; font-weight:700}
+{% endblock %}
+
+{% block content %}
+  <h1 class="page-title">سجل عمليات التصفير السابقة</h1>
+  <p class="page-sub">
+    كل عملية تصفير لنقاط المشاركين تحفظ تلقائيًا لقطة بقيمة نقاط كل مشارك في تلك اللحظة، قبل التصفير.
+    اختر عملية من القائمة لعرض ترتيب المشاركين وقتها.
+  </p>
+
+  <div class="archive-layout">
+    <nav class="event-list">
+      {% for event in reset_events %}
+        <a href="?event={{ event|date:'c'|urlencode }}"
+           {% if selected_event and event|date:'c' == selected_event %} class="is-selected"{% endif %}>
+          <div class="e-date">{{ event|date:"Y-m-d H:i:s" }}</div>
+          <div class="e-meta">عملية تصفير</div>
+        </a>
+      {% empty %}
+        <p class="empty-note">لا توجد عمليات تصفير مسجّلة بعد.</p>
+      {% endfor %}
+    </nav>
+
+    <div>
+      {% if not selected_snapshots %}
+        <section class="card">
+          <p class="empty-note">
+            {% if reset_events %}اختر عملية تصفير من القائمة لعرض تفاصيلها.{% else %}لن تظهر أي بيانات هنا حتى تُنفَّذ أول عملية تصفير.{% endif %}
+          </p>
+        </section>
+      {% else %}
+        <section class="card">
+          <h2 style="margin-top:0">
+            المشاركون وقت التصفير ({{ selected_snapshots|length }})
+          </h2>
+          <div class="table-scroll">
+            <table class="roster">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>المشارك</th>
+                  <th>البيئة</th>
+                  <th>النقاط وقت التصفير</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for snapshot in selected_snapshots %}
+                  <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ snapshot.participant.user.full_name|default:"—" }}</td>
+                    <td>{{ snapshot.participant.group.name|default:"بدون بيئة" }}</td>
+                    <td class="num-cell">{{ snapshot.points_before_reset }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}
