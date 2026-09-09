@@ -29,7 +29,12 @@ SECRET_KEY = env("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool("DEBUG", default=False)
 
-ALLOWED_HOSTS = []
+# Was hardcoded to [] (fine for local dev — Django auto-allows
+# localhost/127.0.0.1 when DEBUG=True and this is empty). Made
+# env-configurable so production behind Nginx/Docker can set real host(s)
+# via ALLOWED_HOSTS in .env.docker without editing this file. default=[]
+# keeps local `.env` behavior identical since it doesn't set this var.
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
 
 
 # Application definition
@@ -80,12 +85,27 @@ WSGI_APPLICATION = "config.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+# Local dev (.env, no USE_POSTGRES) keeps the original SQLite default
+# untouched. Production via Docker sets USE_POSTGRES=True in .env.docker
+# to switch to PostgreSQL, reading connection details from the same file.
+if env.bool("USE_POSTGRES", default=False):
+    DATABASES = {
+        "default": {
+            "ENGINE": env("DB_ENGINE", default="django.db.backends.postgresql"),
+            "NAME": env("DB_NAME"),
+            "USER": env("DB_USER"),
+            "PASSWORD": env("DB_PASSWORD"),
+            "HOST": env("DB_HOST"),
+            "PORT": env("DB_PORT", default="5432"),
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 # Authentication Model
 
@@ -132,6 +152,14 @@ USE_TZ = True
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
 STATIC_URL = "static/"
+
+# Required by `collectstatic` (docker/entrypoint.sh runs it on every
+# container start) — was unset entirely before, which raises
+# ImproperlyConfigured the instant collectstatic runs. Harmless locally:
+# nothing in local dev calls collectstatic, so this path is simply never
+# touched outside Docker. Matches docker-compose.yml's static_volume
+# mount and nginx.conf's `alias /app/staticfiles/`.
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"

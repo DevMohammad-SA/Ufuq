@@ -11,6 +11,7 @@ wheels/
 
 # Environemnt files
 .env
+.env.docker
 
 # Database
 db.sqlite3
@@ -19,3 +20,4 @@ db.sqlite3
 .idea/*
 .idea/
 media/
+staticfiles/

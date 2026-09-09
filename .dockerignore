@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.git/
+.env
+.env.docker
+db.sqlite3
+media/
+staticfiles/
+node_modules/
+*.md
+.pytest_cache/
