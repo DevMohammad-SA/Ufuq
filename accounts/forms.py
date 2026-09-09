@@ -133,3 +133,40 @@ class SetPasswordForm(forms.Form):
 
 class ForgotPasswordRequestForm(forms.Form):
     national_id = forms.CharField(label="رقم الهوية / الإقامة", max_length=10)
+
+
+class SupervisorPasswordChangeForm(forms.Form):
+    """
+    Optional, self-service password change for supervisor roles — opened by
+    the supervisor from their own navbar whenever they want. Unlike the
+    participant-only SetPasswordForm (mandatory after first login, no old
+    password), this requires the current password before accepting a new one.
+    """
+
+    current_password = forms.CharField(
+        label="كلمة المرور الحالية", widget=forms.PasswordInput
+    )
+    new_password1 = forms.CharField(
+        label="كلمة المرور الجديدة", widget=forms.PasswordInput, min_length=8
+    )
+    new_password2 = forms.CharField(
+        label="تأكيد كلمة المرور الجديدة", widget=forms.PasswordInput, min_length=8
+    )
+
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop("user")
+        super().__init__(*args, **kwargs)
+
+    def clean_current_password(self):
+        current_password = self.cleaned_data.get("current_password")
+        if not self.user.check_password(current_password):
+            raise forms.ValidationError("كلمة المرور الحالية غير صحيحة")
+        return current_password
+
+    def clean(self):
+        cleaned_data = super().clean()
+        p1 = cleaned_data.get("new_password1")
+        p2 = cleaned_data.get("new_password2")
+        if p1 and p2 and p1 != p2:
+            raise forms.ValidationError("كلمتا المرور الجديدتان غير متطابقتين")
+        return cleaned_data

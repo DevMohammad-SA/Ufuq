@@ -107,6 +107,19 @@ ICON_CART = (
     '<circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/>'
     '<path d="M3 4h2l2.4 12.2a1 1 0 0 0 1 .8h9.2a1 1 0 0 0 1-.8L21 8H6"/></svg>'
 )
+ICON_QURAN = (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+    'stroke-linecap="round" stroke-linejoin="round" width="20" height="20">'
+    '<path d="M12 6c-1.8-1.2-4-1.8-6.5-1.8V18C8 18 10.2 18.6 12 20"/>'
+    '<path d="M12 6c1.8-1.2 4-1.8 6.5-1.8V18C16 18 13.8 18.6 12 20"/>'
+    '<path d="M12 6v14"/></svg>'
+)
+ICON_LOCK = (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+    'stroke-linecap="round" stroke-linejoin="round" width="20" height="20">'
+    '<rect x="5" y="11" width="14" height="10" rx="2"/>'
+    '<path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>'
+)
 
 
 def build_navbar(user, active_key):
@@ -127,7 +140,19 @@ def build_navbar(user, active_key):
                 "participants:supervisor_dashboard",
                 ICON_ATTENDANCE,
             ),
+            (
+                "quran",
+                "الحلقة القرآنية",
+                "participants:quran_circle_attendance",
+                ICON_QURAN,
+            ),
             ("data", "بيانات المشاركين", "participants:participants_data", ICON_DATA),
+            (
+                "change_password",
+                "تغيير كلمة المرور",
+                "accounts:change_password",
+                ICON_LOCK,
+            ),
         ]
     else:  # GENERAL_SUPERVISOR / SUPERADMIN
         entries = [
@@ -151,7 +176,19 @@ def build_navbar(user, active_key):
                 ICON_CART,
             ),
             ("import", "الاستيراد", "participants:import_participants", ICON_IMPORT),
+            (
+                "quran",
+                "الحلقة القرآنية",
+                "participants:quran_circle_attendance",
+                ICON_QURAN,
+            ),
             ("data", "بيانات المشاركين", "participants:participants_data", ICON_DATA),
+            (
+                "change_password",
+                "تغيير كلمة المرور",
+                "accounts:change_password",
+                ICON_LOCK,
+            ),
         ]
 
     return [
@@ -182,6 +219,21 @@ def apply_points_delta(participant, points_delta):
 
 def circle_attendance_points(attended):
     return CIRCLE_DAY_POINTS if attended else 0
+
+
+# Quran circle daily points, used by QuranCircleAttendanceView. Kept as a
+# separate helper from circle_attendance_points() (which only scores
+# attendance) because a circle day now scores attendance AND achievement as
+# two independent components.
+QURAN_ATTENDANCE_POINTS = 3
+QURAN_ACHIEVEMENT_POINTS = 2
+
+
+def quran_circle_points(attended, achieved):
+    return (
+        (QURAN_ATTENDANCE_POINTS if attended else 0)
+        + (QURAN_ACHIEVEMENT_POINTS if achieved else 0)
+    )
 
 
 def meeting_attendance_points(attended, is_early):
@@ -446,6 +498,152 @@ class SupervisorDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateV
             f"{reverse('participants:supervisor_dashboard')}"
             f"?date={selected_date.isoformat()}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Quran circle attendance / achievement (manual entry)
+# ---------------------------------------------------------------------------
+
+
+class QuranCircleAttendanceView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+    """
+    Manual (temporary) interface for recording daily Quran circle
+    attendance/achievement — same bulk-roster-with-date-picker pattern as
+    SupervisorDashboardView's meeting attendance, but for circle
+    attendance/achievement specifically. Available to both GROUP_SUPERVISOR
+    (their own group only) and GENERAL_SUPERVISOR/SUPERADMIN (any group,
+    selectable).
+
+    Wholly separate from SupervisorDashboardView (weekly gathering) — the two
+    share no state and write to different models (CircleAttendance here vs
+    MeetingAttendance there).
+    """
+
+    template_name = "participants/quran_circle_attendance.html"
+    login_url = "accounts:login_supervisor"
+
+    def test_func(self):
+        return self.request.user.role in (
+            Role.GROUP_SUPERVISOR,
+            Role.GENERAL_SUPERVISOR,
+            Role.SUPERADMIN,
+        )
+
+    def get_selected_date(self):
+        raw = self.request.POST.get("date") or self.request.GET.get("date")
+        if raw:
+            try:
+                return datetime.date.fromisoformat(raw)
+            except ValueError:
+                pass
+        return datetime.date.today()
+
+    def get_selected_group(self):
+        # A GROUP_SUPERVISOR is locked to their own group — any `group` value
+        # in the request is ignored entirely for them. The general
+        # supervisor/superadmin picks any group via ?group=<id> (no selection
+        # means "no group chosen yet").
+        if self.request.user.role == Role.GROUP_SUPERVISOR:
+            return self.request.user.group_set.first()
+
+        group_id = self.request.POST.get("group") or self.request.GET.get("group")
+        if group_id:
+            return Group.objects.filter(id=group_id).first()
+        return None
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        selected_date = self.get_selected_date()
+        group = self.get_selected_group()
+
+        context["selected_date"] = selected_date
+        context["group"] = group
+        context["is_group_locked"] = self.request.user.role == Role.GROUP_SUPERVISOR
+        context["all_groups"] = (
+            Group.objects.all() if not context["is_group_locked"] else None
+        )
+        context["navbar_items"] = build_navbar(self.request.user, "quran")
+
+        if group:
+            participants = Participant.objects.filter(group=group).select_related(
+                "user"
+            )
+            existing_records = {
+                record.participant_id: record
+                for record in CircleAttendance.objects.filter(
+                    participant__group=group, date=selected_date
+                )
+            }
+            roster = []
+            for participant in participants:
+                record = existing_records.get(participant.id)
+                roster.append(
+                    {
+                        "participant": participant,
+                        "attended": record.attended if record else False,
+                        "achieved": record.achieved if record else False,
+                    }
+                )
+            context["roster"] = roster
+        else:
+            context["roster"] = []
+
+        return context
+
+    def post(self, request, *args, **kwargs):
+        selected_date = self.get_selected_date()
+        group = self.get_selected_group()
+
+        if not group:
+            return self.get(request, *args, **kwargs)
+
+        # Iterate ONLY over this group's own participant ids and read POST
+        # fields built from those ids, so a crafted request naming a
+        # participant from another group simply has no effect — exactly the
+        # same guard SupervisorDashboardView.post() uses.
+        participant_ids = set(
+            Participant.objects.filter(group=group).values_list("id", flat=True)
+        )
+
+        for participant_id in participant_ids:
+            attended = request.POST.get(f"attended_{participant_id}") == "on"
+            achieved = request.POST.get(f"achieved_{participant_id}") == "on"
+            participant = Participant.objects.get(id=participant_id)
+
+            existing = CircleAttendance.objects.filter(
+                participant_id=participant_id, date=selected_date
+            ).first()
+
+            old_points = (
+                quran_circle_points(existing.attended, existing.achieved)
+                if existing
+                else 0
+            )
+            new_points = quran_circle_points(attended, achieved)
+
+            if existing:
+                existing.attended = attended
+                existing.achieved = achieved
+                existing.recorded_by = request.user
+                existing.save()
+            else:
+                CircleAttendance.objects.create(
+                    participant_id=participant_id,
+                    date=selected_date,
+                    attended=attended,
+                    achieved=achieved,
+                    recorded_by=request.user,
+                )
+
+            delta = new_points - old_points
+            if delta != 0:
+                apply_points_delta(participant, delta)
+
+        redirect_url = (
+            f"{reverse('participants:quran_circle_attendance')}"
+            f"?date={selected_date.isoformat()}&group={group.id}"
+        )
+        return redirect(redirect_url)
 
 
 # ---------------------------------------------------------------------------

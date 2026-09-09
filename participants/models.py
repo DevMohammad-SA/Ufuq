@@ -136,6 +136,7 @@ class CircleAttendance(models.Model):
     )
     date = models.DateField(verbose_name="التاريخ")
     attended = models.BooleanField(default=False, verbose_name="حضر؟")
+    achieved = models.BooleanField(default=False, verbose_name="إنجاز؟")
     recorded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

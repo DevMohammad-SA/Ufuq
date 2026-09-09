@@ -11,4 +11,5 @@ urlpatterns = [
     path("logout/", RahhalLogoutView.as_view(), name="logout"),
     path("set-password/", views.SetPasswordView.as_view(), name="set_password"),
     path("forgot-password/", views.ForgotPasswordView.as_view(), name="forgot_password"),
+    path("change-password/", views.SupervisorPasswordChangeView.as_view(), name="change_password"),
 ]

@@ -12,6 +12,7 @@ from .forms import (
     ForgotPasswordRequestForm,
     ParticipantAuthenticationForm,
     SetPasswordForm,
+    SupervisorPasswordChangeForm,
 )
 from .models import PasswordResetRequest, Role, User
 
@@ -62,6 +63,42 @@ class SetPasswordView(LoginRequiredMixin, FormView):
         # user isn't logged out by Django's session auth hash check.
         update_session_auth_hash(self.request, user)
         return redirect("participants:dashboard")
+
+
+class SupervisorPasswordChangeView(LoginRequiredMixin, FormView):
+    """
+    Optional password-change page for supervisors, reached from their own
+    navbar. Requires the current password (see SupervisorPasswordChangeForm)
+    — distinct from the participant-only mandatory SetPasswordView.
+    """
+
+    template_name = "accounts/change_password.html"
+    form_class = SupervisorPasswordChangeForm
+    login_url = "accounts:login_supervisor"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # The page extends participants/app_base.html to inherit the shared
+        # supervisor navbar, which needs a `navbar_items` list. Imported
+        # locally to keep the accounts app free of a module-level dependency
+        # on participants.views.
+        from participants.views import build_navbar
+
+        context["navbar_items"] = build_navbar(self.request.user, "change_password")
+        return context
+
+    def form_valid(self, form):
+        user = self.request.user
+        user.set_password(form.cleaned_data["new_password1"])
+        user.save(update_fields=["password"])
+        update_session_auth_hash(self.request, user)
+        messages.success(self.request, "تم تغيير كلمة المرور بنجاح.")
+        return redirect("accounts:change_password")
 
 
 class ForgotPasswordView(FormView):

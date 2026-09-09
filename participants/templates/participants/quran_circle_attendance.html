@@ -1,0 +1,314 @@
+{% extends "participants/app_base.html" %}
+{% load static %}
+
+{% block title %}الحلقة القرآنية — رحّال{% endblock %}
+
+{% block extra_style %}
+table.roster{
+  width:100%;
+  border-collapse:collapse;
+  font-family:var(--font-ui);
+  font-size:14px;
+}
+table.roster th,table.roster td{
+  text-align:right;
+  padding:10px 12px;
+  border-bottom:1px solid var(--line);
+}
+table.roster th{
+  color:var(--slate);
+  font-weight:600;
+  font-size:12px;
+}
+table.roster tr:last-child td{border-bottom:none}
+table.roster td{white-space:nowrap}
+
+.roster-search{
+  width:100%;
+  font-family:var(--font-ui);
+  font-size:14px;
+  padding:9px 12px;
+  border:1.5px solid var(--line);
+  border-radius:var(--r-sm);
+  background:#fff;
+  color:var(--asphalt);
+  margin-bottom:var(--s2);
+}
+.roster-scroll{overflow-x:auto}
+
+th.sortable{
+  cursor:pointer;
+  user-select:none;
+  white-space:nowrap;
+}
+th.sortable:hover{color:var(--asphalt)}
+th.sortable .sort-arrow{
+  display:inline-block;
+  margin-inline-start:4px;
+  font-size:10px;
+  color:var(--line);
+  transition:color .12s;
+}
+th.sortable.sort-asc .sort-arrow,
+th.sortable.sort-desc .sort-arrow{color:var(--gold-ink)}
+th.sortable.sort-asc .sort-arrow:after{content:"▲"}
+th.sortable.sort-desc .sort-arrow:after{content:"▼"}
+th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
+
+.btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  width:100%;
+  border:none;
+  cursor:pointer;
+  background:var(--asphalt);
+  color:#fff;
+  font-family:var(--font-display);
+  font-weight:700;
+  font-size:15px;
+  padding:12px 18px;
+  border-radius:99px;
+  margin-top:var(--s1);
+}
+.btn:hover{background:#1f2225}
+
+.date-bar{
+  display:flex;
+  align-items:flex-end;
+  gap:var(--s2);
+  flex-wrap:wrap;
+  margin-bottom:var(--s3);
+}
+.date-bar .field{display:flex; flex-direction:column; gap:4px}
+.date-bar label{
+  font-family:var(--font-ui);
+  font-size:13px;
+  color:var(--slate);
+}
+.date-bar input[type="date"],
+.date-bar select{
+  font-family:var(--font-ui);
+  font-size:14px;
+  padding:9px 12px;
+  border:1.5px solid var(--line);
+  border-radius:var(--r-sm);
+  background:#fff;
+  color:var(--asphalt);
+}
+.btn-inline{
+  border:1.5px solid var(--line);
+  background:#fff;
+  color:var(--asphalt);
+  font-family:var(--font-ui);
+  font-weight:600;
+  font-size:13px;
+  padding:9px 20px;
+  border-radius:99px;
+  cursor:pointer;
+}
+.btn-inline:hover{border-color:var(--asphalt)}
+
+table.roster td.check-cell,
+table.roster th.check-col{text-align:center}
+table.roster td.num-cell{text-align:center; font-variant-numeric:tabular-nums}
+table.roster input[type="checkbox"]{
+  width:18px;
+  height:18px;
+  vertical-align:middle;
+  cursor:pointer;
+  accent-color:var(--gold-ink);
+}
+.select-all{
+  display:block;
+  margin-top:6px;
+  background:none;
+  border:none;
+  padding:0;
+  font-family:var(--font-ui);
+  font-size:11px;
+  font-weight:600;
+  color:var(--gold-ink);
+  cursor:pointer;
+  text-decoration:underline;
+}
+.save-bar{margin-top:var(--s3)}
+.save-bar .btn{max-width:280px}
+{% endblock %}
+
+{% block content %}
+  <h1 class="page-title">تسجيل الحلقة القرآنية</h1>
+  <p class="page-sub">
+    {% if group %}بيئة <b>{{ group.name }}</b> · {% endif %}اختر التاريخ{% if not is_group_locked %} والبيئة{% endif %}، ثم علّم حضور وإنجاز مشاركي الحلقة واحفظ الجدول دفعة واحدة. حضور الحلقة = 3 نقاط، إنجاز الحلقة = 2 نقطة.
+  </p>
+
+  <section class="card">
+    <h2>
+      {% if is_group_locked %}
+        الحلقة القرآنية — بيئة {{ group.name }}
+      {% else %}
+        الحلقة القرآنية
+      {% endif %}
+    </h2>
+
+    <form class="date-bar" method="get" action="{% url 'participants:quran_circle_attendance' %}">
+      <div class="field">
+        <label for="circle-date">تاريخ الحلقة</label>
+        <input type="date" id="circle-date" name="date" value="{{ selected_date|date:'Y-m-d' }}">
+      </div>
+
+      {% if not is_group_locked %}
+        <div class="field">
+          <label for="circle-group">البيئة</label>
+          <select id="circle-group" name="group">
+            <option value="">— اختر البيئة —</option>
+            {% for g in all_groups %}
+              <option value="{{ g.id }}"{% if group and g.id == group.id %} selected{% endif %}>{{ g.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      {% endif %}
+
+      <button type="submit" class="btn-inline">عرض</button>
+    </form>
+
+    {% if not group %}
+      {% if is_group_locked %}
+        <p class="empty-note">لا توجد بيئة مرتبطة بحسابك بعد. تواصل مع الإدارة لربط بيئتك.</p>
+      {% else %}
+        <p class="empty-note">اختر بيئة من القائمة أعلاه لعرض مشاركيها.</p>
+      {% endif %}
+    {% elif roster %}
+      <input type="text" id="roster-search" class="roster-search" placeholder="ابحث بالاسم أو رقم الهوية…" autocomplete="off">
+
+      <form method="post" action="{% url 'participants:quran_circle_attendance' %}">
+        {% csrf_token %}
+        <input type="hidden" name="date" value="{{ selected_date|date:'Y-m-d' }}">
+        <input type="hidden" name="group" value="{{ group.id }}">
+
+        <div class="roster-scroll">
+          <table class="roster" id="roster-table">
+            <thead>
+              <tr>
+                <th class="sortable" data-sort="text" data-col="0">الاسم الكامل<span class="sort-arrow"></span></th>
+                <th>رقم الهوية</th>
+                <th class="sortable" data-sort="number" data-col="2">الأميال<span class="sort-arrow"></span></th>
+                <th class="sortable" data-sort="number" data-col="3">النقاط<span class="sort-arrow"></span></th>
+                <th class="check-col">
+                  حضور الحلقة
+                  <button type="button" class="select-all" data-target="attended">تحديد الكل</button>
+                </th>
+                <th class="check-col">
+                  إنجاز الحلقة
+                  <button type="button" class="select-all" data-target="achieved">تحديد الكل</button>
+                </th>
+              </tr>
+            </thead>
+            <tbody id="roster-body">
+              {% for entry in roster %}
+                <tr data-search="{{ entry.participant.user.full_name|default:''|lower }} {{ entry.participant.user.national_id|default:''|lower }}">
+                  <td>{{ entry.participant.user.full_name|default:"—" }}</td>
+                  <td>{{ entry.participant.user.national_id|default:"—" }}</td>
+                  <td class="num-cell">{{ entry.participant.miles }}</td>
+                  <td class="num-cell">{{ entry.participant.points }}</td>
+                  <td class="check-cell">
+                    <input type="checkbox" data-col="attended" name="attended_{{ entry.participant.id }}"{% if entry.attended %} checked{% endif %}>
+                  </td>
+                  <td class="check-cell">
+                    <input type="checkbox" data-col="achieved" name="achieved_{{ entry.participant.id }}"{% if entry.achieved %} checked{% endif %}>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p class="empty-note" id="roster-empty" hidden>لا توجد نتائج مطابقة للبحث.</p>
+
+        <div class="save-bar">
+          <button type="submit" class="btn">حفظ الحلقة</button>
+        </div>
+      </form>
+    {% else %}
+      <p class="empty-note">لا يوجد مشاركون في هذه البيئة حتى الآن.</p>
+    {% endif %}
+  </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  // تحديد الكل لكل عمود تشيك بوكس (الحضور والإنجاز مستقلان تمامًا — لا تفعيل تلقائي بينهما)
+  var selectAllButtons = document.querySelectorAll(".select-all");
+  selectAllButtons.forEach(function (button) {
+    button.addEventListener("click", function () {
+      var col = button.getAttribute("data-target");
+      var boxes = document.querySelectorAll('input[type="checkbox"][data-col="' + col + '"]');
+      var allChecked = Array.prototype.every.call(boxes, function (box) { return box.checked; });
+      boxes.forEach(function (box) { box.checked = !allChecked; });
+    });
+  });
+
+  // البحث
+  var search = document.getElementById("roster-search");
+  var tbody = document.getElementById("roster-body");
+  var empty = document.getElementById("roster-empty");
+  if (search && tbody) {
+    search.addEventListener("input", function () {
+      var q = search.value.trim().toLowerCase();
+      var visible = 0;
+      Array.prototype.forEach.call(tbody.querySelectorAll("tr"), function (row) {
+        var match = (row.getAttribute("data-search") || "").indexOf(q) !== -1;
+        row.hidden = !match;
+        if (match) visible++;
+      });
+      if (empty) empty.hidden = visible !== 0;
+    });
+  }
+
+  // الفرز بالضغط على رأس العمود
+  var table = document.getElementById("roster-table");
+  if (!table || !tbody) return;
+
+  var currentSort = { col: null, dir: null };
+
+  function getCellValue(row, colIndex, type) {
+    var cell = row.children[colIndex];
+    var text = cell ? cell.textContent.trim() : "";
+    if (type === "number") {
+      var n = parseFloat(text.replace(/[^\d.-]/g, ""));
+      return isNaN(n) ? -Infinity : n;
+    }
+    return text.toLocaleLowerCase("ar");
+  }
+
+  table.querySelectorAll("th.sortable").forEach(function (header) {
+    header.addEventListener("click", function () {
+      var colIndex = parseInt(header.getAttribute("data-col"), 10);
+      var type = header.getAttribute("data-sort");
+
+      var dir = "asc";
+      if (currentSort.col === colIndex && currentSort.dir === "asc") {
+        dir = "desc";
+      }
+      currentSort = { col: colIndex, dir: dir };
+
+      table.querySelectorAll("th.sortable").forEach(function (h) {
+        h.classList.remove("sort-asc", "sort-desc");
+      });
+      header.classList.add(dir === "asc" ? "sort-asc" : "sort-desc");
+
+      var rows = Array.prototype.slice.call(tbody.querySelectorAll("tr"));
+      rows.sort(function (a, b) {
+        var va = getCellValue(a, colIndex, type);
+        var vb = getCellValue(b, colIndex, type);
+        if (va < vb) return dir === "asc" ? -1 : 1;
+        if (va > vb) return dir === "asc" ? 1 : -1;
+        return 0;
+      });
+      rows.forEach(function (row) { tbody.appendChild(row); });
+    });
+  });
+})();
+</script>
+{% endblock %}
