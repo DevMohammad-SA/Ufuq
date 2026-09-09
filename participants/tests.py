@@ -370,3 +370,127 @@ class PointsResetSnapshotTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "لا يمكن حذف هذا المنتج")
         self.assertTrue(StoreProduct.objects.filter(id=product.id).exists())
+
+
+class ParticipantsDataPDFExportTests(TestCase):
+    """
+    WeasyPrint's native libs (Pango/Cairo/GObject) are not installed in this
+    environment, so `from weasyprint import HTML` cannot execute here. These
+    tests inject a fake `weasyprint` module into sys.modules before hitting
+    the view (the view imports it lazily inside get()), which lets us verify
+    role scoping, the ?group= name filter, and that the letterhead-bearing
+    HTML is what gets handed to the PDF engine — everything except the actual
+    PDF rasterisation, which is a documented host-dependency blocker.
+    """
+
+    def setUp(self):
+        import sys
+        from unittest.mock import MagicMock
+
+        self._fake = MagicMock()
+        self._fake.HTML.return_value.write_pdf.return_value = b"%PDF-1.7 fake-bytes"
+        self._saved = sys.modules.get("weasyprint")
+        sys.modules["weasyprint"] = self._fake
+
+        self.gs_a = User.objects.create_user(
+            username="gsa", password="pw12345678", role=Role.GROUP_SUPERVISOR
+        )
+        self.general = User.objects.create_user(
+            username="gen", password="pw12345678", role=Role.GENERAL_SUPERVISOR
+        )
+        self.group_a = Group.objects.create(name="بيئة أ", supervisor=self.gs_a)
+        self.group_b = Group.objects.create(name="بيئة ب")
+
+        self.a1 = self._p("5000000001", "أحمد", self.group_a)
+        self.a2 = self._p("5000000002", "بدر", self.group_a)
+        self.b1 = self._p("5000000003", "خالد", self.group_b)
+
+        self.url = reverse("participants:participants_data_pdf")
+
+    def tearDown(self):
+        import sys
+
+        if self._saved is not None:
+            sys.modules["weasyprint"] = self._saved
+        else:
+            sys.modules.pop("weasyprint", None)
+
+    def _p(self, national_id, name, group):
+        user = User.objects.create_user(
+            national_id=national_id, full_name=name,
+            role=Role.PARTICIPANT, password=national_id,
+        )
+        return Participant.objects.create(
+            user=user, group=group, academic_stage="grade_7"
+        )
+
+    def _rendered_html(self):
+        """The HTML string handed to weasyprint.HTML(string=...)."""
+        return self._fake.HTML.call_args.kwargs["string"]
+
+    # 1. General supervisor, no filter -> every participant.
+    def test_general_no_filter_all_participants(self):
+        self.client.login(username="gen", password="pw12345678")
+        resp = self.client.get(self.url)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Content-Type"], "application/pdf")
+        self.assertIn("attachment", resp["Content-Disposition"])
+
+        html = self._rendered_html()
+        for name in ("أحمد", "بدر", "خالد"):
+            self.assertIn(name, html)
+
+    # 2. General supervisor, one group selected -> only that group.
+    def test_general_single_group_filter(self):
+        self.client.login(username="gen", password="pw12345678")
+        resp = self.client.get(self.url, {"group": "بيئة أ"})
+        self.assertEqual(resp.status_code, 200)
+
+        html = self._rendered_html()
+        self.assertIn("أحمد", html)
+        self.assertIn("بدر", html)
+        self.assertNotIn("خالد", html)
+
+    def test_general_multi_group_filter(self):
+        self.client.login(username="gen", password="pw12345678")
+        resp = self.client.get(self.url, {"group": ["بيئة أ", "بيئة ب"]})
+        html = self._rendered_html()
+        for name in ("أحمد", "بدر", "خالد"):
+            self.assertIn(name, html)
+
+    # 3. Group supervisor -> only own group, even spoofing ?group=.
+    def test_group_supervisor_locked_to_own_group(self):
+        self.client.login(username="gsa", password="pw12345678")
+        resp = self.client.get(self.url, {"group": "بيئة ب"})
+        self.assertEqual(resp.status_code, 200)
+
+        html = self._rendered_html()
+        self.assertIn("أحمد", html)
+        self.assertIn("بدر", html)
+        self.assertNotIn("خالد", html)  # group b, not theirs
+
+    # 4. Letterhead image is referenced in the HTML sent to the PDF engine,
+    #    and base_url is absolute so WeasyPrint can resolve it.
+    def test_letterhead_and_base_url(self):
+        self.client.login(username="gen", password="pw12345678")
+        self.client.get(self.url)
+
+        html = self._rendered_html()
+        self.assertIn("images/letterhead.png", html)
+        self.assertIn("تقرير بيانات المشاركين", html)
+
+        base_url = self._fake.HTML.call_args.kwargs["base_url"]
+        self.assertTrue(base_url.startswith("http"))
+
+    # Export always sorted by full name regardless of request.
+    def test_export_sorted_by_full_name(self):
+        self.client.login(username="gen", password="pw12345678")
+        self.client.get(self.url)
+        html = self._rendered_html()
+        self.assertLess(html.index("أحمد"), html.index("بدر"))
+        self.assertLess(html.index("بدر"), html.index("خالد"))
+
+    def test_participant_forbidden(self):
+        self.client.login(username="5000000001", password="5000000001")
+        resp = self.client.get(self.url)
+        self.assertIn(resp.status_code, (302, 403))

@@ -10,9 +10,12 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db import IntegrityError, transaction
 from django.db.models import Avg, Count, Max, Min, ProtectedError, Q
 from django.db.models.functions import TruncSecond
+from django.http import HttpResponse
 from django.shortcuts import redirect
+from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
+from django.views import View
 from django.views.generic import FormView, TemplateView
 
 from accounts.models import PasswordResetRequest, Role, User
@@ -1107,6 +1110,79 @@ class ParticipantsDataView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
         )
         context["navbar_items"] = build_navbar(self.request.user, "data")
         return context
+
+
+class ParticipantsDataPDFExportView(LoginRequiredMixin, UserPassesTestMixin, View):
+    """
+    Exports the participants roster as a PDF on the official association
+    letterhead. Scoped by role exactly like ParticipantsDataView (a group
+    supervisor only ever sees their own group, regardless of any group
+    filter submitted), and further filtered by the group NAMES the request
+    explicitly selects via ?group=<name> (repeatable) — this mirrors the
+    checkbox filter state at click time, since that filter is client-side
+    JS and the server has no other way to know it. The checkbox `value` in
+    participants_data.html is the group's name, so this endpoint filters by
+    `group__name__in` to match with zero template changes.
+
+    Search text and column sorting are NOT reflected here (client-side
+    only); the export always lists participants sorted by full name.
+    """
+
+    login_url = "accounts:login_supervisor"
+
+    def test_func(self):
+        return self.request.user.role in (
+            Role.GROUP_SUPERVISOR,
+            Role.GENERAL_SUPERVISOR,
+            Role.SUPERADMIN,
+        )
+
+    def _get_participants(self, request):
+        if request.user.role == Role.GROUP_SUPERVISOR:
+            # Locked to their own group — any ?group= in the request is
+            # ignored entirely (same guard as QuranCircleAttendanceView).
+            group = request.user.group_set.first()
+            queryset = (
+                Participant.objects.filter(group=group)
+                if group
+                else Participant.objects.none()
+            )
+        else:
+            queryset = Participant.objects.all()
+            selected_group_names = request.GET.getlist("group")
+            if selected_group_names:
+                queryset = queryset.filter(group__name__in=selected_group_names)
+
+        return queryset.select_related("user", "group").order_by("user__full_name")
+
+    def get(self, request, *args, **kwargs):
+        participants = self._get_participants(request)
+
+        html_string = render_to_string(
+            "participants/participants_data_pdf.html",
+            {
+                "participants": participants,
+                "generated_at": timezone.now(),
+                "generated_by": request.user,
+            },
+        )
+
+        # Imported lazily: WeasyPrint pulls in native libraries (Pango,
+        # Cairo, GObject) at import time, which are a host-level dependency
+        # separate from the Python package. Keeping the import here means a
+        # host missing those libraries only fails this one endpoint, not the
+        # whole site (and `manage.py check` / every other view stay fine).
+        from weasyprint import HTML
+
+        pdf_file = HTML(
+            string=html_string, base_url=request.build_absolute_uri("/")
+        ).write_pdf()
+
+        response = HttpResponse(pdf_file, content_type="application/pdf")
+        response["Content-Disposition"] = (
+            'attachment; filename="participants_report.pdf"'
+        )
+        return response
 
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,114 @@
+{% load static %}<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<style>
+  @page {
+    size: A4;
+    /* Top/bottom margins keep the table clear of the printed letterhead
+       header and footer zones in letterhead.png. Tune after a visual
+       proof against the real image. */
+    margin: 4cm 1.4cm 3cm 1.4cm;
+    background-image: url("{% static 'images/letterhead.png' %}");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 100% 100%;
+  }
+
+  body {
+    font-family: "Tajawal", "Noto Naskh Arabic", "Arial", sans-serif;
+    font-size: 11px;
+    color: #2B2F33;
+    direction: rtl;
+    margin: 0;
+  }
+
+  .report-title {
+    font-size: 18px;
+    font-weight: 800;
+    text-align: center;
+    margin: 0 0 6px;
+  }
+  .report-meta {
+    font-size: 10.5px;
+    color: #5F676E;
+    text-align: center;
+    margin: 0 0 16px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  thead {
+    display: table-header-group; /* repeat header row on every page */
+  }
+  tr {
+    page-break-inside: avoid;
+  }
+  th, td {
+    border: 1px solid #E2DCD0;
+    padding: 5px 7px;
+    text-align: right;
+  }
+  th {
+    background: #F7F3EA;
+    font-weight: 700;
+  }
+  td.num {
+    text-align: center;
+  }
+
+  .empty-note {
+    text-align: center;
+    color: #5F676E;
+    padding: 24px 0;
+  }
+  .count-line {
+    margin-top: 12px;
+    font-size: 10.5px;
+    color: #5F676E;
+    text-align: left;
+  }
+</style>
+</head>
+<body>
+  <div class="report-title">تقرير بيانات المشاركين — برنامج أُفق</div>
+  <div class="report-meta">
+    تاريخ الإصدار: {{ generated_at|date:"Y-m-d H:i" }}
+    {% if generated_by.full_name %} — أصدره: {{ generated_by.full_name }}{% endif %}
+  </div>
+
+  {% if participants %}
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>الاسم الكامل</th>
+          <th>البيئة</th>
+          <th>المرحلة الدراسية</th>
+          <th>الأميال</th>
+          <th>النقاط</th>
+          <th>النقاط الشرائية</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for participant in participants %}
+          <tr>
+            <td class="num">{{ forloop.counter }}</td>
+            <td>{{ participant.user.full_name|default:"—" }}</td>
+            <td>{{ participant.group.name|default:"—" }}</td>
+            <td>{{ participant.get_academic_stage_display|default:"—" }}</td>
+            <td class="num">{{ participant.miles }}</td>
+            <td class="num">{{ participant.points }}</td>
+            <td class="num">{{ participant.purchase_points }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div class="count-line">إجمالي المشاركين في التقرير: {{ participants|length }}</div>
+  {% else %}
+    <p class="empty-note">لا يوجد مشاركون مطابقون للتصفية المختارة.</p>
+  {% endif %}
+</body>
+</html>

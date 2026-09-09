@@ -106,6 +106,23 @@ th.sortable.sort-desc .sort-arrow{color:var(--gold-ink)}
 th.sortable.sort-asc .sort-arrow:after{content:"▲"}
 th.sortable.sort-desc .sort-arrow:after{content:"▼"}
 th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
+
+/* زر تصدير PDF (مستقل عن البحث/الفرز — نطاقه فقط تصفية البيئة) */
+.export-pdf-btn{
+  display:inline-block;
+  margin-bottom:var(--s2);
+  border:1.5px solid var(--line);
+  background:#fff;
+  color:var(--asphalt);
+  font-family:var(--font-ui);
+  font-weight:600;
+  font-size:13px;
+  padding:9px 18px;
+  border-radius:99px;
+  text-decoration:none;
+  cursor:pointer;
+}
+.export-pdf-btn:hover{border-color:var(--asphalt)}
 {% endblock %}
 
 {% block content %}
@@ -126,6 +143,8 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
     {% if not participants %}
       <p class="empty-note">لا توجد بيانات مشاركين لعرضها حتى الآن.</p>
     {% else %}
+      <a href="#" id="export-pdf-btn" class="export-pdf-btn">تصدير PDF</a>
+
       <input type="text" id="roster-search" class="roster-search" placeholder="ابحث بالاسم أو رقم الهوية…" autocomplete="off">
 
       {% if group_names|length > 1 %}
@@ -287,6 +306,31 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
       });
       rows.forEach(function (row) { tbody.appendChild(row); });
     });
+  });
+})();
+</script>
+
+<script>
+(function () {
+  // زر "تصدير PDF": مستقل تمامًا عن البحث النصي والفرز. يبني الرابط من
+  // البيئات المحددة حاليًا في الـ checkboxes فقط (قيمة كل checkbox هي اسم
+  // البيئة)، ويرسلها كـ ?group=<name> مكررة. عند عدم وجود أي checkboxes
+  // (بيئة واحدة فقط، أو مشرف بيئة) لا تُرسَل أي معاملات والخادم يصدّر كل
+  // ما يقع ضمن نطاق دور المستخدم.
+  var exportBtn = document.getElementById("export-pdf-btn");
+  if (!exportBtn) return;
+
+  exportBtn.addEventListener("click", function (e) {
+    e.preventDefault();
+    var params = new URLSearchParams();
+    document
+      .querySelectorAll(".group-filter-checkbox:checked")
+      .forEach(function (cb) {
+        params.append("group", cb.value);
+      });
+    var base = "{% url 'participants:participants_data_pdf' %}";
+    var qs = params.toString();
+    window.location.href = qs ? base + "?" + qs : base;
   });
 })();
 </script>
