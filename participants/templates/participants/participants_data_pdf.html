@@ -5,14 +5,30 @@
 <style>
   @page {
     size: A4;
-    /* Top/bottom margins keep the table clear of the printed letterhead
-       header and footer zones in letterhead.png. Tune after a visual
-       proof against the real image. */
-    margin: 4cm 1.4cm 3cm 1.4cm;
+    /* Top/bottom margins keep the table clear of the printed letterhead's
+       header/footer zones in letterhead.png. Verified against real
+       rendered PDFs (single- and multi-page, including natural page
+       breaks) — 6cm clears the logo/org-name block with a safety margin,
+       3cm clears the address bar at the bottom. Re-verify visually with a
+       real render if letterhead.png is ever replaced. */
+    margin: 6cm 1.4cm 3cm 1.4cm;
     background-image: url("{% static 'images/letterhead.png' %}");
     background-repeat: no-repeat;
-    background-position: center;
-    background-size: 100% 100%;
+    background-position: top center;
+    /* `cover` scales the image to fill the page while preserving its
+       aspect ratio (unlike the old 100% 100%, which stretched it to the
+       page's exact dimensions independently on each axis and visibly
+       distorted the logo/Arabic text). letterhead.png's own aspect ratio
+       (793x1122, ~0.7068) is already virtually identical to A4's
+       (210x297mm, ~0.7071), so `cover` crops nothing in practice —
+       confirmed visually, no `contain` letterboxing needed. */
+    background-size: cover;
+    /* Without `fixed`, WeasyPrint positions an @page background relative
+       to the whole flowed multi-page canvas rather than each individual
+       page (verified empirically: the letterhead drifted to mid-page on
+       page 4 of a 4-page test render). `fixed` pins it identically to
+       every page, as CSS Paged Media intends for a repeating letterhead. */
+    background-attachment: fixed;
   }
 
   body {
