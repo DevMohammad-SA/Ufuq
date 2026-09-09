@@ -1,5 +1,6 @@
 from enum import unique
 
+from django.conf import settings
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
 from django.core.exceptions import ValidationError
@@ -71,6 +72,10 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
     is_active = models.BooleanField(default=True, verbose_name="الحساب نشط؟")
     is_staff = models.BooleanField(default=False, verbose_name="حساب مشرف؟")
+    must_set_password = models.BooleanField(
+        default=False,
+        verbose_name="يجب تعيين كلمة مرور جديدة",
+    )
     date_joined = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الانضمام")
     objects = UserManager()
 
@@ -83,3 +88,38 @@ class User(AbstractBaseUser, PermissionsMixin):
         super().clean()
         if not self.username and not self.national_id:
             raise ValidationError("يجب توفر اسم مستخدم أو رقم هوية على الأقل")
+
+
+class PasswordResetRequest(models.Model):
+    """
+    A participant's self-service "forgot password" request. Created when
+    they submit their national_id from the login page; approved by the
+    General Supervisor, at which point the participant's password is reset
+    to their national_id again and must_set_password is flipped back on.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="password_reset_requests",
+        verbose_name="المستخدم",
+    )
+    requested_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الطلب")
+    resolved = models.BooleanField(default=False, verbose_name="تمت المعالجة")
+    resolved_at = models.DateTimeField(null=True, blank=True, verbose_name="تاريخ المعالجة")
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name="عالجها",
+    )
+
+    class Meta:
+        verbose_name = "طلب استرجاع كلمة مرور"
+        verbose_name_plural = "طلبات استرجاع كلمة المرور"
+        ordering = ["-requested_at"]
+
+    def __str__(self):
+        return f"{self.user.full_name} - {self.requested_at:%Y-%m-%d %H:%M}"

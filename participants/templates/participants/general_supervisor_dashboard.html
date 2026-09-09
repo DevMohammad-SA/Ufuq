@@ -143,6 +143,25 @@
   </section>
 
   <section class="card">
+    <h2>طلبات استرجاع كلمة المرور ({{ pending_password_resets|length }})</h2>
+    {% if pending_password_resets %}
+      {% for reset_request in pending_password_resets %}
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--line)">
+          <span>{{ reset_request.user.full_name }} ({{ reset_request.user.national_id }})</span>
+          <form method="post" style="margin:0; width:auto">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="approve_password_reset">
+            <input type="hidden" name="reset_id" value="{{ reset_request.id }}">
+            <button type="submit" class="btn" style="width:auto; margin:0; padding:8px 16px; font-size:13px">موافقة وإعادة تعيين</button>
+          </form>
+        </div>
+      {% endfor %}
+    {% else %}
+      <p class="empty-note">لا توجد طلبات معلّقة.</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
     <h2>تصفير نقاط المشاركين</h2>
     <div class="warn-note">
       هذا الإجراء يصفّر حقل <b>النقاط</b> لجميع المشاركين في كل البيئات دفعة واحدة،

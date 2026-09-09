@@ -12,10 +12,9 @@ from django.db.models import Avg, Count, Max, Min, ProtectedError, Q
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils import timezone
-from django.utils.crypto import get_random_string
 from django.views.generic import FormView, TemplateView
 
-from accounts.models import Role, User
+from accounts.models import PasswordResetRequest, Role, User
 from .forms import (
     CircleAttendanceForm,
     ParticipantImportForm,
@@ -560,16 +559,18 @@ class ParticipantImportView(LoginRequiredMixin, UserPassesTestMixin, FormView):
 
             try:
                 with transaction.atomic():
-                    # Participants authenticate by national_id only (via
-                    # NationalIDOrUsernameBackend) and never use a password, but
-                    # AbstractBaseUser still needs one stored — mirror
-                    # UserCreationForm.save()'s approach exactly.
+                    # A new participant's initial password is their own
+                    # national_id (create_user hashes it via set_password);
+                    # must_set_password forces them to change it on first
+                    # login. Mirrors UserCreationForm.save() exactly.
                     user = User.objects.create_user(
                         national_id=national_id,
                         full_name=full_name,
                         role=Role.PARTICIPANT,
-                        password=get_random_string(50),
+                        password=national_id,
                     )
+                    user.must_set_password = True
+                    user.save(update_fields=["must_set_password"])
                     Participant.objects.create(
                         user=user,
                         group=group,
@@ -717,18 +718,47 @@ class GeneralSupervisorDashboardView(
             status=StoreOrder.Status.PENDING
         ).count()
 
+        # Pending "forgot password" requests from participants, awaiting
+        # this supervisor's approval (see the POST handler below).
+        context["pending_password_resets"] = PasswordResetRequest.objects.filter(
+            resolved=False
+        ).select_related("user")
+
         return context
 
     def post(self, request, *args, **kwargs):
-        # The only POST action on this page today: a full, program-wide
-        # points reset. Confirmation happens client-side (a JS confirm()
-        # dialog in the template) before the form ever submits — this is a
-        # deliberate, wide-reaching action affecting every participant.
-        if request.POST.get("action") == "reset_points":
+        action = request.POST.get("action")
+
+        # A full, program-wide points reset. Confirmation happens client-side
+        # (a JS confirm() dialog in the template) before the form ever
+        # submits — this is a deliberate, wide-reaching action affecting
+        # every participant.
+        if action == "reset_points":
             # Only `points` is reset — `miles` (permanent) and
             # `purchase_points` (never reset, spent in the store) must never
             # be touched by this action.
             Participant.objects.update(points=0)
+
+        elif action == "approve_password_reset":
+            # Approve a participant's forgot-password request: reset their
+            # password back to their national_id and force them through the
+            # set-password flow again on their next login.
+            reset_id = request.POST.get("reset_id")
+            reset_request = PasswordResetRequest.objects.filter(
+                id=reset_id, resolved=False
+            ).first()
+            if reset_request:
+                user = reset_request.user
+                user.set_password(user.national_id)
+                user.must_set_password = True
+                user.save(update_fields=["password", "must_set_password"])
+
+                reset_request.resolved = True
+                reset_request.resolved_at = timezone.now()
+                reset_request.resolved_by = request.user
+                reset_request.save(
+                    update_fields=["resolved", "resolved_at", "resolved_by"]
+                )
 
         return redirect("participants:general_supervisor_dashboard")
 

@@ -1,16 +1,20 @@
 from django.contrib.auth.backends import BaseBackend
 
-from .models import Role, User
+from .models import User
 
 
 class NationalIDOrUsernameBackend(BaseBackend):
     """
-    Custom authentication backend.
+    Authenticates by national_id (participants) or username (everyone
+    else). Participants now go through a real password check like any
+    other role — the previous no-password-check design for participants
+    has been retired entirely. A participant's initial password is their
+    own national_id, which they are forced to change on first login (see
+    User.must_set_password / ForcePasswordSetupMiddleware).
 
-    Tries to find a matching user first by national_id (for Participants),
-    then falls back to username (for Group/General Supervisors and Superadmin).
-    Registered alongside Django's default ModelBackend in AUTHENTICATION_BACKENDS
-    (not as a replacement) — Django tries each backend in order until one succeeds.
+    Registered alongside Django's default ModelBackend in
+    AUTHENTICATION_BACKENDS (not as a replacement) — Django tries each
+    backend in order until one succeeds.
     """
 
     def authenticate(self, request, username=None, password=None, **kwargs):
@@ -21,22 +25,11 @@ class NationalIDOrUsernameBackend(BaseBackend):
         except User.DoesNotExist:
             pass
 
-        if user is not None:
-            # SECURITY NOTE: Participants log in with national_id ONLY, no password
-            # check at all. This is an intentional business decision documented in
-            # the project's requirements — anyone who knows a participant's
-            # national_id can log in as them. There is no additional secret involved.
-            if user.role == Role.PARTICIPANT:
-                return user if user.is_active else None
-
-            if user.check_password(password) and user.is_active:
-                return user
-            return None
-
-        try:
-            user = User.objects.get(username=username)
-        except User.DoesNotExist:
-            return None
+        if user is None:
+            try:
+                user = User.objects.get(username=username)
+            except User.DoesNotExist:
+                return None
 
         if user.check_password(password) and user.is_active:
             return user

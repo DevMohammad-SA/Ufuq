@@ -10,10 +10,16 @@
 {% block form_content %}
 <div class="eyebrow">دخول المشارك</div>
 <h1>هلا فيك، رحّالنا</h1>
-<p class="lead">أدخل رقم الهوية أو الإقامة عشان تشوف أميالك ومهامك.</p>
+<p class="lead">أدخل رقم الهوية أو الإقامة وكلمة المرور عشان تشوف أميالك ومهامك.</p>
+
+{% if messages %}
+  {% for message in messages %}
+    <div class="form-error" style="background:#EAF3EC;border-color:var(--gold);color:var(--gold-ink)">{{ message }}</div>
+  {% endfor %}
+{% endif %}
 
 {% if form.errors %}
-<div class="form-error">رقم الهوية اللذي أدخلته غير مسجّل، أو الحساب غير مفعّل. تأكد من الرقم وحاول مرة ثانية.</div>
+<div class="form-error">رقم الهوية أو كلمة المرور غير صحيحة، أو الحساب غير مفعّل. تأكد من البيانات وحاول مرة ثانية.</div>
 {% endif %}
 
 <form method="post" action="{% url 'accounts:login_participant' %}" novalidate>
@@ -32,8 +38,24 @@
     >
     <div class="hint">١٠ أرقام، بدون مسافات.</div>
   </div>
+  <div class="field">
+    <label for="id_password">كلمة المرور</label>
+    <input
+      type="password"
+      dir="ltr"
+      id="id_password"
+      name="password"
+      autocomplete="current-password"
+      required
+    >
+    <div class="hint">كلمة مرورك الأولى هي رقم هويتك نفسه.</div>
+  </div>
   <button type="submit" class="btn btn-gold">دخول</button>
 </form>
+
+<div class="switch-portal">
+  <a href="{% url 'accounts:forgot_password' %}">نسيت كلمة المرور؟</a>
+</div>
 
 <div class="switch-portal">
   مشرف أو إداري؟ <a href="{% url 'accounts:login_supervisor' %}">ادخل من هنا</a>
