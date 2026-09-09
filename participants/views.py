@@ -235,9 +235,8 @@ QURAN_ACHIEVEMENT_POINTS = 2
 
 
 def quran_circle_points(attended, achieved):
-    return (
-        (QURAN_ATTENDANCE_POINTS if attended else 0)
-        + (QURAN_ACHIEVEMENT_POINTS if achieved else 0)
+    return (QURAN_ATTENDANCE_POINTS if attended else 0) + (
+        QURAN_ACHIEVEMENT_POINTS if achieved else 0
     )
 
 
@@ -878,9 +877,7 @@ class GeneralSupervisorDashboardView(
             accepted = status_counts.get(TaskSubmission.Status.ACCEPTED, 0)
             rejected = status_counts.get(TaskSubmission.Status.REJECTED, 0)
             pending = status_counts.get(TaskSubmission.Status.PENDING, 0)
-            not_submitted = max(
-                0, total_participants - (accepted + rejected + pending)
-            )
+            not_submitted = max(0, total_participants - (accepted + rejected + pending))
             latest_task_title = latest_task.title
             task_data = [accepted, rejected, pending, not_submitted]
         else:
@@ -900,9 +897,7 @@ class GeneralSupervisorDashboardView(
             "latestTaskTitle": latest_task_title,
             "taskData": task_data,
             "avgLabels": [name for name, _ in group_avg_points],
-            "avgPoints": [
-                round(float(avg or 0), 1) for _, avg in group_avg_points
-            ],
+            "avgPoints": [round(float(avg or 0), 1) for _, avg in group_avg_points],
             "ordersData": [
                 order_status_counts.get(StoreOrder.Status.PENDING, 0),
                 order_status_counts.get(StoreOrder.Status.COMPLETED, 0),
@@ -1006,9 +1001,7 @@ class PointsSnapshotHistoryView(LoginRequiredMixin, UserPassesTestMixin, Templat
         # second in practice, so this is a reliable way to list "reset
         # events" without a separate batch-id column.
         reset_events = (
-            PointsResetSnapshot.objects.annotate(
-                reset_second=TruncSecond("reset_at")
-            )
+            PointsResetSnapshot.objects.annotate(reset_second=TruncSecond("reset_at"))
             .values("reset_second")
             .distinct()
             .order_by("-reset_second")
@@ -1153,7 +1146,7 @@ class ParticipantsDataPDFExportView(LoginRequiredMixin, UserPassesTestMixin, Vie
             if selected_group_names:
                 queryset = queryset.filter(group__name__in=selected_group_names)
 
-        return queryset.select_related("user", "group").order_by("user__full_name")
+        return queryset.select_related("user", "group").order_by("-miles")
 
     def get(self, request, *args, **kwargs):
         participants = self._get_participants(request)
@@ -1424,9 +1417,7 @@ class StoreView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
 
         # Server-side enforcement — never trust the disabled-button UI hint.
         if product.stock <= 0:
-            messages.error(
-                request, f'نفد مخزون "{product.name}"، لا يمكن إتمام الطلب.'
-            )
+            messages.error(request, f'نفد مخزون "{product.name}"، لا يمكن إتمام الطلب.')
             return redirect("participants:store")
 
         if participant.purchase_points < product.price:
@@ -1450,9 +1441,7 @@ class StoreView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
 
             # Re-read the participant under lock and re-check the balance so a
             # second concurrent order cannot overspend purchase_points.
-            participant = Participant.objects.select_for_update().get(
-                id=participant.id
-            )
+            participant = Participant.objects.select_for_update().get(id=participant.id)
             if participant.purchase_points < product.price:
                 messages.error(
                     request,
@@ -1543,9 +1532,7 @@ class StoreManagementView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
             if form.is_valid():
                 form.save()
                 return redirect("participants:store_management")
-            context = self.get_context_data(
-                product_form=form, editing_product=product
-            )
+            context = self.get_context_data(product_form=form, editing_product=product)
             return self.render_to_response(context)
 
         if action == "delete_product":
