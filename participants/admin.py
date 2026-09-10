@@ -13,8 +13,15 @@ from .models import (
 
 @admin.register(Group)
 class GroupAdmin(ModelAdmin):
-    list_display = ('name','supervisor')
+    list_display = ('name','get_supervisors')
     search_fields = ('name',)
+    # supervisor is now a ManyToManyField — filter_horizontal gives the
+    # dual-list picker for assigning several supervisors to one environment.
+    filter_horizontal = ('supervisor',)
+
+    @admin.display(description="المشرفون")
+    def get_supervisors(self, obj):
+        return "، ".join(s.full_name for s in obj.supervisor.all()) or "—"
 
 
 @admin.register(Participant)

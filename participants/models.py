@@ -73,11 +73,10 @@ class Group(models.Model):
         verbose_name_plural = "البيئات"
 
     name = models.CharField(max_length=50,unique=True,verbose_name="اسم البيئة")
-    supervisor = models.ForeignKey(settings.AUTH_USER_MODEL,
-                                   on_delete=models.SET_NULL,
-                                   null=True,
-                                   limit_choices_to={"role":Role.GROUP_SUPERVISOR},
-                                   verbose_name="المشرف")
+    supervisor = models.ManyToManyField(settings.AUTH_USER_MODEL,
+                                        blank=True,
+                                        limit_choices_to={"role":Role.GROUP_SUPERVISOR},
+                                        verbose_name="المشرفون")
 
     def __str__(self):
         return f"{self.name}"
