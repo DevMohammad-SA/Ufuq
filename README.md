@@ -1,49 +1,69 @@
-# ufuq — رحّال
+# Ufuq (أُفق) — رحّال
 
-Youth development tracking platform for the **Horizon Program** (برنامج أُفق), a 14‑week
-program that turns daily attendance and weekly activities into a rewards currency. The
-end‑user product is branded **رحّال** ("Rahhal").
+Management platform for the **Horizon Program** (برنامج أُفق التنموي), a
+14‑week youth development program run by **Saqeel Society for Youth
+Development** (جمعية صقيل لتنمية الشباب). Supervisors record daily and weekly
+attendance; participants earn a triple‑currency reward and progress toward an
+"elite trip" nomination. The end‑user product is branded **رحّال** ("Rahhal").
 
-The entire UI and domain language is **Arabic** (`ar-sa`, `Asia/Riyadh`, right‑to‑left
-templates). This README is in English for GitHub; the application itself is not.
+The entire UI and domain language is **Arabic** (`ar-sa`, `Asia/Riyadh`,
+right‑to‑left). This file is in English for GitHub; **`README.ar.md` is the
+Arabic version.** Detailed technical docs are in [`docs/`](docs/).
+
+> ⚠️ The previous version of this README described participant login as
+> "passwordless". **That design was fully retired** — participants now
+> authenticate with a real password. See
+> [`docs/authentication.md`](docs/authentication.md).
 
 ## Overview
 
-Participants belong to an *environment* (بيئة) of ~35 people led by a group supervisor. As
-supervisors record attendance, participants earn a triple‑currency reward:
+- Participants belong to an **environment** (بيئة / `Group`) led by one group
+  supervisor.
+- As supervisors record attendance, participants earn a triple currency:
 
-| Currency | Field | Notes |
+  | Currency | Field | Rule |
+  | --- | --- | --- |
+  | Points (النقاط) | `points` | Ranking currency. Resettable program‑wide (a snapshot is saved first). |
+  | Miles (الأميال) | `miles` | `points_delta × 10`, applied together. Never reset. |
+  | Purchase points (النقاط الشرائية) | `purchase_points` | Spent in the store. Never reset by the reset action. |
+
+  All balances are clamped at zero. Conversion lives in one helper,
+  `apply_points_delta` (`participants/views.py`).
+
+- **Point sources** (values taken verbatim from `participants/views.py`):
+  weekly gathering = **8** (+**2** early bonus); Quran circle = **3** attended
+  + **2** achieved (independent); accepted weekly task = **10**.
+  Full details: [`docs/points-system.md`](docs/points-system.md).
+
+## Roles
+
+Defined in `accounts/models.py` (`Role`):
+
+| Role | Arabic | Summary |
 | --- | --- | --- |
-| Miles (الأميال) | `miles` | Permanent score; `points × 10`. Never reset. |
-| Points (النقاط) | `points` | Spendable / resettable ranking currency. |
-| Purchase points (النقاط الشرائية) | `purchase_points` | Spent in the store. Never reset. |
+| `participant` | مشارك | Logs in with **national ID + password**. Personal dashboard, weekly task upload, store. |
+| `group_supervisor` | مشرف بيئة | Records weekly‑gathering and Quran‑circle attendance for **their own environment only**, views their participants' data. |
+| `general_supervisor` | مشرف عام | Program‑wide: Excel import, weekly tasks, store management, points reset, all environments. |
+| `superadmin` | مشرف النظام | Same permissions as general supervisor in every view, plus Django admin (`is_staff`/`is_superuser`). |
 
-Points table: a Quran‑circle day is 3 points, the weekly gathering is 8 points, and arriving
-early to the gathering adds a 2‑point bonus. All balances are clamped at zero.
-
-### Roles
-
-- **Participant** — logs in with national ID only (no password), sees a personal dashboard
-  comparing their miles against their environment and the whole program.
-- **Group supervisor** — records weekly‑gathering attendance for their environment as a bulk
-  roster, and views their participants' data.
-- **General supervisor** / **Superadmin** — bulk‑import participants from Excel, program‑wide
-  points reset, full participant data table, and Django admin.
-
-> **Security note:** participant login is intentionally passwordless — anyone who knows a
-> participant's national ID can sign in as them. This is a deliberate product decision for
-> this age group, not an oversight.
+Full permission matrix: [`docs/roles-and-permissions.md`](docs/roles-and-permissions.md).
 
 ## Tech stack
 
-- Python ≥ 3.12, [Django](https://www.djangoproject.com/) 6.0.x
-- [django-unfold](https://github.com/unfoldadmin/django-unfold) — themed admin
-- [django-environ](https://django-environ.readthedocs.io/) — settings from `.env`
-- [openpyxl](https://openpyxl.readthedocs.io/) — Excel participant import
-- SQLite (local development)
-- [uv](https://docs.astral.sh/uv/) — dependency and environment management
+From `pyproject.toml` (`requires-python = ">=3.12"`):
 
-## Getting started
+- [Django](https://www.djangoproject.com/) `>=6.0,<6.1`
+- [django-unfold](https://unfoldadmin.com/) `>=0.104.1` — themed admin
+- [django-environ](https://django-environ.readthedocs.io/) `>=0.14` — `.env` settings
+- [openpyxl](https://openpyxl.readthedocs.io/) `>=3.1.5` — Excel participant import
+- [Pillow](https://python-pillow.org/) `>=12.3` — uploaded‑image compression
+- [WeasyPrint](https://weasyprint.org/) `>=70.0` — participant‑roster PDF export
+- [uv](https://docs.astral.sh/uv/) — dependency & environment management
+- **Chart.js 4** — loaded from CDN in the general‑supervisor dashboard only
+- **Database:** SQLite (`db.sqlite3`) — the only database configured in the
+  repository. See [Deployment](#deployment).
+
+## Local development
 
 ```bash
 # 1. Install dependencies into a managed virtualenv
@@ -53,10 +73,10 @@ uv sync
 cp .env.example .env
 #    edit .env — SECRET_KEY is required; DEBUG defaults to False
 
-# 3. Set up the database
+# 3. Apply migrations
 uv run python manage.py migrate
 
-# 4. Create an admin account
+# 4. Create an admin account (role is set to superadmin automatically)
 uv run python manage.py createsuperuser
 
 # 5. Run the development server
@@ -73,42 +93,58 @@ uv run python manage.py runserver
 | `SECRET_KEY` | yes | — | Django secret key |
 | `DEBUG` | no | `False` | Debug mode |
 
-`.env` and `db.sqlite3` are gitignored.
+`.env`, `db.sqlite3`, and `media/` are gitignored.
 
-## Common commands
+### Common commands
 
 ```bash
 uv run python manage.py makemigrations
 uv run python manage.py migrate
+uv run python manage.py check
 uv run python manage.py test                 # full suite
-uv run python manage.py test accounts        # one app
-uv run python manage.py test accounts.tests.SomeTestCase.test_method
+uv run python manage.py test participants     # one app
 ```
+
+> **WeasyPrint note:** the PDF export endpoint (`/participants/data/export-pdf/`)
+> needs the system libraries WeasyPrint depends on (Pango, Cairo, GObject),
+> which are **not** installed by `uv sync`. It also expects
+> `static/images/letterhead.png`, which is not currently in the repo. The
+> import is lazy, so the rest of the site is unaffected. See
+> [`docs/known-limitations.md`](docs/known-limitations.md).
+
+## Deployment
+
+The repository does **not** contain a production configuration: no
+`Dockerfile`, `docker-compose.yml`, Nginx/Gunicorn config, `STATIC_ROOT`,
+`ALLOWED_HOSTS`, or a PostgreSQL setting — `config/settings.py` ships with
+SQLite only.
+
+Hosting / update procedures are maintained by the project owner **outside this
+repository** (guides referenced as `دليل_رفع_الاستضافة.md` and
+`دليل_تحديث_الموقع.md` are not tracked here). When they are added, link them
+from this section. See [`docs/known-limitations.md`](docs/known-limitations.md)
+§7 for the full list of what is missing for production.
 
 ## Project layout
 
 ```
 config/         Django project package (settings, urls, wsgi/asgi)
-accounts/       Identity & authentication — custom User model, Role, auth backend
-participants/   Program data — Group, Participant, attendance, dashboards, Excel import
-templates/      Shared templates (home page)
-static/         Logo and the Excel import template
+accounts/       Identity & authentication — custom User, Role, auth backend, middleware
+participants/   Program data — Group, Participant, attendance, tasks, store, dashboards
+templates/      Shared templates (public home page)
+static/         Logo (logo.png) and the Excel import template
+docs/           Detailed technical documentation (Arabic)
 ```
-
-### Apps
-
-- **`accounts`** owns identity only. `User` (`AbstractBaseUser` + `PermissionsMixin`) is
-  identified by *either* a username *or* a national ID. `NationalIDOrUsernameBackend`
-  authenticates participants by national ID (passwordless) and everyone else by password.
-- **`participants`** owns program data. `Participant` is a one‑to‑one extension of `User`.
-  Attendance records are plain rows; converting attendance into currency happens explicitly
-  in the views through a single `apply_points_delta` helper, so re‑submitting a roster is
-  idempotent.
 
 Dependency direction is always `participants → accounts`, never the reverse.
 
-## Contributing
+## Documentation
 
-See [`CLAUDE.md`](CLAUDE.md) for detailed architecture notes and conventions (Arabic strings,
-unfold admin, the passwordless auth flow, the points model, and more). Keep all user‑facing
-strings and model `verbose_name`s in Arabic.
+Start with [`docs/README.md`](docs/README.md). Most important for anyone
+picking up maintenance: **[`docs/known-limitations.md`](docs/known-limitations.md)**.
+
+## License / ownership
+
+Developed for **Saqeel Society for Youth Development** (جمعية صقيل لتنمية
+الشباب) for the Horizon Program. No open‑source license file is present in the
+repository; all rights are held by the association unless stated otherwise.
