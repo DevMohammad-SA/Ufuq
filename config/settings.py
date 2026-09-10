@@ -36,6 +36,15 @@ DEBUG = env.bool("DEBUG", default=False)
 # keeps local `.env` behavior identical since it doesn't set this var.
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
 
+# TLS is terminated by Nginx in the Docker deployment; it proxies to Gunicorn
+# over plain HTTP and forwards the original scheme in `X-Forwarded-Proto`.
+# Without this, request.is_secure() stays False behind the proxy and Django's
+# CSRF origin check rejects every POST made over HTTPS (login form, every
+# other form). Trusting this header is safe here because Gunicorn is only
+# reachable through Nginx on the internal Docker network, never directly.
+# No effect in local dev (nothing sets the header over plain http://).
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
 
 # Application definition
 
