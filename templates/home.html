@@ -220,6 +220,24 @@ body{
   font-size:13px;
   text-align:center;
 }
+
+/* تذييل اعتماد المطوّر — سطر خفيف على الخلفية الفاتحة بعد التذييل الرسمي
+   الداكن (لون --slate يبقى مقروءًا هنا بخلاف وضعه فوق الخلفية الداكنة) */
+.dev-credit{
+  text-align:center;
+  padding:16px 0;
+  font-family:var(--font-ui);
+  font-size:12px;
+  color:var(--slate);
+}
+.dev-credit a{
+  color:var(--slate);
+  text-decoration:none;
+}
+.dev-credit a:hover{
+  color:var(--gold-ink);
+  text-decoration:underline;
+}
 </style>
 </head>
 <body>
@@ -298,6 +316,10 @@ body{
 
 <footer class="site-footer">
   برنامج أُفق التنموي — من تنفيذ جمعية صقيل لتنمية الشباب
+</footer>
+
+<footer class="dev-credit">
+  <a href="https://linktr.ee/devmohammad_sa" target="_blank" rel="noopener noreferrer">تطوير: محمد</a>
 </footer>
 
 </body>

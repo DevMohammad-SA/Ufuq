@@ -251,6 +251,28 @@ body{
   .mobile-more-overlay{display:none !important}
 }
 
+/* تذييل اعتماد المطوّر — في تدفق الصفحة الطبيعي أسفل المحتوى */
+.dev-credit{
+  text-align:center;
+  padding:16px 0;
+  font-family:var(--font-ui);
+  font-size:12px;
+  color:var(--slate);
+}
+.dev-credit a{
+  color:var(--slate);
+  text-decoration:none;
+}
+.dev-credit a:hover{
+  color:var(--gold-ink);
+  text-decoration:underline;
+}
+/* على الجوال (≤720px) يظهر شريط تنقل ثابت أسفل الشاشة؛ نُخفي هذا التذييل
+   الثانوي غير الوظيفي لتفادي الازدحام والتراكب معه */
+@media (max-width:720px){
+  .dev-credit{display:none}
+}
+
 {% block extra_style %}{% endblock %}
 </style>
 </head>
@@ -283,6 +305,10 @@ body{
 <div class="wrap">
   {% block content %}{% endblock %}
 </div>
+
+<footer class="dev-credit">
+  <a href="https://linktr.ee/devmohammad_sa" target="_blank" rel="noopener noreferrer">تطوير: محمد</a>
+</footer>
 
 <nav class="app-nav app-nav--bottom">
   <div class="app-nav__inner">
