@@ -35,6 +35,7 @@ DEBUG = env.bool("DEBUG", default=False)
 # via ALLOWED_HOSTS in .env.docker without editing this file. default=[]
 # keeps local `.env` behavior identical since it doesn't set this var.
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
 
 # TLS is terminated by Nginx in the Docker deployment; it proxies to Gunicorn
 # over plain HTTP and forwards the original scheme in `X-Forwarded-Proto`.
