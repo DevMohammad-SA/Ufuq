@@ -3,6 +3,27 @@
 <head>
 <meta charset="utf-8">
 <style>
+  /* Tajawal bundled locally (static/fonts/tajawal/, SIL OFL 1.1) so the PDF
+     renders in the site's brand font with zero network dependency at
+     generation time — WeasyPrint runs offline in the container. Three
+     weights cover every rule in this template: body 400, th 700,
+     .report-title 800. */
+  @font-face {
+    font-family: "Tajawal";
+    src: url("{% static 'fonts/tajawal/Tajawal-Regular.ttf' %}") format("truetype");
+    font-weight: 400;
+  }
+  @font-face {
+    font-family: "Tajawal";
+    src: url("{% static 'fonts/tajawal/Tajawal-Bold.ttf' %}") format("truetype");
+    font-weight: 700;
+  }
+  @font-face {
+    font-family: "Tajawal";
+    src: url("{% static 'fonts/tajawal/Tajawal-ExtraBold.ttf' %}") format("truetype");
+    font-weight: 800;
+  }
+
   @page {
     size: A4;
     /* Top/bottom margins keep the table clear of the printed letterhead's
