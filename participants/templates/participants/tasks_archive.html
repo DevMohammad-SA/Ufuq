@@ -57,6 +57,72 @@ table.roster tr:last-child td{border-bottom:none}
 
 .subtable-title{font-size:15px; font-weight:800; margin:var(--s3) 0 var(--s1)}
 
+/* فلتر البيئات متعدد الاختيار (نفس نمط participants_data.html) — يُطبَّق على كلا الجدولين معًا */
+.group-filter-bar{
+  margin-top:8px;
+  margin-bottom:var(--s2);
+}
+.group-filter-actions{
+  display:flex;
+  gap:12px;
+  margin-bottom:8px;
+}
+.group-filter-checkboxes{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+}
+.group-filter-item{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-family:var(--font-ui);
+  font-size:13px;
+  color:var(--asphalt);
+  background:var(--sand);
+  border:1px solid var(--line);
+  border-radius:99px;
+  padding:6px 12px;
+  cursor:pointer;
+}
+.group-filter-item input[type="checkbox"]{
+  width:16px;
+  height:16px;
+  cursor:pointer;
+  accent-color:var(--gold-ink);
+}
+.select-all{
+  background:none;
+  border:none;
+  padding:0;
+  font-family:var(--font-ui);
+  font-size:11px;
+  font-weight:600;
+  color:var(--gold-ink);
+  cursor:pointer;
+  text-decoration:underline;
+}
+
+/* أعمدة قابلة للفرز (نفس نمط participants_data.html) */
+th.sortable{
+  cursor:pointer;
+  user-select:none;
+  white-space:nowrap;
+}
+th.sortable:hover{color:var(--asphalt)}
+th.sortable .sort-arrow{
+  display:inline-block;
+  margin-inline-start:4px;
+  font-size:10px;
+  color:var(--line);
+  transition:color .12s;
+}
+th.sortable.sort-asc .sort-arrow,
+th.sortable.sort-desc .sort-arrow{color:var(--gold-ink)}
+th.sortable.sort-asc .sort-arrow:after{content:"▲"}
+th.sortable.sort-desc .sort-arrow:after{content:"▼"}
+th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
+
 /* معاينة الملف داخل نافذة منبثقة */
 .modal-overlay{
   position:fixed; inset:0; background:rgba(43,47,51,.7);
@@ -115,24 +181,43 @@ table.roster tr:last-child td{border-bottom:none}
           <p class="current-task-desc">{{ selected_task.description }}</p>
         </section>
 
+        {% if group_names|length > 1 %}
+          <div class="group-filter-bar">
+            <div class="group-filter-actions">
+              <button type="button" class="select-all" id="group-filter-all">تحديد الكل</button>
+              <button type="button" class="select-all" id="group-filter-none">إلغاء تحديد الكل</button>
+            </div>
+            <div class="group-filter-checkboxes">
+              {% for group_name in group_names %}
+                <label class="group-filter-item">
+                  <input type="checkbox" class="group-filter-checkbox" value="{{ group_name }}" checked>
+                  <span>{{ group_name }}</span>
+                </label>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+
         <section class="card">
           <h2 class="subtable-title" style="margin-top:0">من سلّم ({{ submitted|length }})</h2>
           {% if submitted %}
             <div class="table-scroll">
-              <table class="roster">
+              <table class="roster" id="submitted-table">
                 <thead>
                   <tr>
-                    <th>المشارك</th>
+                    <th class="sortable" data-sort="text" data-col="0">المشارك<span class="sort-arrow"></span></th>
+                    <th class="sortable" data-sort="text" data-col="1">البيئة<span class="sort-arrow"></span></th>
                     <th>رقم الهوية</th>
                     <th>الملف</th>
                     <th>الحالة</th>
                     <th>إعادة الفتح</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody id="submitted-body">
                   {% for submission in submitted %}
-                    <tr>
+                    <tr data-group="{{ submission.participant.group.name|default:'' }}">
                       <td>{{ submission.participant.user.full_name|default:"—" }}</td>
+                      <td>{{ submission.participant.group.name|default:"—" }}</td>
                       <td>{{ submission.participant.user.national_id|default:"—" }}</td>
                       <td>
                         <div class="file-actions">
@@ -178,17 +263,19 @@ table.roster tr:last-child td{border-bottom:none}
           <h2 class="subtable-title" style="margin-top:0">من لم يسلّم ({{ not_submitted|length }})</h2>
           {% if not_submitted %}
             <div class="table-scroll">
-              <table class="roster">
+              <table class="roster" id="not-submitted-table">
                 <thead>
                   <tr>
-                    <th>المشارك</th>
+                    <th class="sortable" data-sort="text" data-col="0">المشارك<span class="sort-arrow"></span></th>
+                    <th class="sortable" data-sort="text" data-col="1">البيئة<span class="sort-arrow"></span></th>
                     <th>رقم الهوية</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody id="not-submitted-body">
                   {% for participant in not_submitted %}
-                    <tr>
+                    <tr data-group="{{ participant.group.name|default:'' }}">
                       <td>{{ participant.user.full_name|default:"—" }}</td>
+                      <td>{{ participant.group.name|default:"—" }}</td>
                       <td>{{ participant.user.national_id|default:"—" }}</td>
                     </tr>
                   {% endfor %}
@@ -264,6 +351,106 @@ table.roster tr:last-child td{border-bottom:none}
   });
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && !modal.hidden) closePreview();
+  });
+})();
+</script>
+
+<script>
+(function () {
+  // فلتر البيئات متعدد الاختيار (يُطبَّق على جدولي "من سلّم" و"من لم يسلّم" معًا)
+  // + الفرز بالضغط على رأس العمود لكل جدول على حدة (نفس نمط participants_data.html)
+  var tables = Array.prototype.slice.call(document.querySelectorAll("#submitted-table, #not-submitted-table"));
+  if (!tables.length) return;
+
+  var groupCheckboxes = document.querySelectorAll(".group-filter-checkbox");
+  var selectAllBtn = document.getElementById("group-filter-all");
+  var selectNoneBtn = document.getElementById("group-filter-none");
+
+  function getSelectedGroups() {
+    var selected = [];
+    groupCheckboxes.forEach(function (cb) {
+      if (cb.checked) selected.push(cb.value);
+    });
+    return selected;
+  }
+
+  function applyFilters() {
+    var selectedGroups = getSelectedGroups();
+    var groupFilterActive = groupCheckboxes.length > 0;
+    tables.forEach(function (table) {
+      var tbody = table.querySelector("tbody");
+      if (!tbody) return;
+      Array.prototype.forEach.call(tbody.querySelectorAll("tr"), function (row) {
+        var matchesGroup = !groupFilterActive
+          || selectedGroups.indexOf(row.getAttribute("data-group") || "") !== -1;
+        row.hidden = !matchesGroup;
+      });
+    });
+  }
+
+  groupCheckboxes.forEach(function (cb) {
+    cb.addEventListener("change", applyFilters);
+  });
+
+  if (selectAllBtn) {
+    selectAllBtn.addEventListener("click", function () {
+      groupCheckboxes.forEach(function (cb) { cb.checked = true; });
+      applyFilters();
+    });
+  }
+
+  if (selectNoneBtn) {
+    selectNoneBtn.addEventListener("click", function () {
+      groupCheckboxes.forEach(function (cb) { cb.checked = false; });
+      applyFilters();
+    });
+  }
+
+  applyFilters();
+
+  function getCellValue(row, colIndex, type) {
+    var cell = row.children[colIndex];
+    var text = cell ? cell.textContent.trim() : "";
+    if (type === "number") {
+      var n = parseFloat(text.replace(/[^\d.-]/g, ""));
+      return isNaN(n) ? -Infinity : n;
+    }
+    return text.toLocaleLowerCase("ar");
+  }
+
+  // كل جدول يُفرز بشكل مستقل عن الآخر (حالة فرز منفصلة لكل جدول).
+  tables.forEach(function (table) {
+    var tbody = table.querySelector("tbody");
+    if (!tbody) return;
+    var currentSort = { col: null, dir: null };
+
+    table.querySelectorAll("th.sortable").forEach(function (header) {
+      header.addEventListener("click", function () {
+        var colIndex = parseInt(header.getAttribute("data-col"), 10);
+        var type = header.getAttribute("data-sort");
+
+        var dir = "asc";
+        if (currentSort.col === colIndex && currentSort.dir === "asc") {
+          dir = "desc";
+        }
+        currentSort = { col: colIndex, dir: dir };
+
+        table.querySelectorAll("th.sortable").forEach(function (h) {
+          h.classList.remove("sort-asc", "sort-desc");
+        });
+        header.classList.add(dir === "asc" ? "sort-asc" : "sort-desc");
+
+        var rows = Array.prototype.slice.call(tbody.querySelectorAll("tr"));
+        rows.sort(function (a, b) {
+          var va = getCellValue(a, colIndex, type);
+          var vb = getCellValue(b, colIndex, type);
+          if (va < vb) return dir === "asc" ? -1 : 1;
+          if (va > vb) return dir === "asc" ? 1 : -1;
+          return 0;
+        });
+        rows.forEach(function (row) { tbody.appendChild(row); });
+      });
+    });
   });
 })();
 </script>

@@ -1395,10 +1395,17 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
         context.setdefault("create_form", WeeklyTaskForm())
         if current_task:
             context["submissions"] = current_task.submissions.select_related(
-                "participant__user"
+                "participant__user", "participant__group"
             ).order_by("-submitted_at")
         else:
             context["submissions"] = TaskSubmission.objects.none()
+        context["group_names"] = sorted(
+            {
+                submission.participant.group.name
+                for submission in context["submissions"]
+                if submission.participant.group
+            }
+        )
         context["navbar_items"] = build_navbar(self.request.user, "tasks")
         return context
 
@@ -1543,6 +1550,7 @@ class TasksArchiveView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
         selected_task = None
         submitted = []
         not_submitted = []
+        group_names = []
 
         if selected_task_id:
             selected_task = WeeklyTask.objects.filter(id=selected_task_id).first()
@@ -1552,9 +1560,11 @@ class TasksArchiveView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
                 s.participant_id: s
                 for s in TaskSubmission.objects.filter(
                     task=selected_task
-                ).select_related("participant__user")
+                ).select_related("participant__user", "participant__group")
             }
-            all_participants = Participant.objects.select_related("user").all()
+            all_participants = Participant.objects.select_related(
+                "user", "group"
+            ).all()
 
             for p in all_participants:
                 if p.id in submissions_by_participant:
@@ -1562,9 +1572,17 @@ class TasksArchiveView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
                 else:
                     not_submitted.append(p)
 
+            # Union of environment names across both tables (every
+            # participant above appears in exactly one of them), for the
+            # shared client-side environment filter.
+            group_names = sorted(
+                {p.group.name for p in all_participants if p.group}
+            )
+
         context["selected_task"] = selected_task
         context["submitted"] = submitted
         context["not_submitted"] = not_submitted
+        context["group_names"] = group_names
         context["navbar_items"] = build_navbar(self.request.user, "tasks_archive")
         return context
 
@@ -1685,9 +1703,9 @@ class StoreManagementView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
         context = super().get_context_data(**kwargs)
         context["pending_orders"] = StoreOrder.objects.filter(
             status=StoreOrder.Status.PENDING
-        ).select_related("participant__user", "product")
+        ).select_related("participant__user", "participant__group", "product")
         context["all_orders"] = StoreOrder.objects.all().select_related(
-            "participant__user", "product"
+            "participant__user", "participant__group", "product"
         )
 
         # Product management section (added on top of the orders view). The

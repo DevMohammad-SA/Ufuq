@@ -109,6 +109,72 @@ th{color:var(--slate); font-weight:600; font-size:12px}
 .file-link{color:var(--gold-ink); font-weight:600; text-decoration:none}
 .file-link:hover{text-decoration:underline}
 
+/* فلتر البيئات متعدد الاختيار (نفس نمط participants_data.html) */
+.group-filter-bar{
+  margin-top:8px;
+  margin-bottom:var(--s2);
+}
+.group-filter-actions{
+  display:flex;
+  gap:12px;
+  margin-bottom:8px;
+}
+.group-filter-checkboxes{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+}
+.group-filter-item{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-family:var(--font-ui);
+  font-size:13px;
+  color:var(--asphalt);
+  background:var(--sand);
+  border:1px solid var(--line);
+  border-radius:99px;
+  padding:6px 12px;
+  cursor:pointer;
+}
+.group-filter-item input[type="checkbox"]{
+  width:16px;
+  height:16px;
+  cursor:pointer;
+  accent-color:var(--gold-ink);
+}
+.select-all{
+  background:none;
+  border:none;
+  padding:0;
+  font-family:var(--font-ui);
+  font-size:11px;
+  font-weight:600;
+  color:var(--gold-ink);
+  cursor:pointer;
+  text-decoration:underline;
+}
+
+/* أعمدة قابلة للفرز (نفس نمط participants_data.html) */
+th.sortable{
+  cursor:pointer;
+  user-select:none;
+  white-space:nowrap;
+}
+th.sortable:hover{color:var(--asphalt)}
+th.sortable .sort-arrow{
+  display:inline-block;
+  margin-inline-start:4px;
+  font-size:10px;
+  color:var(--line);
+  transition:color .12s;
+}
+th.sortable.sort-asc .sort-arrow,
+th.sortable.sort-desc .sort-arrow{color:var(--gold-ink)}
+th.sortable.sort-asc .sort-arrow:after{content:"▲"}
+th.sortable.sort-desc .sort-arrow:after{content:"▼"}
+th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
+
 .file-actions{display:flex; gap:8px; align-items:center}
 .btn-inline{
   border:1.5px solid var(--line);
@@ -227,21 +293,39 @@ th{color:var(--slate); font-weight:600; font-size:12px}
   <section class="card">
     <h2>التسليمات</h2>
     {% if submissions %}
+      {% if group_names|length > 1 %}
+        <div class="group-filter-bar">
+          <div class="group-filter-actions">
+            <button type="button" class="select-all" id="group-filter-all">تحديد الكل</button>
+            <button type="button" class="select-all" id="group-filter-none">إلغاء تحديد الكل</button>
+          </div>
+          <div class="group-filter-checkboxes">
+            {% for group_name in group_names %}
+              <label class="group-filter-item">
+                <input type="checkbox" class="group-filter-checkbox" value="{{ group_name }}" checked>
+                <span>{{ group_name }}</span>
+              </label>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
       <div class="table-scroll">
-        <table>
+        <table id="submissions-table">
           <thead>
             <tr>
-              <th>المشارك</th>
+              <th class="sortable" data-sort="text" data-col="0">المشارك<span class="sort-arrow"></span></th>
+              <th class="sortable" data-sort="text" data-col="1">البيئة<span class="sort-arrow"></span></th>
               <th>تاريخ الرفع</th>
               <th>الملف</th>
               <th>الحالة</th>
               <th>إجراء</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody id="submissions-body">
             {% for submission in submissions %}
-              <tr>
+              <tr data-group="{{ submission.participant.group.name|default:'' }}">
                 <td>{{ submission.participant.user.full_name }}</td>
+                <td>{{ submission.participant.group.name|default:"—" }}</td>
                 <td>{{ submission.submitted_at }}</td>
                 <td>
                   <div class="file-actions">
@@ -351,6 +435,96 @@ th{color:var(--slate); font-weight:600; font-size:12px}
   });
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && !modal.hidden) closePreview();
+  });
+})();
+</script>
+
+<script>
+(function () {
+  // فلتر البيئات متعدد الاختيار + الفرز بالضغط على رأس العمود لجدول التسليمات
+  // (نفس نمط participants_data.html، معزول بـ IIFE خاص به)
+  var table = document.getElementById("submissions-table");
+  var tbody = document.getElementById("submissions-body");
+  if (!table || !tbody) return;
+
+  var groupCheckboxes = document.querySelectorAll(".group-filter-checkbox");
+  var selectAllBtn = document.getElementById("group-filter-all");
+  var selectNoneBtn = document.getElementById("group-filter-none");
+
+  function getSelectedGroups() {
+    var selected = [];
+    groupCheckboxes.forEach(function (cb) {
+      if (cb.checked) selected.push(cb.value);
+    });
+    return selected;
+  }
+
+  function applyFilters() {
+    var selectedGroups = getSelectedGroups();
+    var groupFilterActive = groupCheckboxes.length > 0;
+    Array.prototype.forEach.call(tbody.querySelectorAll("tr"), function (row) {
+      var matchesGroup = !groupFilterActive
+        || selectedGroups.indexOf(row.getAttribute("data-group") || "") !== -1;
+      row.hidden = !matchesGroup;
+    });
+  }
+
+  groupCheckboxes.forEach(function (cb) {
+    cb.addEventListener("change", applyFilters);
+  });
+
+  if (selectAllBtn) {
+    selectAllBtn.addEventListener("click", function () {
+      groupCheckboxes.forEach(function (cb) { cb.checked = true; });
+      applyFilters();
+    });
+  }
+
+  if (selectNoneBtn) {
+    selectNoneBtn.addEventListener("click", function () {
+      groupCheckboxes.forEach(function (cb) { cb.checked = false; });
+      applyFilters();
+    });
+  }
+
+  var currentSort = { col: null, dir: null };
+
+  function getCellValue(row, colIndex, type) {
+    var cell = row.children[colIndex];
+    var text = cell ? cell.textContent.trim() : "";
+    if (type === "number") {
+      var n = parseFloat(text.replace(/[^\d.-]/g, ""));
+      return isNaN(n) ? -Infinity : n;
+    }
+    return text.toLocaleLowerCase("ar");
+  }
+
+  table.querySelectorAll("th.sortable").forEach(function (header) {
+    header.addEventListener("click", function () {
+      var colIndex = parseInt(header.getAttribute("data-col"), 10);
+      var type = header.getAttribute("data-sort");
+
+      var dir = "asc";
+      if (currentSort.col === colIndex && currentSort.dir === "asc") {
+        dir = "desc";
+      }
+      currentSort = { col: colIndex, dir: dir };
+
+      table.querySelectorAll("th.sortable").forEach(function (h) {
+        h.classList.remove("sort-asc", "sort-desc");
+      });
+      header.classList.add(dir === "asc" ? "sort-asc" : "sort-desc");
+
+      var rows = Array.prototype.slice.call(tbody.querySelectorAll("tr"));
+      rows.sort(function (a, b) {
+        var va = getCellValue(a, colIndex, type);
+        var vb = getCellValue(b, colIndex, type);
+        if (va < vb) return dir === "asc" ? -1 : 1;
+        if (va > vb) return dir === "asc" ? 1 : -1;
+        return 0;
+      });
+      rows.forEach(function (row) { tbody.appendChild(row); });
+    });
   });
 })();
 </script>
