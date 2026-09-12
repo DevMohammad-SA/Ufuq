@@ -1,0 +1,144 @@
+{% extends "participants/app_base.html" %}
+{% load static %}
+
+{% block title %}إضافة طالب — رحّال{% endblock %}
+
+{% block extra_style %}
+.field{margin-bottom:var(--s2)}
+.field label{
+  display:block;
+  font-family:var(--font-ui);
+  font-size:13px;
+  font-weight:600;
+  color:var(--asphalt);
+  margin-bottom:6px;
+}
+.field select,
+.field input[type="text"],
+.field textarea{
+  width:100%;
+  border:1.5px solid var(--line);
+  border-radius:var(--r-sm);
+  padding:10px 12px;
+  font-family:var(--font-ui);
+  font-size:14px;
+  color:var(--asphalt);
+  background:var(--sand);
+}
+.field select:disabled{color:var(--slate); background:var(--line)}
+/* Native <select>/<option> elements don't reliably inherit dir="rtl" from
+   an ancestor in every browser — Chromium in particular can still lay the
+   option text out as if LTR, clipping the start of the label behind the
+   dropdown arrow. Set direction explicitly rather than relying on
+   inheritance; unicode-bidi:plaintext lets any digits inside the label
+   (e.g. an id number) keep their own left-to-right run without flipping
+   the surrounding Arabic text's direction. */
+.field select,
+.field select option{
+  direction:rtl;
+  text-align:right;
+  unicode-bidi:plaintext;
+}
+.field .hint{
+  font-family:var(--font-ui);
+  font-size:12px;
+  color:var(--slate);
+  margin-top:4px;
+}
+.field .errors{
+  font-family:var(--font-ui);
+  font-size:12px;
+  color:var(--alert);
+  margin-top:4px;
+}
+
+.btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  border:none;
+  cursor:pointer;
+  background:var(--asphalt);
+  color:#fff;
+  font-family:var(--font-display);
+  font-weight:700;
+  font-size:15px;
+  padding:12px 18px;
+  border-radius:99px;
+  margin-top:var(--s2);
+  text-decoration:none;
+}
+.btn:hover{background:#1f2225}
+.btn-block{width:100%}
+
+.page-message{
+  font-family:var(--font-ui);
+  font-size:14px;
+  border-radius:var(--r-sm);
+  padding:12px 14px;
+  margin-bottom:var(--s2);
+}
+.page-message--success{background:#E4EFE5; color:var(--done); border:1px solid var(--done)}
+.page-message--error{background:#FBEEEA; color:var(--alert); border:1px solid var(--alert)}
+{% endblock %}
+
+{% block content %}
+  <h1 class="page-title">إضافة طالب جديد</h1>
+  <p class="page-sub">
+    إضافة مشارك واحد ببياناته الأساسية. كلمة المرور الأولية هي رقم الهوية، وسيُطلب من الطالب تغييرها عند أول تسجيل دخول.
+  </p>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="page-message page-message--{{ message.tags }}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+
+  <section class="card">
+    <form method="post">
+      {% csrf_token %}
+
+      <div class="field">
+        <label for="id_full_name">{{ form.full_name.label }}</label>
+        {{ form.full_name }}
+        {% if form.full_name.errors %}<div class="errors">{{ form.full_name.errors|join:"، " }}</div>{% endif %}
+      </div>
+
+      <div class="field">
+        <label for="id_national_id">{{ form.national_id.label }}</label>
+        {{ form.national_id }}
+        {% if form.national_id.errors %}<div class="errors">{{ form.national_id.errors|join:"، " }}</div>{% endif %}
+      </div>
+
+      <div class="field">
+        <label for="id_group">{{ form.group.label }}</label>
+        {{ form.group }}
+        {% if form.fields.group.disabled %}
+          <div class="hint">أنت مقيّد ببيئتك الحالية، لا يمكنك اختيار بيئة أخرى.</div>
+        {% endif %}
+        {% if form.group.errors %}<div class="errors">{{ form.group.errors|join:"، " }}</div>{% endif %}
+      </div>
+
+      <div class="field">
+        <label for="id_academic_stage">{{ form.academic_stage.label }}</label>
+        {{ form.academic_stage }}
+        {% if form.academic_stage.errors %}<div class="errors">{{ form.academic_stage.errors|join:"، " }}</div>{% endif %}
+      </div>
+
+      <div class="field">
+        <label for="id_phone">{{ form.phone.label }}</label>
+        {{ form.phone }}
+        {% if form.phone.errors %}<div class="errors">{{ form.phone.errors|join:"، " }}</div>{% endif %}
+      </div>
+
+      <div class="field">
+        <label for="id_guardian_phone">{{ form.guardian_phone.label }}</label>
+        {{ form.guardian_phone }}
+        {% if form.guardian_phone.errors %}<div class="errors">{{ form.guardian_phone.errors|join:"، " }}</div>{% endif %}
+      </div>
+
+      <button type="submit" class="btn btn-block">إضافة الطالب</button>
+    </form>
+  </section>
+{% endblock %}

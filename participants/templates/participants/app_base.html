@@ -413,7 +413,7 @@ body{
           </button>
           <div class="app-nav__dropdown-menu" id="navStudentsMenu" hidden>
             {% for item in navbar_items %}
-              {% if item.label == "الاستيراد" or item.label == "بيانات المشاركين" or item.label == "الحلقة القرآنية" %}
+              {% if item.label == "الاستيراد" or item.label == "بيانات المشاركين" or item.label == "الحلقة القرآنية" or item.label == "إضافة طالب" %}
                 <a href="{{ item.url }}" class="app-nav__dropdown-item{% if item.active %} is-active{% endif %}">
                   <span class="app-nav__icon">{{ item.icon|safe }}</span><span>{{ item.label }}</span>
                   {% if item.badge_count > 0 %}<span class="app-nav__badge">{{ item.badge_count }}</span>{% endif %}

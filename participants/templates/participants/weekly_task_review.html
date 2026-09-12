@@ -105,6 +105,23 @@ th{color:var(--slate); font-weight:600; font-size:12px}
 
 .review-actions{display:flex; gap:8px}
 .review-actions form{display:inline}
+.reject-form{display:flex !important; gap:6px; align-items:center}
+.reject-reason-input{
+  border:1.5px solid var(--line);
+  border-radius:var(--r-sm);
+  padding:6px 10px;
+  font-family:var(--font-ui);
+  font-size:13px;
+  color:var(--asphalt);
+  background:var(--sand);
+  width:140px;
+}
+.rejection-note{
+  font-family:var(--font-ui);
+  font-size:12px;
+  color:var(--slate);
+  margin:4px 0 0;
+}
 
 .file-link{color:var(--gold-ink); font-weight:600; text-decoration:none}
 .file-link:hover{text-decoration:underline}
@@ -342,6 +359,9 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
                     <span class="status-pill status-accepted">مقبولة</span>
                   {% else %}
                     <span class="status-pill status-rejected">مرفوضة</span>
+                    {% if submission.rejection_reason %}
+                      <p class="rejection-note">السبب: {{ submission.rejection_reason }}</p>
+                    {% endif %}
                   {% endif %}
                 </td>
                 <td>
@@ -353,10 +373,11 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
                         <input type="hidden" name="submission_id" value="{{ submission.id }}">
                         <button type="submit" class="btn btn-accept btn-sm">قبول</button>
                       </form>
-                      <form method="post">
+                      <form method="post" class="reject-form">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="reject">
                         <input type="hidden" name="submission_id" value="{{ submission.id }}">
+                        <input type="text" name="rejection_reason" placeholder="سبب الرفض (اختياري)" class="reject-reason-input">
                         <button type="submit" class="btn btn-reject btn-sm">رفض</button>
                       </form>
                     </div>

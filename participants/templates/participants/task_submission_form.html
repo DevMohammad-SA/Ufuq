@@ -70,6 +70,12 @@
 .status-pending{background:var(--gold-soft); color:var(--gold-ink)}
 .status-accepted{background:#E4EFE5; color:var(--done)}
 .status-rejected{background:#FBEEEA; color:var(--alert)}
+.rejection-note{
+  font-family:var(--font-ui);
+  font-size:13px;
+  color:var(--slate);
+  margin:6px 0 0;
+}
 
 .warn-note{
   background:#FBEEEA;
@@ -109,6 +115,9 @@
         <span class="status-pill status-accepted">مقبولة ✅</span>
       {% else %}
         <span class="status-pill status-rejected">مرفوضة ❌</span>
+        {% if existing_submission.rejection_reason %}
+          <p class="rejection-note">السبب: {{ existing_submission.rejection_reason }}</p>
+        {% endif %}
       {% endif %}
 
     {% elif not existing_submission and task.is_past_due %}

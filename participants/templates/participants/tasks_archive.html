@@ -31,6 +31,7 @@ table.roster tr:last-child td{border-bottom:none}
 .status-pending{background:var(--gold-soft); color:var(--gold-ink)}
 .status-accepted{background:#E4EFE5; color:var(--done)}
 .status-rejected{background:#FBEEEA; color:var(--alert)}
+.rejection-note{font-family:var(--font-ui); font-size:12px; color:var(--slate); margin:4px 0 0}
 
 .file-link{color:var(--gold-ink); font-weight:600; text-decoration:none}
 .file-link:hover{text-decoration:underline}
@@ -245,6 +246,9 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
                           <span class="status-pill status-accepted">مقبولة</span>
                         {% else %}
                           <span class="status-pill status-rejected">مرفوضة</span>
+                          {% if submission.rejection_reason %}
+                            <p class="rejection-note">السبب: {{ submission.rejection_reason }}</p>
+                          {% endif %}
                         {% endif %}
                       </td>
                       <td class="reopen-cell">

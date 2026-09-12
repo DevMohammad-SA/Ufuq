@@ -274,6 +274,11 @@ class TaskSubmission(models.Model):
         default=Status.PENDING,
         verbose_name="الحالة",
     )
+    rejection_reason = models.TextField(
+        blank=True,
+        verbose_name="سبب الرفض",
+        help_text="يظهر للمشارك عند رفض تسليمه",
+    )
     reopened_for_resubmission = models.BooleanField(
         default=False,
         verbose_name="أُتيح للتسليم مجددًا",
