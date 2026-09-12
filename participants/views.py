@@ -241,9 +241,9 @@ def quran_circle_points(attended, achieved):
 
 
 def meeting_attendance_points(attended, is_early):
-    if not attended:
-        return 0
-    points = MEETING_FULL_POINTS
+    points = 0
+    if attended:
+        points += MEETING_FULL_POINTS
     if is_early:
         points += MEETING_EARLY_BONUS_POINTS
     return points

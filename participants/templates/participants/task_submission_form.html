@@ -80,6 +80,17 @@
   font-size:13px;
   color:var(--alert);
 }
+
+.info-note{
+  background:var(--gold-soft);
+  border:1px solid var(--gold-ink);
+  border-radius:var(--r-sm);
+  padding:12px 14px;
+  font-family:var(--font-ui);
+  font-size:13px;
+  color:var(--gold-ink);
+  margin-bottom:var(--s2);
+}
 {% endblock %}
 
 {% block content %}
@@ -89,7 +100,7 @@
     {% if not task %}
       <p class="empty-note">لا توجد مهمة نشطة حاليًا.</p>
 
-    {% elif existing_submission %}
+    {% elif existing_submission and not existing_submission.reopened_for_resubmission %}
       <h2>{{ task.title }}</h2>
       <p>تم رفع ملفك لهذه المهمة بتاريخ {{ existing_submission.submitted_at }}.</p>
       {% if existing_submission.status == "pending" %}
@@ -100,12 +111,15 @@
         <span class="status-pill status-rejected">مرفوضة</span>
       {% endif %}
 
-    {% elif task.is_past_due %}
+    {% elif not existing_submission and task.is_past_due %}
       <h2>{{ task.title }}</h2>
       <div class="warn-note">انتهى موعد تسليم هذه المهمة.</div>
 
     {% else %}
       <h2>{{ task.title }}</h2>
+      {% if existing_submission and existing_submission.reopened_for_resubmission %}
+        <div class="info-note">تمت إتاحة تسليم هذه المهمة لك مجددًا من قِبل المشرف. يمكنك رفع ملف جديد الآن.</div>
+      {% endif %}
       <p>{{ task.description }}</p>
       <div class="task-meta">
         موعد التسليم: <b>{{ task.due_date }}</b>
