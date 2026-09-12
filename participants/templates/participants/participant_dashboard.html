@@ -162,35 +162,32 @@
 {% endblock %}
 
 {% block content %}
-  <h1 class="page-title">هلا، {{ participant.user.full_name|default:"رحّالنا" }}</h1>
+  <h1 class="page-title">هلا، {{ participant.user.full_name|default:"رحّالنا" }} 👋</h1>
 
   <div class="currency-grid">
     <div class="currency-card miles">
-      <div class="label">الأميال (دائمة)</div>
+      <div class="label">الأميال</div>
       <div class="value">{{ participant.miles|default:0 }}</div>
-      <div class="hint">أساس ترشيح رحلة النخبة</div>
     </div>
     <div class="currency-card points">
-      <div class="label">النقاط (تُصفَّر دوريًا)</div>
+      <div class="label">النقاط</div>
       <div class="value">{{ participant.points|default:0 }}</div>
-      <div class="hint">تحدد ترتيبك الحالي</div>
     </div>
     <div class="currency-card purchase">
       <div class="label">النقاط الشرائية</div>
       <div class="value">{{ participant.purchase_points|default:0 }}</div>
-      <div class="hint">تُصرف في المتجر</div>
     </div>
   </div>
 
   {% if elite_status %}
     <section class="elite-card elite-{{ elite_status.eliteStatus }}">
-      <div class="label">مؤشر رحلة النخبة</div>
+      <div class="label">مؤشر رحلة النخبة 🧭</div>
       <div class="elite-message">{{ elite_status.message }}</div>
     </section>
   {% endif %}
 
   <section class="progress-section">
-    <h2 class="section-title">مقارنة الأميال على مستوى البرنامج</h2>
+    <h2 class="section-title">مقارنة الأميال على مستوى البرنامج 📈</h2>
     {% if program_range %}
       <div class="range-track">
         <div class="fill" style="width:100%"></div>
@@ -200,14 +197,14 @@
         <span>الأقل أميالًا<br><b>{{ program_range.min_miles }}</b></span>
         <span style="text-align:left">الأعلى أميالًا<br><b>{{ program_range.max_miles }}</b></span>
       </div>
-      <p class="range-note">موقعك بين كل مشاركي البرنامج</p>
+      <p class="range-note">هذا موقعك بين كل مشاركي البرنامج 📍</p>
     {% else %}
-      <p class="empty-note">ما فيه بيانات كافية لعرض مقارنة البرنامج حاليًا.</p>
+      <p class="empty-note">ما فيه بيانات كافية لعرض مقارنة البرنامج حاليًا 🤷</p>
     {% endif %}
   </section>
 
   <section class="progress-section">
-    <h2 class="section-title">سجل نقاطك</h2>
+    <h2 class="section-title">سجل نقاطك 🧾</h2>
     {% if points_ledger %}
       <div class="ledger-list">
         {% for entry in points_ledger %}
@@ -215,9 +212,9 @@
             <div>
               <div class="ledger-text">
                 {% if entry.points_delta > 0 %}
-                  أضيفت لك {{ entry.points_delta }} نقطة بسبب: {{ entry.description }}
+                  انضافت لك {{ entry.points_delta }} نقطة عشان {{ entry.description }} ✅
                 {% else %}
-                  خُصمت منك {{ entry.points_delta|cut:"-" }} نقطة بسبب: {{ entry.description }}
+                  انخصمت منك {{ entry.points_delta|cut:"-" }} نقطة عشان {{ entry.description }} ⚠️
                 {% endif %}
               </div>
               <div class="ledger-date">{{ entry.created_at|date:"Y-m-d H:i" }}</div>
@@ -229,7 +226,7 @@
         {% endfor %}
       </div>
     {% else %}
-      <p class="empty-note">لسه ما في شي بسجلك — أول نقطة تجيك بتظهر هنا!</p>
+      <p class="empty-note">لسه ما فيه شي بسجلك — أول نقطة تجيك بتظهر هنا! 🎉</p>
     {% endif %}
   </section>
 {% endblock %}

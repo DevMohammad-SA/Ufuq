@@ -1690,18 +1690,18 @@ class StoreView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
         product = StoreProduct.objects.filter(id=product_id).first()
 
         if product is None:
-            messages.error(request, "المنتج المطلوب غير موجود.")
+            messages.error(request, "المنتج مو موجود 🤔")
             return redirect("participants:store")
 
         # Server-side enforcement — never trust the disabled-button UI hint.
         if product.stock <= 0:
-            messages.error(request, f'نفد مخزون "{product.name}"، لا يمكن إتمام الطلب.')
+            messages.error(request, f'خلص المخزون من "{product.name}" 😥')
             return redirect("participants:store")
 
         if participant.purchase_points < product.price:
             messages.error(
                 request,
-                f'رصيدك من النقاط الشرائية لا يكفي لطلب "{product.name}".',
+                f'رصيدك ما يكفي لطلب "{product.name}" 💰',
             )
             return redirect("participants:store")
 
@@ -1713,7 +1713,7 @@ class StoreView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
             if product.stock <= 0:
                 messages.error(
                     request,
-                    f'نفد مخزون "{product.name}" للتو، لا يمكن إتمام الطلب.',
+                    f'خلص المخزون من "{product.name}" 😥',
                 )
                 return redirect("participants:store")
 
@@ -1723,7 +1723,7 @@ class StoreView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
             if participant.purchase_points < product.price:
                 messages.error(
                     request,
-                    f'رصيدك من النقاط الشرائية لا يكفي لطلب "{product.name}".',
+                    f'رصيدك ما يكفي لطلب "{product.name}" 💰',
                 )
                 return redirect("participants:store")
 
@@ -1743,7 +1743,7 @@ class StoreView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
 
         messages.success(
             request,
-            f'تم طلب "{product.name}" بنجاح! يمكنك متابعة حالته من تبويب "طلباتي".',
+            f'تمّ طلبك "{product.name}" ✅ تقدر تتابعه من تبويب "طلباتي"',
         )
         return redirect("participants:store")
 

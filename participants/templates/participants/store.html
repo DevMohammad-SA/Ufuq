@@ -94,8 +94,8 @@ table.roster tr:last-child td{border-bottom:none}
 {% endblock %}
 
 {% block content %}
-  <h1 class="page-title">المتجر</h1>
-  <p class="page-sub">استبدل نقاطك الشرائية بمنتجات المتجر، وتابع حالة طلباتك.</p>
+  <h1 class="page-title">المتجر 🛍️</h1>
+  <p class="page-sub">بدّل نقاطك الشرائية بمنتجات المتجر، وتابع حالة طلباتك من هنا 🛒</p>
 
   {% if messages %}
     {% for message in messages %}
@@ -106,7 +106,7 @@ table.roster tr:last-child td{border-bottom:none}
   {% endif %}
 
   <div class="balance-bar">
-    رصيدك من النقاط الشرائية: <b>{{ participant.purchase_points }}</b>
+    رصيدك من النقاط الشرائية: <b>{{ participant.purchase_points }}</b> 💰
   </div>
 
   <div class="tabs">
@@ -141,7 +141,7 @@ table.roster tr:last-child td{border-bottom:none}
                 </button>
               </form>
               {% if participant.purchase_points < product.price %}
-                <div class="order-hint">رصيدك من النقاط الشرائية لا يكفي لطلب هذا المنتج</div>
+                <div class="order-hint">رصيدك ما يكفي لطلب هذا المنتج 💰</div>
               {% endif %}
             </div>
           </div>
@@ -149,7 +149,7 @@ table.roster tr:last-child td{border-bottom:none}
       </div>
     {% else %}
       <section class="card">
-        <p class="empty-note">لا توجد منتجات متاحة حاليًا.</p>
+        <p class="empty-note">ما فيه منتجات متوفرة حاليًا 🛒</p>
       </section>
     {% endif %}
   </section>
@@ -189,7 +189,7 @@ table.roster tr:last-child td{border-bottom:none}
           </table>
         </div>
       {% else %}
-        <p class="empty-note">لم تطلب أي منتج بعد.</p>
+        <p class="empty-note">ما طلبت أي منتج بعد 🛍️</p>
       {% endif %}
     </section>
   </section>
