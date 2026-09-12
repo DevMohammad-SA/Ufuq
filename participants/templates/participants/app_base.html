@@ -127,6 +127,49 @@ body{
 .app-nav--top .app-nav__link.is-active{color:var(--gold-ink);background:var(--gold-soft)}
 .app-nav__logout{margin:0}
 
+/* أزرار التصنيف بقوائم منسدلة مستقلة — سطح المكتب */
+.app-nav__dropdown{position:relative}
+.app-nav__dropdown-toggle{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  background:none;
+  border:none;
+  font-family:inherit;
+  cursor:pointer;
+}
+.app-nav__dropdown-menu{
+  position:absolute;
+  top:100%;
+  right:0;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:var(--r-sm);
+  box-shadow:var(--shadow);
+  min-width:220px;
+  padding:6px;
+  z-index:50;
+}
+.app-nav__dropdown-menu[hidden]{display:none}
+.app-nav__dropdown-item{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 12px;
+  border-radius:var(--r-sm);
+  text-decoration:none;
+  color:var(--asphalt);
+  font-family:var(--font-ui);
+  font-size:14px;
+  white-space:nowrap;
+}
+.app-nav__dropdown-item:hover,
+.app-nav__dropdown-item.is-active{background:var(--sand);color:var(--gold-ink)}
+
+@media (max-width:720px){
+  .app-nav__dropdown-menu{display:none !important}
+}
+
 /* شريط سفلي ثابت — الجوال */
 .app-nav--bottom{
   display:none;
@@ -285,12 +328,105 @@ body{
       <span class="wordmark">رحّال</span>
     </div>
     <div class="app-nav__links">
-      {% for item in navbar_items %}
+      {% for item in navbar_items|slice:":1" %}
         <a href="{{ item.url }}" class="app-nav__link{% if item.active %} is-active{% endif %}">
           <span class="app-nav__icon">{{ item.icon|safe }}</span>
           <span class="app-nav__label">{{ item.label }}</span>
         </a>
       {% endfor %}
+
+      {% comment %}
+        Per-category buttons (desktop navbar only). Category membership is
+        matched by item.label text — there is no "group" field on
+        navbar_items itself (build_navbar() is untouched). The three roles
+        have distinct, non-overlapping item counts (participant=3,
+        group_supervisor=6, general_supervisor/superadmin=10), so branching
+        on navbar_items|length reliably tells them apart without checking
+        request.user.role directly. This is label/count-based and would
+        need revisiting if build_navbar()'s entries per role ever change.
+      {% endcomment %}
+      {% if navbar_items|length == 3 %}
+        {% comment %}Participant: 3 fully independent items — plain links, no dropdowns.{% endcomment %}
+        {% for item in navbar_items|slice:"1:" %}
+          <a href="{{ item.url }}" class="app-nav__link{% if item.active %} is-active{% endif %}">
+            <span class="app-nav__icon">{{ item.icon|safe }}</span>
+            <span class="app-nav__label">{{ item.label }}</span>
+          </a>
+        {% endfor %}
+      {% else %}
+        {% if navbar_items|length > 6 %}
+          {% comment %}General supervisor / superadmin only: "المهام" (2 items) and "المتجر" (1 item, direct link).{% endcomment %}
+          <div class="app-nav__dropdown">
+            <button type="button" class="app-nav__link app-nav__dropdown-toggle" id="navTasksBtn"
+                    aria-haspopup="true" aria-expanded="false" aria-controls="navTasksMenu">
+              <span class="app-nav__label">المهام</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="app-nav__dropdown-menu" id="navTasksMenu" hidden>
+              {% for item in navbar_items %}
+                {% if item.label == "المهام" or item.label == "أرشيف المهام" %}
+                  <a href="{{ item.url }}" class="app-nav__dropdown-item{% if item.active %} is-active{% endif %}">
+                    <span class="app-nav__icon">{{ item.icon|safe }}</span><span>{{ item.label }}</span>
+                  </a>
+                {% endif %}
+              {% endfor %}
+            </div>
+          </div>
+          {% for item in navbar_items %}
+            {% if item.label == "طلبات المتجر" %}
+              <a href="{{ item.url }}" class="app-nav__link{% if item.active %} is-active{% endif %}">
+                <span class="app-nav__icon">{{ item.icon|safe }}</span>
+                <span class="app-nav__label">{{ item.label }}</span>
+              </a>
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+
+        {% comment %}Shared by group_supervisor and general_supervisor/superadmin.{% endcomment %}
+        <div class="app-nav__dropdown">
+          <button type="button" class="app-nav__link app-nav__dropdown-toggle" id="navStudentsBtn"
+                  aria-haspopup="true" aria-expanded="false" aria-controls="navStudentsMenu">
+            <span class="app-nav__label">الطلاب</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="app-nav__dropdown-menu" id="navStudentsMenu" hidden>
+            {% for item in navbar_items %}
+              {% if item.label == "الاستيراد" or item.label == "بيانات المشاركين" or item.label == "الحلقة القرآنية" %}
+                <a href="{{ item.url }}" class="app-nav__dropdown-item{% if item.active %} is-active{% endif %}">
+                  <span class="app-nav__icon">{{ item.icon|safe }}</span><span>{{ item.label }}</span>
+                </a>
+              {% endif %}
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="app-nav__dropdown">
+          <button type="button" class="app-nav__link app-nav__dropdown-toggle" id="navPointsBtn"
+                  aria-haspopup="true" aria-expanded="false" aria-controls="navPointsMenu">
+            <span class="app-nav__label">النقاط</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="app-nav__dropdown-menu" id="navPointsMenu" hidden>
+            {% for item in navbar_items %}
+              {% if item.label == "نقاط إضافية" or item.label == "سجل النقاط" %}
+                <a href="{{ item.url }}" class="app-nav__dropdown-item{% if item.active %} is-active{% endif %}">
+                  <span class="app-nav__icon">{{ item.icon|safe }}</span><span>{{ item.label }}</span>
+                </a>
+              {% endif %}
+            {% endfor %}
+          </div>
+        </div>
+
+        {% for item in navbar_items %}
+          {% if item.label == "تغيير كلمة المرور" %}
+            <a href="{{ item.url }}" class="app-nav__link{% if item.active %} is-active{% endif %}">
+              <span class="app-nav__icon">{{ item.icon|safe }}</span>
+              <span class="app-nav__label">{{ item.label }}</span>
+            </a>
+          {% endif %}
+        {% endfor %}
+      {% endif %}
+
       <form class="app-nav__logout" method="post" action="{% url 'accounts:logout' %}">
         {% csrf_token %}
         <button type="submit">
@@ -395,6 +531,44 @@ body{
   });
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && !moreSheet.hidden) closeSheet();
+  });
+})();
+</script>
+<script>
+(function () {
+  var dropdowns = document.querySelectorAll(".app-nav--top .app-nav__dropdown");
+
+  function closeAll(except) {
+    dropdowns.forEach(function (dd) {
+      if (dd !== except) {
+        var menu = dd.querySelector(".app-nav__dropdown-menu");
+        var btn = dd.querySelector(".app-nav__dropdown-toggle");
+        if (menu) menu.hidden = true;
+        if (btn) btn.setAttribute("aria-expanded", "false");
+      }
+    });
+  }
+
+  dropdowns.forEach(function (dd) {
+    var btn = dd.querySelector(".app-nav__dropdown-toggle");
+    var menu = dd.querySelector(".app-nav__dropdown-menu");
+    if (!btn || !menu) return;
+
+    btn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var isHidden = menu.hidden;
+      closeAll(dd);
+      menu.hidden = !isHidden;
+      btn.setAttribute("aria-expanded", String(!isHidden));
+    });
+  });
+
+  document.addEventListener("click", function () {
+    closeAll(null);
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") closeAll(null);
   });
 })();
 </script>
