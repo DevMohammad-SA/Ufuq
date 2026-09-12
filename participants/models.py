@@ -411,6 +411,51 @@ class StoreOrder(models.Model):
         return f"{self.participant.user.full_name} - {self.product.name} ({self.get_status_display()})"
 
 
+class PointsLedgerEntry(models.Model):
+    """
+    Central audit log for every points grant/deduction that flows through
+    apply_points_delta, regardless of source (attendance, tasks, Quran
+    circle, or manual extra points). Store purchases/refunds are
+    deliberately NOT logged here — they're a separate currency movement
+    (purchase_points only) tracked via StoreOrder itself.
+    """
+
+    class Source(models.TextChoices):
+        MEETING_ATTENDANCE = "meeting_attendance", "حضور اللقاء الأسبوعي"
+        QURAN_CIRCLE = "quran_circle", "الحلقة القرآنية"
+        WEEKLY_TASK = "weekly_task", "المهمة الأسبوعية"
+        EXTRA = "extra", "نقاط إضافية"
+
+    participant = models.ForeignKey(
+        Participant,
+        on_delete=models.CASCADE,
+        related_name="points_ledger_entries",
+        verbose_name="المشارك",
+    )
+    # Signed on purpose (not PositiveIntegerField) — a correction (e.g. an
+    # attendance edit that lowers a previous grant) or a manual deduction
+    # must be representable as a negative delta.
+    points_delta = models.IntegerField(verbose_name="التغيير في النقاط")
+    source = models.CharField(max_length=20, choices=Source.choices, verbose_name="المصدر")
+    description = models.CharField(max_length=255, verbose_name="الوصف")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="التاريخ")
+    granted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="+",
+        verbose_name="مُنِح بواسطة",
+    )
+
+    class Meta:
+        verbose_name = "سجل نقاط"
+        verbose_name_plural = "سجل النقاط"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.participant.user.full_name} - {self.points_delta:+d} - {self.description}"
+
+
 class PointsResetSnapshot(models.Model):
     """
     A single participant's points value captured at the exact moment of a

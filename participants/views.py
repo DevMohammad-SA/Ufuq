@@ -21,6 +21,7 @@ from django.views.generic import FormView, TemplateView
 from accounts.models import PasswordResetRequest, Role, User
 from .forms import (
     CircleAttendanceForm,
+    ExtraPointsForm,
     ParticipantImportForm,
     StoreProductForm,
     TaskSubmissionForm,
@@ -31,6 +32,7 @@ from .models import (
     Group,
     MeetingAttendance,
     Participant,
+    PointsLedgerEntry,
     PointsResetSnapshot,
     StoreOrder,
     StoreProduct,
@@ -125,6 +127,17 @@ ICON_LOCK = (
     '<rect x="5" y="11" width="14" height="10" rx="2"/>'
     '<path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>'
 )
+ICON_EXTRA = (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+    'stroke-linecap="round" stroke-linejoin="round" width="20" height="20">'
+    '<circle cx="12" cy="12" r="9"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>'
+)
+ICON_LEDGER = (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+    'stroke-linecap="round" stroke-linejoin="round" width="20" height="20">'
+    '<path d="M6 3h9l3 3v15H6z"/><path d="M15 3v3h3"/>'
+    '<path d="M9 12h6"/><path d="M9 16h6"/></svg>'
+)
 
 
 def build_navbar(user, active_key):
@@ -152,6 +165,18 @@ def build_navbar(user, active_key):
                 ICON_QURAN,
             ),
             ("data", "بيانات المشاركين", "participants:participants_data", ICON_DATA),
+            (
+                "extra_points",
+                "نقاط إضافية",
+                "participants:extra_points",
+                ICON_EXTRA,
+            ),
+            (
+                "points_ledger",
+                "سجل النقاط",
+                "participants:points_ledger",
+                ICON_LEDGER,
+            ),
             (
                 "change_password",
                 "تغيير كلمة المرور",
@@ -189,6 +214,18 @@ def build_navbar(user, active_key):
             ),
             ("data", "بيانات المشاركين", "participants:participants_data", ICON_DATA),
             (
+                "extra_points",
+                "نقاط إضافية",
+                "participants:extra_points",
+                ICON_EXTRA,
+            ),
+            (
+                "points_ledger",
+                "سجل النقاط",
+                "participants:points_ledger",
+                ICON_LEDGER,
+            ),
+            (
                 "change_password",
                 "تغيير كلمة المرور",
                 "accounts:change_password",
@@ -208,18 +245,31 @@ def build_navbar(user, active_key):
     ]
 
 
-def apply_points_delta(participant, points_delta):
+def apply_points_delta(participant, points_delta, source, description, granted_by=None):
     """
     Applies a points delta to a participant's triple-currency balances,
     following the program's fixed conversion rule: miles = points * 10,
     purchase_points = same as points. Accepts negative deltas (for
     corrections that reduce previously awarded points), but never allows
     any balance to drop below zero — clamped at 0 as a safety floor.
+
+    This is the single choke point for points/miles/purchase_points
+    mutation, so every call also writes a PointsLedgerEntry describing why
+    the change happened. The store is the one exception: it moves
+    purchase_points alone and never calls this function.
     """
     participant.points = max(0, participant.points + points_delta)
     participant.miles = max(0, participant.miles + points_delta * 10)
     participant.purchase_points = max(0, participant.purchase_points + points_delta)
     participant.save(update_fields=["points", "miles", "purchase_points"])
+
+    PointsLedgerEntry.objects.create(
+        participant=participant,
+        points_delta=points_delta,
+        source=source,
+        description=description,
+        granted_by=granted_by,
+    )
 
 
 def circle_attendance_points(attended):
@@ -273,6 +323,8 @@ class ParticipantDashboardView(LoginRequiredMixin, TemplateView):
         # environment. No other participant's rank, points, or name is
         # exposed — see get_elite_status().
         context["elite_status"] = self.get_elite_status(participant)
+
+        context["points_ledger"] = participant.points_ledger_entries.all()[:50]
 
         context["navbar_items"] = build_navbar(self.request.user, "home")
         return context
@@ -496,7 +548,23 @@ class SupervisorDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateV
 
             delta = new_points - old_points
             if delta != 0:
-                apply_points_delta(participant, delta)
+                description_parts = []
+                if attended:
+                    description_parts.append("حضور اللقاء")
+                if is_early:
+                    description_parts.append("حضور مبكر")
+                description = (
+                    " + ".join(description_parts)
+                    if description_parts
+                    else "تعديل حضور اللقاء"
+                )
+                apply_points_delta(
+                    participant,
+                    delta,
+                    source=PointsLedgerEntry.Source.MEETING_ATTENDANCE,
+                    description=description,
+                    granted_by=request.user,
+                )
 
         return redirect(
             f"{reverse('participants:supervisor_dashboard')}"
@@ -641,7 +709,23 @@ class QuranCircleAttendanceView(LoginRequiredMixin, UserPassesTestMixin, Templat
 
             delta = new_points - old_points
             if delta != 0:
-                apply_points_delta(participant, delta)
+                description_parts = []
+                if attended:
+                    description_parts.append("حضور الحلقة")
+                if achieved:
+                    description_parts.append("إنجاز الحلقة")
+                description = (
+                    " + ".join(description_parts)
+                    if description_parts
+                    else "تعديل حضور الحلقة"
+                )
+                apply_points_delta(
+                    participant,
+                    delta,
+                    source=PointsLedgerEntry.Source.QURAN_CIRCLE,
+                    description=description,
+                    granted_by=request.user,
+                )
 
         redirect_url = (
             f"{reverse('participants:quran_circle_attendance')}"
@@ -1031,6 +1115,104 @@ class PointsSnapshotHistoryView(LoginRequiredMixin, UserPassesTestMixin, Templat
 
 
 # ---------------------------------------------------------------------------
+# Manual "extra points" grant + points ledger
+# ---------------------------------------------------------------------------
+
+
+class ExtraPointsView(LoginRequiredMixin, UserPassesTestMixin, FormView):
+    """
+    Manual points grant/deduction with a free-text reason, available to a
+    group supervisor (their own group's participants only) and to the
+    general supervisor/superadmin (any participant). Goes through
+    apply_points_delta like every other points-affecting action, so it is
+    fully captured in the PointsLedgerEntry audit trail with
+    source=EXTRA.
+    """
+
+    template_name = "participants/extra_points.html"
+    form_class = ExtraPointsForm
+    login_url = "accounts:login_supervisor"
+
+    def test_func(self):
+        return self.request.user.role in (
+            Role.GROUP_SUPERVISOR,
+            Role.GENERAL_SUPERVISOR,
+            Role.SUPERADMIN,
+        )
+
+    def get_participant_queryset(self):
+        # A group supervisor may only grant points to their own group's
+        # participants — this queryset is both the form's visible choices
+        # AND the security boundary re-checked in ExtraPointsForm.clean_participant.
+        if self.request.user.role == Role.GROUP_SUPERVISOR:
+            group = self.request.user.group_set.first()
+            return (
+                Participant.objects.filter(group=group).select_related("user")
+                if group
+                else Participant.objects.none()
+            )
+        return Participant.objects.select_related("user").all()
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["participant_queryset"] = self.get_participant_queryset()
+        return kwargs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["navbar_items"] = build_navbar(self.request.user, "extra_points")
+        return context
+
+    def form_valid(self, form):
+        apply_points_delta(
+            form.cleaned_data["participant"],
+            form.cleaned_data["points"],
+            source=PointsLedgerEntry.Source.EXTRA,
+            description=form.cleaned_data["reason"],
+            granted_by=self.request.user,
+        )
+        messages.success(self.request, "تم منح النقاط بنجاح.")
+        return redirect("participants:extra_points")
+
+
+class PointsLedgerView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+    """
+    Read-only points ledger for supervisors: a group supervisor sees their
+    own group's entries, general supervisor/superadmin see every entry.
+    Capped at the 200 most recent rows — a simple, temporary limit with no
+    pagination, acceptable for now given the ledger's current volume.
+    """
+
+    template_name = "participants/points_ledger.html"
+    login_url = "accounts:login_supervisor"
+
+    def test_func(self):
+        return self.request.user.role in (
+            Role.GROUP_SUPERVISOR,
+            Role.GENERAL_SUPERVISOR,
+            Role.SUPERADMIN,
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        if self.request.user.role == Role.GROUP_SUPERVISOR:
+            group = self.request.user.group_set.first()
+            entries = (
+                PointsLedgerEntry.objects.filter(participant__group=group)
+                if group
+                else PointsLedgerEntry.objects.none()
+            )
+        else:
+            entries = PointsLedgerEntry.objects.all()
+
+        context["entries"] = entries.select_related("participant__user", "granted_by")[:200]
+        context["show_participant_column"] = True
+        context["navbar_items"] = build_navbar(self.request.user, "points_ledger")
+        return context
+
+
+# ---------------------------------------------------------------------------
 # Participants data table (scoped by role)
 # ---------------------------------------------------------------------------
 
@@ -1231,7 +1413,13 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
                 submission.save()
 
                 if action == "accept":
-                    apply_points_delta(submission.participant, 10)
+                    apply_points_delta(
+                        submission.participant,
+                        10,
+                        source=PointsLedgerEntry.Source.WEEKLY_TASK,
+                        description=f'قبول مهمة "{submission.task.title}"',
+                        granted_by=request.user,
+                    )
 
         return redirect("participants:weekly_task_review")
 

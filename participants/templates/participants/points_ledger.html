@@ -1,0 +1,70 @@
+{% extends "participants/app_base.html" %}
+{% load static %}
+
+{% block title %}سجل النقاط — رحّال{% endblock %}
+
+{% block extra_style %}
+.table-scroll{overflow-x:auto}
+table.ledger{width:100%; border-collapse:collapse; font-family:var(--font-ui); font-size:14px}
+table.ledger th,table.ledger td{text-align:right; padding:10px 12px; border-bottom:1px solid var(--line)}
+table.ledger th{color:var(--slate); font-weight:600; font-size:12px}
+table.ledger tr:last-child td{border-bottom:none}
+table.ledger td.delta-cell{font-variant-numeric:tabular-nums; font-weight:800; text-align:center}
+table.ledger td.delta-positive{color:var(--done)}
+table.ledger td.delta-negative{color:var(--alert)}
+
+.source-pill{
+  display:inline-block;
+  border-radius:99px;
+  padding:4px 12px;
+  font-size:12px;
+  font-weight:700;
+  background:var(--gold-soft);
+  color:var(--gold-ink);
+  white-space:nowrap;
+}
+{% endblock %}
+
+{% block content %}
+  <h1 class="page-title">سجل النقاط</h1>
+  <p class="page-sub">
+    كل عملية منح أو خصم نقاط مرت عبر النظام، بما فيها الحضور والمهام والنقاط الإضافية.
+    لا تشمل عمليات الشراء والاسترجاع من المتجر.
+    (عرض حتى 200 عملية أحدث، دون تصفح للصفحات حاليًا).
+  </p>
+
+  <section class="card">
+    {% if entries %}
+      <div class="table-scroll">
+        <table class="ledger">
+          <thead>
+            <tr>
+              <th>التاريخ</th>
+              {% if show_participant_column %}<th>المشارك</th>{% endif %}
+              <th>التغيير</th>
+              <th>المصدر</th>
+              <th>الوصف</th>
+              <th>مُنِح بواسطة</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for entry in entries %}
+              <tr>
+                <td>{{ entry.created_at|date:"Y-m-d H:i" }}</td>
+                {% if show_participant_column %}<td>{{ entry.participant.user.full_name }}</td>{% endif %}
+                <td class="delta-cell {% if entry.points_delta > 0 %}delta-positive{% else %}delta-negative{% endif %}">
+                  {{ entry.points_delta|stringformat:"+d" }}
+                </td>
+                <td><span class="source-pill">{{ entry.get_source_display }}</span></td>
+                <td>{{ entry.description }}</td>
+                <td>{{ entry.granted_by.full_name|default:"—" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="empty-note">لا توجد عمليات مسجّلة بعد.</p>
+    {% endif %}
+  </section>
+{% endblock %}
