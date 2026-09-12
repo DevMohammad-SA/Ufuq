@@ -1395,10 +1395,17 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
         context.setdefault("create_form", WeeklyTaskForm())
         if current_task:
             context["submissions"] = current_task.submissions.select_related(
-                "participant__user"
+                "participant__user", "participant__group"
             ).order_by("-submitted_at")
         else:
             context["submissions"] = TaskSubmission.objects.none()
+        context["group_names"] = sorted(
+            {
+                submission.participant.group.name
+                for submission in context["submissions"]
+                if submission.participant.group
+            }
+        )
         context["navbar_items"] = build_navbar(self.request.user, "tasks")
         return context
 
