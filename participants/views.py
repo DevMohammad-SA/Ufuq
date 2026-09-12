@@ -299,6 +299,22 @@ def meeting_attendance_points(attended, is_early):
     return points
 
 
+class HomeView(TemplateView):
+    """
+    Public landing page (templates/home.html, DIRS-resolved regardless of
+    which app this view lives in). Lives here rather than a project-level
+    views module purely because it needs Participant for the real
+    participants_count stat.
+    """
+
+    template_name = "home.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["participants_count"] = Participant.objects.count()
+        return context
+
+
 class ParticipantDashboardView(LoginRequiredMixin, TemplateView):
     template_name = "participants/participant_dashboard.html"
     login_url = "accounts:login_participant"
