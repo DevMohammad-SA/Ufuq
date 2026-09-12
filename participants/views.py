@@ -1540,16 +1540,50 @@ class StoreManagementView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
                 id=request.POST.get("product_id")
             ).first()
             if product is not None:
-                try:
-                    product.delete()
-                except ProtectedError:
-                    # StoreOrder.product is on_delete=PROTECT — a product with
-                    # existing orders cannot be deleted. Surface a clear Arabic
-                    # message instead of a 500 error page.
+                # A product may be deleted only if every related order (if
+                # any) is refunded — a refund already restored both the
+                # participant's purchase_points and the product's stock, so
+                # nothing of value is lost. Any pending/completed order is a
+                # real historical record and must keep protecting the
+                # product, exactly as before.
+                has_non_refunded_orders = product.orders.exclude(
+                    status=StoreOrder.Status.REFUNDED
+                ).exists()
+
+                if has_non_refunded_orders:
                     context = self.get_context_data(
                         delete_error=(
-                            "لا يمكن حذف هذا المنتج لوجود طلبات مرتبطة به. "
-                            "يمكنك تصفير المخزون بدلًا من ذلك."
+                            "لا يمكن حذف هذا المنتج لوجود طلبات غير مسترجعة "
+                            "مرتبطة به (قيد التنفيذ أو مكتملة). يمكنك تصفير "
+                            "المخزون بدلًا من ذلك، أو استرجاع الطلبات "
+                            "المتبقية أولًا."
+                        )
+                    )
+                    return self.render_to_response(context)
+
+                # Only refunded orders (or none) remain. on_delete=PROTECT
+                # on StoreOrder.product blocks deletion as long as ANY
+                # related row exists, regardless of its status — a refunded
+                # order's points/stock were already restored at refund
+                # time, so its record no longer needs to keep protecting
+                # the product. It is deleted here, in the same transaction
+                # as the product itself, only after the check above
+                # confirmed no pending/completed order exists.
+                try:
+                    with transaction.atomic():
+                        product.orders.filter(
+                            status=StoreOrder.Status.REFUNDED
+                        ).delete()
+                        product.delete()
+                except ProtectedError:
+                    # Defensive fallback only — the check above should make
+                    # this unreachable, but on_delete=PROTECT stays the
+                    # authority on the DB, so a 500 is still avoided if the
+                    # manual check above is ever wrong.
+                    context = self.get_context_data(
+                        delete_error=(
+                            "تعذّر حذف المنتج لسبب غير متوقع. راجع طلباته "
+                            "المرتبطة."
                         )
                     )
                     return self.render_to_response(context)
