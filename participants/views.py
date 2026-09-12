@@ -140,7 +140,62 @@ ICON_LEDGER = (
 )
 
 
+def get_notification_counts(user):
+    """
+    Badge counts for navbar items, keyed by the same entry `key` used in
+    build_navbar() below (not by label — several roles reuse the same
+    Arabic label, e.g. "tasks", for different URLs). Everything here is
+    derived fresh from current data state on every call: no read/seen
+    tracking, no new model fields.
+    """
+    counts = {}
+
+    if user.role in (Role.GENERAL_SUPERVISOR, Role.SUPERADMIN):
+        latest_task = WeeklyTask.objects.order_by("-created_at").first()
+        counts["tasks"] = (
+            TaskSubmission.objects.filter(
+                task=latest_task, status=TaskSubmission.Status.PENDING
+            ).count()
+            if latest_task
+            else 0
+        )
+        counts["store_management"] = StoreOrder.objects.filter(
+            status=StoreOrder.Status.PENDING
+        ).count()
+
+    elif user.role == Role.PARTICIPANT:
+        participant = getattr(user, "participant", None)
+        if participant:
+            tasks_badge = 0
+            latest_task = WeeklyTask.objects.order_by("-created_at").first()
+            if latest_task:
+                submission = TaskSubmission.objects.filter(
+                    task=latest_task, participant=participant
+                ).first()
+                # Mutually exclusive in practice: reopened_for_resubmission
+                # can only be True on a submission that already exists, so
+                # this can never add up to more than 1.
+                if submission is None:
+                    tasks_badge += 1
+                elif submission.reopened_for_resubmission:
+                    tasks_badge += 1
+            counts["tasks"] = tasks_badge
+
+            cutoff = timezone.now() - datetime.timedelta(hours=24)
+            counts["store"] = (
+                StoreOrder.objects.filter(participant=participant)
+                .filter(
+                    Q(status=StoreOrder.Status.COMPLETED, completed_at__gte=cutoff)
+                    | Q(status=StoreOrder.Status.REFUNDED, refunded_at__gte=cutoff)
+                )
+                .count()
+            )
+
+    return counts
+
+
 def build_navbar(user, active_key):
+    counts = get_notification_counts(user)
     if user.role == Role.PARTICIPANT:
         entries = [
             ("home", "الرئيسية", "participants:dashboard", ICON_HOME),
@@ -240,6 +295,7 @@ def build_navbar(user, active_key):
             "url": reverse(url_name),
             "icon": icon,
             "active": key == active_key,
+            "badge_count": counts.get(key, 0),
         }
         for key, label, url_name, icon in entries
     ]

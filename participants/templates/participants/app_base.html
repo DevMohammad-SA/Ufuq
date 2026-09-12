@@ -86,6 +86,21 @@ body{
 .app-nav__icon svg{display:block}
 .app-nav--top .app-nav__icon svg{width:16px;height:16px}
 .app-nav--bottom .app-nav__icon svg{width:20px;height:20px}
+.app-nav__badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:16px;
+  height:16px;
+  padding:0 4px;
+  border-radius:999px;
+  background:var(--alert);
+  color:#fff;
+  font-size:10px;
+  font-weight:700;
+  line-height:1;
+  margin-inline-start:4px;
+}
 
 /* شريط علوي أفقي — سطح المكتب */
 .app-nav--top{
@@ -332,6 +347,7 @@ body{
         <a href="{{ item.url }}" class="app-nav__link{% if item.active %} is-active{% endif %}">
           <span class="app-nav__icon">{{ item.icon|safe }}</span>
           <span class="app-nav__label">{{ item.label }}</span>
+          {% if item.badge_count > 0 %}<span class="app-nav__badge">{{ item.badge_count }}</span>{% endif %}
         </a>
       {% endfor %}
 
@@ -351,6 +367,7 @@ body{
           <a href="{{ item.url }}" class="app-nav__link{% if item.active %} is-active{% endif %}">
             <span class="app-nav__icon">{{ item.icon|safe }}</span>
             <span class="app-nav__label">{{ item.label }}</span>
+            {% if item.badge_count > 0 %}<span class="app-nav__badge">{{ item.badge_count }}</span>{% endif %}
           </a>
         {% endfor %}
       {% else %}
@@ -360,6 +377,9 @@ body{
             <button type="button" class="app-nav__link app-nav__dropdown-toggle" id="navTasksBtn"
                     aria-haspopup="true" aria-expanded="false" aria-controls="navTasksMenu">
               <span class="app-nav__label">المهام</span>
+              {% for item in navbar_items %}
+                {% if item.key == "tasks" and item.badge_count > 0 %}<span class="app-nav__badge">{{ item.badge_count }}</span>{% endif %}
+              {% endfor %}
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M6 9l6 6 6-6"/></svg>
             </button>
             <div class="app-nav__dropdown-menu" id="navTasksMenu" hidden>
@@ -367,6 +387,7 @@ body{
                 {% if item.label == "المهام" or item.label == "أرشيف المهام" %}
                   <a href="{{ item.url }}" class="app-nav__dropdown-item{% if item.active %} is-active{% endif %}">
                     <span class="app-nav__icon">{{ item.icon|safe }}</span><span>{{ item.label }}</span>
+                    {% if item.badge_count > 0 %}<span class="app-nav__badge">{{ item.badge_count }}</span>{% endif %}
                   </a>
                 {% endif %}
               {% endfor %}
@@ -377,6 +398,7 @@ body{
               <a href="{{ item.url }}" class="app-nav__link{% if item.active %} is-active{% endif %}">
                 <span class="app-nav__icon">{{ item.icon|safe }}</span>
                 <span class="app-nav__label">{{ item.label }}</span>
+                {% if item.badge_count > 0 %}<span class="app-nav__badge">{{ item.badge_count }}</span>{% endif %}
               </a>
             {% endif %}
           {% endfor %}
@@ -394,6 +416,7 @@ body{
               {% if item.label == "الاستيراد" or item.label == "بيانات المشاركين" or item.label == "الحلقة القرآنية" %}
                 <a href="{{ item.url }}" class="app-nav__dropdown-item{% if item.active %} is-active{% endif %}">
                   <span class="app-nav__icon">{{ item.icon|safe }}</span><span>{{ item.label }}</span>
+                  {% if item.badge_count > 0 %}<span class="app-nav__badge">{{ item.badge_count }}</span>{% endif %}
                 </a>
               {% endif %}
             {% endfor %}
@@ -411,6 +434,7 @@ body{
               {% if item.label == "نقاط إضافية" or item.label == "سجل النقاط" %}
                 <a href="{{ item.url }}" class="app-nav__dropdown-item{% if item.active %} is-active{% endif %}">
                   <span class="app-nav__icon">{{ item.icon|safe }}</span><span>{{ item.label }}</span>
+                  {% if item.badge_count > 0 %}<span class="app-nav__badge">{{ item.badge_count }}</span>{% endif %}
                 </a>
               {% endif %}
             {% endfor %}
@@ -422,6 +446,7 @@ body{
             <a href="{{ item.url }}" class="app-nav__link{% if item.active %} is-active{% endif %}">
               <span class="app-nav__icon">{{ item.icon|safe }}</span>
               <span class="app-nav__label">{{ item.label }}</span>
+              {% if item.badge_count > 0 %}<span class="app-nav__badge">{{ item.badge_count }}</span>{% endif %}
             </a>
           {% endif %}
         {% endfor %}
@@ -452,6 +477,7 @@ body{
       <a href="{{ item.url }}" class="app-nav__link{% if item.active %} is-active{% endif %}">
         <span class="app-nav__icon">{{ item.icon|safe }}</span>
         <span class="app-nav__label">{{ item.label }}</span>
+        {% if item.badge_count > 0 %}<span class="app-nav__badge">{{ item.badge_count }}</span>{% endif %}
       </a>
     {% endfor %}
 
@@ -460,12 +486,16 @@ body{
               aria-haspopup="true" aria-expanded="false" aria-controls="mobileMoreSheet">
         <span class="app-nav__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></span>
         <span class="app-nav__label">المزيد</span>
+        {% for item in navbar_items|slice:"3:" %}
+          {% if item.badge_count > 0 %}<span class="app-nav__badge">{{ item.badge_count }}</span>{% endif %}
+        {% endfor %}
       </button>
     {% else %}
       {% for item in navbar_items|slice:"3:" %}
         <a href="{{ item.url }}" class="app-nav__link{% if item.active %} is-active{% endif %}">
           <span class="app-nav__icon">{{ item.icon|safe }}</span>
           <span class="app-nav__label">{{ item.label }}</span>
+          {% if item.badge_count > 0 %}<span class="app-nav__badge">{{ item.badge_count }}</span>{% endif %}
         </a>
       {% endfor %}
       <form class="app-nav__logout" method="post" action="{% url 'accounts:logout' %}">
@@ -493,6 +523,7 @@ body{
           <a href="{{ item.url }}" class="mobile-more-link{% if item.active %} is-active{% endif %}">
             <span class="app-nav__icon">{{ item.icon|safe }}</span>
             <span>{{ item.label }}</span>
+            {% if item.badge_count > 0 %}<span class="app-nav__badge">{{ item.badge_count }}</span>{% endif %}
           </a>
         {% endfor %}
         <form method="post" action="{% url 'accounts:logout' %}">
