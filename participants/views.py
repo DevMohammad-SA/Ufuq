@@ -23,11 +23,13 @@ from .forms import (
     CircleAttendanceForm,
     ExtraPointsForm,
     ParticipantImportForm,
+    SingleParticipantForm,
     StoreProductForm,
     TaskSubmissionForm,
     WeeklyTaskForm,
 )
 from .models import (
+    AcademicStage,
     CircleAttendance,
     Group,
     MeetingAttendance,
@@ -138,6 +140,12 @@ ICON_LEDGER = (
     '<path d="M6 3h9l3 3v15H6z"/><path d="M15 3v3h3"/>'
     '<path d="M9 12h6"/><path d="M9 16h6"/></svg>'
 )
+ICON_ADD_PARTICIPANT = (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+    'stroke-linecap="round" stroke-linejoin="round" width="20" height="20">'
+    '<circle cx="9" cy="8" r="3.2"/><path d="M2.5 20c0-3.3 2.9-5.5 6.5-5.5s6.5 2.2 6.5 5.5"/>'
+    '<path d="M18 8v6"/><path d="M15 11h6"/></svg>'
+)
 
 
 def get_notification_counts(user):
@@ -221,6 +229,12 @@ def build_navbar(user, active_key):
             ),
             ("data", "بيانات المشاركين", "participants:participants_data", ICON_DATA),
             (
+                "add_participant",
+                "إضافة طالب",
+                "participants:add_participant",
+                ICON_ADD_PARTICIPANT,
+            ),
+            (
                 "extra_points",
                 "نقاط إضافية",
                 "participants:extra_points",
@@ -261,6 +275,12 @@ def build_navbar(user, active_key):
                 ICON_CART,
             ),
             ("import", "الاستيراد", "participants:import_participants", ICON_IMPORT),
+            (
+                "add_participant",
+                "إضافة طالب",
+                "participants:add_participant",
+                ICON_ADD_PARTICIPANT,
+            ),
             (
                 "quran",
                 "الحلقة القرآنية",
@@ -974,6 +994,72 @@ class ParticipantImportView(LoginRequiredMixin, UserPassesTestMixin, FormView):
         return None
 
 
+class AddParticipantView(LoginRequiredMixin, UserPassesTestMixin, FormView):
+    template_name = "participants/add_participant.html"
+    form_class = SingleParticipantForm
+
+    def test_func(self):
+        return self.request.user.role in (
+            Role.GROUP_SUPERVISOR,
+            Role.GENERAL_SUPERVISOR,
+            Role.SUPERADMIN,
+        )
+
+    def get_locked_group(self):
+        if self.request.user.role == Role.GROUP_SUPERVISOR:
+            return self.request.user.group_set.first()
+        return None
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        locked_group = self.get_locked_group()
+        kwargs["group_queryset"] = (
+            Group.objects.filter(id=locked_group.id)
+            if locked_group
+            else Group.objects.all()
+        )
+        kwargs["lock_group"] = locked_group
+        return kwargs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["navbar_items"] = build_navbar(self.request.user, "home")
+        return context
+
+    def form_valid(self, form):
+        # Security: never trust the disabled `group` field alone — a direct
+        # POST bypassing the UI could still submit a different group id, so
+        # a group supervisor's own environment is force-applied here
+        # regardless of what cleaned_data claims.
+        locked_group = self.get_locked_group()
+        group = locked_group if locked_group else form.cleaned_data["group"]
+
+        # Same pattern as ParticipantImportView._process_import: initial
+        # password is the participant's own national_id, forced to change it
+        # on first login.
+        user = User.objects.create_user(
+            national_id=form.cleaned_data["national_id"],
+            full_name=form.cleaned_data["full_name"],
+            role=Role.PARTICIPANT,
+            password=form.cleaned_data["national_id"],
+        )
+        user.must_set_password = True
+        user.save(update_fields=["must_set_password"])
+
+        Participant.objects.create(
+            user=user,
+            group=group,
+            academic_stage=form.cleaned_data["academic_stage"],
+            phone=form.cleaned_data.get("phone", ""),
+            guardian_phone=form.cleaned_data.get("guardian_phone", ""),
+        )
+
+        messages.success(
+            self.request, f"تمت إضافة {form.cleaned_data['full_name']} بنجاح ✅"
+        )
+        return redirect("participants:add_participant")
+
+
 # ---------------------------------------------------------------------------
 # General supervisor dashboard
 # ---------------------------------------------------------------------------
@@ -1278,7 +1364,9 @@ class PointsLedgerView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
         else:
             entries = PointsLedgerEntry.objects.all()
 
-        context["entries"] = entries.select_related("participant__user", "granted_by")[:200]
+        context["entries"] = entries.select_related("participant__user", "granted_by")[
+            :200
+        ]
         context["show_participant_column"] = True
         context["navbar_items"] = build_navbar(self.request.user, "points_ledger")
         return context
@@ -1487,6 +1575,10 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
                     if action == "accept"
                     else TaskSubmission.Status.REJECTED
                 )
+                if action == "reject":
+                    submission.rejection_reason = request.POST.get(
+                        "rejection_reason", ""
+                    ).strip()
                 submission.reviewed_by = request.user
                 submission.reviewed_at = timezone.now()
                 submission.save()
@@ -1618,9 +1710,7 @@ class TasksArchiveView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
                     task=selected_task
                 ).select_related("participant__user", "participant__group")
             }
-            all_participants = Participant.objects.select_related(
-                "user", "group"
-            ).all()
+            all_participants = Participant.objects.select_related("user", "group").all()
 
             for p in all_participants:
                 if p.id in submissions_by_participant:
@@ -1631,9 +1721,7 @@ class TasksArchiveView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
             # Union of environment names across both tables (every
             # participant above appears in exactly one of them), for the
             # shared client-side environment filter.
-            group_names = sorted(
-                {p.group.name for p in all_participants if p.group}
-            )
+            group_names = sorted({p.group.name for p in all_participants if p.group})
 
         context["selected_task"] = selected_task
         context["submitted"] = submitted
@@ -1860,8 +1948,7 @@ class StoreManagementView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
                     # manual check above is ever wrong.
                     context = self.get_context_data(
                         delete_error=(
-                            "تعذّر حذف المنتج لسبب غير متوقع. راجع طلباته "
-                            "المرتبطة."
+                            "تعذّر حذف المنتج لسبب غير متوقع. راجع طلباته المرتبطة."
                         )
                     )
                     return self.render_to_response(context)

@@ -1,7 +1,10 @@
 from django import forms
 
+from accounts.models import User
 from .models import (
+    AcademicStage,
     CircleAttendance,
+    Group,
     Participant,
     StoreProduct,
     TaskSubmission,
@@ -119,3 +122,41 @@ class StoreProductForm(forms.ModelForm):
         widgets = {
             "description": forms.Textarea(attrs={"rows": 3}),
         }
+
+
+class SingleParticipantForm(forms.Form):
+    full_name = forms.CharField(label="الاسم الكامل", max_length=100)
+    national_id = forms.CharField(label="رقم الهوية / الإقامة", max_length=10)
+    group = forms.ModelChoiceField(
+        queryset=Group.objects.none(), label="البيئة", required=False
+    )
+    academic_stage = forms.ChoiceField(
+        label="المرحلة الدراسية", choices=AcademicStage.choices
+    )
+    phone = forms.CharField(label="رقم جوال المشارك", max_length=20, required=False)
+    guardian_phone = forms.CharField(
+        label="رقم جوال ولي الأمر", max_length=20, required=False
+    )
+
+    def __init__(self, *args, **kwargs):
+        # The allowed group queryset and an optional locked group are scoped
+        # by the view (a group supervisor is limited to their own
+        # environment) — this is a security boundary the view re-checks
+        # itself in AddParticipantView.form_valid rather than trusting
+        # `disabled` alone, since a direct POST can still include a
+        # different group value.
+        group_queryset = kwargs.pop("group_queryset")
+        lock_group = kwargs.pop("lock_group", None)
+        super().__init__(*args, **kwargs)
+        self.fields["group"].queryset = group_queryset
+        if lock_group:
+            self.fields["group"].initial = lock_group
+            self.fields["group"].disabled = True
+
+    def clean_national_id(self):
+        national_id = self.cleaned_data["national_id"]
+        if len(national_id) != 10 or not national_id.isdigit():
+            raise forms.ValidationError("رقم الهوية يجب أن يتكون من 10 أرقام")
+        if User.objects.filter(national_id=national_id).exists():
+            raise forms.ValidationError("رقم الهوية مسجّل مسبقًا")
+        return national_id
