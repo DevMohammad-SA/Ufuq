@@ -129,6 +129,36 @@
   margin-top:var(--s2);
   text-align:center;
 }
+
+.ledger-list{display:flex; flex-direction:column; gap:10px}
+.ledger-item{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  background:var(--sand);
+  border-radius:var(--r-sm);
+  padding:12px 14px;
+}
+.ledger-item .ledger-text{
+  font-family:var(--font-ui);
+  font-size:14px;
+  color:var(--asphalt);
+}
+.ledger-item .ledger-date{
+  font-family:var(--font-ui);
+  font-size:11px;
+  color:var(--slate);
+  margin-top:2px;
+}
+.ledger-item .ledger-delta{
+  font-family:var(--font-display);
+  font-weight:800;
+  font-size:16px;
+  white-space:nowrap;
+}
+.ledger-delta.is-positive{color:var(--done)}
+.ledger-delta.is-negative{color:var(--alert)}
 {% endblock %}
 
 {% block content %}
@@ -173,6 +203,33 @@
       <p class="range-note">موقعك بين كل مشاركي البرنامج</p>
     {% else %}
       <p class="empty-note">ما فيه بيانات كافية لعرض مقارنة البرنامج حاليًا.</p>
+    {% endif %}
+  </section>
+
+  <section class="progress-section">
+    <h2 class="section-title">سجل نقاطك</h2>
+    {% if points_ledger %}
+      <div class="ledger-list">
+        {% for entry in points_ledger %}
+          <div class="ledger-item">
+            <div>
+              <div class="ledger-text">
+                {% if entry.points_delta > 0 %}
+                  أضيفت لك {{ entry.points_delta }} نقطة بسبب: {{ entry.description }}
+                {% else %}
+                  خُصمت منك {{ entry.points_delta|cut:"-" }} نقطة بسبب: {{ entry.description }}
+                {% endif %}
+              </div>
+              <div class="ledger-date">{{ entry.created_at|date:"Y-m-d H:i" }}</div>
+            </div>
+            <div class="ledger-delta {% if entry.points_delta > 0 %}is-positive{% else %}is-negative{% endif %}">
+              {{ entry.points_delta|stringformat:"+d" }}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="empty-note">لسه ما في شي بسجلك — أول نقطة تجيك بتظهر هنا!</p>
     {% endif %}
   </section>
 {% endblock %}

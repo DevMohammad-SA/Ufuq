@@ -91,6 +91,27 @@ class TaskSubmissionForm(forms.ModelForm):
         return file
 
 
+class ExtraPointsForm(forms.Form):
+    participant = forms.ModelChoiceField(queryset=Participant.objects.none(), label="المشارك")
+    points = forms.IntegerField(label="عدد النقاط", min_value=-1000, max_value=1000)
+    reason = forms.CharField(label="السبب", widget=forms.Textarea(attrs={"rows": 2}))
+
+    def __init__(self, *args, **kwargs):
+        # The allowed participant queryset is scoped by the view (a group
+        # supervisor only sees their own group's participants) — this is a
+        # security boundary, not just a UI convenience, so clean_participant
+        # below re-checks it against a tampered submission.
+        queryset = kwargs.pop("participant_queryset")
+        super().__init__(*args, **kwargs)
+        self.fields["participant"].queryset = queryset
+
+    def clean_participant(self):
+        participant = self.cleaned_data["participant"]
+        if not self.fields["participant"].queryset.filter(id=participant.id).exists():
+            raise forms.ValidationError("لا يمكنك منح نقاط لهذا المشارك")
+        return participant
+
+
 class StoreProductForm(forms.ModelForm):
     class Meta:
         model = StoreProduct
