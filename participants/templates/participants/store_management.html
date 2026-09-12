@@ -150,7 +150,10 @@ table.roster tr:last-child td{border-bottom:none}
           <tbody>
             {% for order in pending_orders %}
               <tr>
-                <td>{{ order.participant.user.full_name|default:"—" }}</td>
+                <td>
+                  {{ order.participant.user.full_name|default:"—" }}
+                  <span class="muted">({{ order.participant.group.name|default:"بدون بيئة" }})</span>
+                </td>
                 <td>{{ order.product.name }}</td>
                 <td>{{ order.price_at_order }}</td>
                 <td>{{ order.ordered_at|date:"Y-m-d H:i" }}</td>
@@ -190,7 +193,10 @@ table.roster tr:last-child td{border-bottom:none}
           <tbody>
             {% for order in all_orders %}
               <tr>
-                <td>{{ order.participant.user.full_name|default:"—" }}</td>
+                <td>
+                  {{ order.participant.user.full_name|default:"—" }}
+                  <span class="muted">({{ order.participant.group.name|default:"بدون بيئة" }})</span>
+                </td>
                 <td>{{ order.product.name }}</td>
                 <td>{{ order.price_at_order }}</td>
                 <td>{{ order.ordered_at|date:"Y-m-d H:i" }}</td>
