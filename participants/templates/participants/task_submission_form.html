@@ -98,27 +98,27 @@
 
   <section class="card">
     {% if not task %}
-      <p class="empty-note">لا توجد مهمة نشطة حاليًا.</p>
+      <p class="empty-note">ما فيه مهمة نشطة حاليًا 📭</p>
 
     {% elif existing_submission and not existing_submission.reopened_for_resubmission %}
       <h2>{{ task.title }}</h2>
-      <p>تم رفع ملفك لهذه المهمة بتاريخ {{ existing_submission.submitted_at }}.</p>
+      <p>تم رفع ملفك لهذي المهمة بتاريخ {{ existing_submission.submitted_at }} ✅</p>
       {% if existing_submission.status == "pending" %}
-        <span class="status-pill status-pending">قيد المراجعة</span>
+        <span class="status-pill status-pending">قيد المراجعة ⏳</span>
       {% elif existing_submission.status == "accepted" %}
-        <span class="status-pill status-accepted">مقبولة</span>
+        <span class="status-pill status-accepted">مقبولة ✅</span>
       {% else %}
-        <span class="status-pill status-rejected">مرفوضة</span>
+        <span class="status-pill status-rejected">مرفوضة ❌</span>
       {% endif %}
 
     {% elif not existing_submission and task.is_past_due %}
       <h2>{{ task.title }}</h2>
-      <div class="warn-note">انتهى موعد تسليم هذه المهمة.</div>
+      <div class="warn-note">خلص موعد تسليم هذي المهمة ⏰</div>
 
     {% else %}
       <h2>{{ task.title }}</h2>
       {% if existing_submission and existing_submission.reopened_for_resubmission %}
-        <div class="info-note">تمت إتاحة تسليم هذه المهمة لك مجددًا من قِبل المشرف. يمكنك رفع ملف جديد الآن.</div>
+        <div class="info-note">المشرف فتح لك تسليم هذي المهمة من جديد 🔓 تقدر ترفع ملف جديد الحين.</div>
       {% endif %}
       <p>{{ task.description }}</p>
       <div class="task-meta">
