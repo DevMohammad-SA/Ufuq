@@ -353,13 +353,19 @@ body{
 
       {% comment %}
         Per-category buttons (desktop navbar only). Category membership is
-        matched by item.label text — there is no "group" field on
-        navbar_items itself (build_navbar() is untouched). The three roles
-        have distinct, non-overlapping item counts (participant=3,
-        group_supervisor=6, general_supervisor/superadmin=10), so branching
-        on navbar_items|length reliably tells them apart without checking
-        request.user.role directly. This is label/count-based and would
-        need revisiting if build_navbar()'s entries per role ever change.
+        matched by item.label/item.key text — there is no "group" field on
+        navbar_items itself (build_navbar() is untouched). The top-level
+        split below still uses navbar_items|length==3 to tell the
+        participant role apart (its 3 items are fully independent plain
+        links, never dropdowns). Everything past that point must NOT branch
+        on item count again: a previous bug gated the "المهام" dropdown and
+        "طلبات المتجر" link behind navbar_items|length > 6, assuming only
+        general_supervisor/superadmin could ever cross that threshold — but
+        group_supervisor's own item count grew past 6 in later work, so the
+        dropdown rendered for group_supervisor too with zero matching items
+        inside, i.e. an empty "المهام ▾" menu. Each category button below is
+        now self-gated: it only renders when navbar_items actually contains
+        a matching item, regardless of how many items exist in total.
       {% endcomment %}
       {% if navbar_items|length == 3 %}
         {% comment %}Participant: 3 fully independent items — plain links, no dropdowns.{% endcomment %}
@@ -371,38 +377,38 @@ body{
           </a>
         {% endfor %}
       {% else %}
-        {% if navbar_items|length > 6 %}
-          {% comment %}General supervisor / superadmin only: "المهام" (2 items) and "المتجر" (1 item, direct link).{% endcomment %}
-          <div class="app-nav__dropdown">
-            <button type="button" class="app-nav__link app-nav__dropdown-toggle" id="navTasksBtn"
-                    aria-haspopup="true" aria-expanded="false" aria-controls="navTasksMenu">
-              <span class="app-nav__label">المهام</span>
-              {% for item in navbar_items %}
-                {% if item.key == "tasks" and item.badge_count > 0 %}<span class="app-nav__badge">{{ item.badge_count }}</span>{% endif %}
-              {% endfor %}
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M6 9l6 6 6-6"/></svg>
-            </button>
-            <div class="app-nav__dropdown-menu" id="navTasksMenu" hidden>
-              {% for item in navbar_items %}
-                {% if item.label == "المهام" or item.label == "أرشيف المهام" %}
-                  <a href="{{ item.url }}" class="app-nav__dropdown-item{% if item.active %} is-active{% endif %}">
-                    <span class="app-nav__icon">{{ item.icon|safe }}</span><span>{{ item.label }}</span>
-                    {% if item.badge_count > 0 %}<span class="app-nav__badge">{{ item.badge_count }}</span>{% endif %}
-                  </a>
-                {% endif %}
-              {% endfor %}
+        {% for tasks_item in navbar_items %}
+          {% if tasks_item.key == "tasks" %}
+            {% comment %}General supervisor / superadmin only: "المهام" (2 items). Gated on the item actually existing, not on a total-item-count threshold.{% endcomment %}
+            <div class="app-nav__dropdown">
+              <button type="button" class="app-nav__link app-nav__dropdown-toggle" id="navTasksBtn"
+                      aria-haspopup="true" aria-expanded="false" aria-controls="navTasksMenu">
+                <span class="app-nav__label">المهام</span>
+                {% if tasks_item.badge_count > 0 %}<span class="app-nav__badge">{{ tasks_item.badge_count }}</span>{% endif %}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+              <div class="app-nav__dropdown-menu" id="navTasksMenu" hidden>
+                {% for item in navbar_items %}
+                  {% if item.label == "المهام" or item.label == "أرشيف المهام" %}
+                    <a href="{{ item.url }}" class="app-nav__dropdown-item{% if item.active %} is-active{% endif %}">
+                      <span class="app-nav__icon">{{ item.icon|safe }}</span><span>{{ item.label }}</span>
+                      {% if item.badge_count > 0 %}<span class="app-nav__badge">{{ item.badge_count }}</span>{% endif %}
+                    </a>
+                  {% endif %}
+                {% endfor %}
+              </div>
             </div>
-          </div>
-          {% for item in navbar_items %}
-            {% if item.label == "طلبات المتجر" %}
-              <a href="{{ item.url }}" class="app-nav__link{% if item.active %} is-active{% endif %}">
-                <span class="app-nav__icon">{{ item.icon|safe }}</span>
-                <span class="app-nav__label">{{ item.label }}</span>
-                {% if item.badge_count > 0 %}<span class="app-nav__badge">{{ item.badge_count }}</span>{% endif %}
-              </a>
-            {% endif %}
-          {% endfor %}
-        {% endif %}
+          {% endif %}
+        {% endfor %}
+        {% for item in navbar_items %}
+          {% if item.label == "طلبات المتجر" %}
+            <a href="{{ item.url }}" class="app-nav__link{% if item.active %} is-active{% endif %}">
+              <span class="app-nav__icon">{{ item.icon|safe }}</span>
+              <span class="app-nav__label">{{ item.label }}</span>
+              {% if item.badge_count > 0 %}<span class="app-nav__badge">{{ item.badge_count }}</span>{% endif %}
+            </a>
+          {% endif %}
+        {% endfor %}
 
         {% comment %}Shared by group_supervisor and general_supervisor/superadmin.{% endcomment %}
         <div class="app-nav__dropdown">
