@@ -229,18 +229,6 @@ def build_navbar(user, active_key):
             ),
             ("data", "بيانات المشاركين", "participants:participants_data", ICON_DATA),
             (
-                "add_participant",
-                "إضافة طالب",
-                "participants:add_participant",
-                ICON_ADD_PARTICIPANT,
-            ),
-            (
-                "extra_points",
-                "نقاط إضافية",
-                "participants:extra_points",
-                ICON_EXTRA,
-            ),
-            (
                 "points_ledger",
                 "سجل النقاط",
                 "participants:points_ledger",
@@ -999,11 +987,7 @@ class AddParticipantView(LoginRequiredMixin, UserPassesTestMixin, FormView):
     form_class = SingleParticipantForm
 
     def test_func(self):
-        return self.request.user.role in (
-            Role.GROUP_SUPERVISOR,
-            Role.GENERAL_SUPERVISOR,
-            Role.SUPERADMIN,
-        )
+        return self.request.user.role in (Role.GENERAL_SUPERVISOR, Role.SUPERADMIN)
 
     def get_locked_group(self):
         if self.request.user.role == Role.GROUP_SUPERVISOR:
@@ -1292,11 +1276,7 @@ class ExtraPointsView(LoginRequiredMixin, UserPassesTestMixin, FormView):
     login_url = "accounts:login_supervisor"
 
     def test_func(self):
-        return self.request.user.role in (
-            Role.GROUP_SUPERVISOR,
-            Role.GENERAL_SUPERVISOR,
-            Role.SUPERADMIN,
-        )
+        return self.request.user.role in (Role.GENERAL_SUPERVISOR, Role.SUPERADMIN)
 
     def get_participant_queryset(self):
         # A group supervisor may only grant points to their own group's
