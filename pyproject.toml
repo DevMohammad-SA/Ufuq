@@ -1,6 +1,6 @@
 [project]
 name = "ufuq"
-version = "0.1.0"
+version = "1.1.0"
 description = "Youth development tracking platform for Horizon Program"
 readme = "README.md"
 authors = [{ name = "Mohammad Albuainain", email = "dev.mohammad@tuta.io" }]
