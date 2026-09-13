@@ -23,6 +23,84 @@ table.ledger td.delta-negative{color:var(--alert)}
   color:var(--gold-ink);
   white-space:nowrap;
 }
+
+.roster-search{
+  width:100%;
+  font-family:var(--font-ui);
+  font-size:14px;
+  padding:9px 12px;
+  border:1.5px solid var(--line);
+  border-radius:var(--r-sm);
+  background:#fff;
+  color:var(--asphalt);
+  margin-bottom:var(--s2);
+}
+
+/* فلتر المصدر متعدد الاختيار — نفس نمط .group-filter-* في participants_data.html */
+.source-filter-bar{
+  margin-top:8px;
+  margin-bottom:var(--s2);
+}
+.source-filter-actions{
+  display:flex;
+  gap:12px;
+  margin-bottom:8px;
+}
+.source-filter-checkboxes{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+}
+.source-filter-item{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-family:var(--font-ui);
+  font-size:13px;
+  color:var(--asphalt);
+  background:var(--sand);
+  border:1px solid var(--line);
+  border-radius:99px;
+  padding:6px 12px;
+  cursor:pointer;
+}
+.source-filter-item input[type="checkbox"]{
+  width:16px;
+  height:16px;
+  cursor:pointer;
+  accent-color:var(--gold-ink);
+}
+.select-all{
+  background:none;
+  border:none;
+  padding:0;
+  font-family:var(--font-ui);
+  font-size:11px;
+  font-weight:600;
+  color:var(--gold-ink);
+  cursor:pointer;
+  text-decoration:underline;
+}
+
+/* أعمدة قابلة للفرز — نفس نمط th.sortable في participants_data.html */
+th.sortable{
+  cursor:pointer;
+  user-select:none;
+  white-space:nowrap;
+}
+th.sortable:hover{color:var(--asphalt)}
+th.sortable .sort-arrow{
+  display:inline-block;
+  margin-inline-start:4px;
+  font-size:10px;
+  color:var(--line);
+  transition:color .12s;
+}
+th.sortable.sort-asc .sort-arrow,
+th.sortable.sort-desc .sort-arrow{color:var(--gold-ink)}
+th.sortable.sort-asc .sort-arrow:after{content:"▲"}
+th.sortable.sort-desc .sort-arrow:after{content:"▼"}
+th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
 {% endblock %}
 
 {% block content %}
@@ -30,28 +108,62 @@ table.ledger td.delta-negative{color:var(--alert)}
   <p class="page-sub">
     كل عملية منح أو خصم نقاط مرت عبر النظام، بما فيها الحضور والمهام والنقاط الإضافية.
     لا تشمل عمليات الشراء والاسترجاع من المتجر.
+    اضغط على عنوان أي عمود للفرز حسبه، أو ابحث بالاسم، أو صفِّ حسب المصدر.
     (عرض حتى 200 عملية أحدث، دون تصفح للصفحات حاليًا).
   </p>
 
   <section class="card">
     {% if entries %}
+      <input type="text" id="ledger-search" class="roster-search" placeholder="ابحث باسم المشارك أو المشرف…" autocomplete="off">
+
+      <div class="source-filter-bar">
+        <div class="source-filter-actions">
+          <button type="button" class="select-all" id="source-filter-all">تحديد الكل</button>
+          <button type="button" class="select-all" id="source-filter-none">إلغاء تحديد الكل</button>
+        </div>
+        <div class="source-filter-checkboxes">
+          <label class="source-filter-item">
+            <input type="checkbox" class="source-filter-checkbox" value="meeting_attendance" checked>
+            <span>حضور اللقاء الأسبوعي</span>
+          </label>
+          <label class="source-filter-item">
+            <input type="checkbox" class="source-filter-checkbox" value="quran_circle" checked>
+            <span>الحلقة القرآنية</span>
+          </label>
+          <label class="source-filter-item">
+            <input type="checkbox" class="source-filter-checkbox" value="weekly_task" checked>
+            <span>المهمة الأسبوعية</span>
+          </label>
+          <label class="source-filter-item">
+            <input type="checkbox" class="source-filter-checkbox" value="extra" checked>
+            <span>نقاط إضافية</span>
+          </label>
+        </div>
+      </div>
+
       <div class="table-scroll">
-        <table class="ledger">
+        <table class="ledger" id="ledger-table">
           <thead>
             <tr>
-              <th>التاريخ</th>
-              {% if show_participant_column %}<th>المشارك</th>{% endif %}
-              <th>التغيير</th>
-              <th>المصدر</th>
+              <th class="sortable" data-sort="text" data-col="0">التاريخ<span class="sort-arrow"></span></th>
+              {% if show_participant_column %}<th class="sortable" data-sort="text" data-col="1">المشارك<span class="sort-arrow"></span></th>{% endif %}
+              <th>البيئة</th>
+              <th class="sortable" data-sort="number" data-col="{% if show_participant_column %}3{% else %}2{% endif %}">التغيير<span class="sort-arrow"></span></th>
+              <th class="sortable" data-sort="text" data-col="{% if show_participant_column %}4{% else %}3{% endif %}">المصدر<span class="sort-arrow"></span></th>
               <th>الوصف</th>
               <th>مُنِح بواسطة</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody id="ledger-body">
             {% for entry in entries %}
-              <tr>
+              <tr
+                data-participant-name="{{ entry.participant.user.full_name|default:''|lower }}"
+                data-granted-by-name="{{ entry.granted_by.full_name|default:''|lower }}"
+                data-source="{{ entry.source }}"
+              >
                 <td>{{ entry.created_at|date:"Y-m-d H:i" }}</td>
                 {% if show_participant_column %}<td>{{ entry.participant.user.full_name }}</td>{% endif %}
+                <td>{{ entry.participant.group.name|default:"—" }}</td>
                 <td class="delta-cell {% if entry.points_delta > 0 %}delta-positive{% else %}delta-negative{% endif %}">
                   {{ entry.points_delta|stringformat:"+d" }}
                 </td>
@@ -63,8 +175,113 @@ table.ledger td.delta-negative{color:var(--alert)}
           </tbody>
         </table>
       </div>
+      <p class="empty-note" id="ledger-empty" hidden>لا توجد نتائج مطابقة للبحث أو الفلتر.</p>
     {% else %}
       <p class="empty-note">لا توجد عمليات مسجّلة بعد.</p>
     {% endif %}
   </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  // البحث النصي بالاسم + فلتر المصدر متعدد الاختيار (يعملان معًا: يظهر الصف فقط إذا طابق الشرطين)
+  var search = document.getElementById("ledger-search");
+  var tbody = document.getElementById("ledger-body");
+  var empty = document.getElementById("ledger-empty");
+
+  var sourceCheckboxes = document.querySelectorAll(".source-filter-checkbox");
+  var selectAllBtn = document.getElementById("source-filter-all");
+  var selectNoneBtn = document.getElementById("source-filter-none");
+
+  function getSelectedSources() {
+    var selected = [];
+    sourceCheckboxes.forEach(function (cb) {
+      if (cb.checked) selected.push(cb.value);
+    });
+    return selected;
+  }
+
+  function applyFilters() {
+    if (!tbody) return;
+    var query = search ? search.value.trim().toLowerCase() : "";
+    var selectedSources = getSelectedSources();
+    var visible = 0;
+    Array.prototype.forEach.call(tbody.querySelectorAll("tr"), function (row) {
+      var participantMatch = (row.getAttribute("data-participant-name") || "").indexOf(query) !== -1;
+      var grantedByMatch = (row.getAttribute("data-granted-by-name") || "").indexOf(query) !== -1;
+      var matchesSearch = !query || participantMatch || grantedByMatch;
+      var matchesSource = selectedSources.indexOf(row.getAttribute("data-source") || "") !== -1;
+      var match = matchesSearch && matchesSource;
+      row.hidden = !match;
+      if (match) visible++;
+    });
+    if (empty) empty.hidden = visible !== 0;
+  }
+
+  if (search) search.addEventListener("input", applyFilters);
+
+  sourceCheckboxes.forEach(function (cb) {
+    cb.addEventListener("change", applyFilters);
+  });
+
+  if (selectAllBtn) {
+    selectAllBtn.addEventListener("click", function () {
+      sourceCheckboxes.forEach(function (cb) { cb.checked = true; });
+      applyFilters();
+    });
+  }
+
+  if (selectNoneBtn) {
+    selectNoneBtn.addEventListener("click", function () {
+      sourceCheckboxes.forEach(function (cb) { cb.checked = false; });
+      applyFilters();
+    });
+  }
+
+  // الفرز بالضغط على رأس العمود
+  var table = document.getElementById("ledger-table");
+  if (!table || !tbody) return;
+
+  var currentSort = { col: null, dir: null };
+
+  function getCellValue(row, colIndex, type) {
+    var cell = row.children[colIndex];
+    var text = cell ? cell.textContent.trim() : "";
+    if (type === "number") {
+      var n = parseFloat(text.replace(/[^\d.-]/g, ""));
+      return isNaN(n) ? -Infinity : n;
+    }
+    return text.toLocaleLowerCase("ar");
+  }
+
+  table.querySelectorAll("th.sortable").forEach(function (header) {
+    header.addEventListener("click", function () {
+      var colIndex = parseInt(header.getAttribute("data-col"), 10);
+      var type = header.getAttribute("data-sort");
+
+      var dir = "asc";
+      if (currentSort.col === colIndex && currentSort.dir === "asc") {
+        dir = "desc";
+      }
+      currentSort = { col: colIndex, dir: dir };
+
+      table.querySelectorAll("th.sortable").forEach(function (h) {
+        h.classList.remove("sort-asc", "sort-desc");
+      });
+      header.classList.add(dir === "asc" ? "sort-asc" : "sort-desc");
+
+      var rows = Array.prototype.slice.call(tbody.querySelectorAll("tr"));
+      rows.sort(function (a, b) {
+        var va = getCellValue(a, colIndex, type);
+        var vb = getCellValue(b, colIndex, type);
+        if (va < vb) return dir === "asc" ? -1 : 1;
+        if (va > vb) return dir === "asc" ? 1 : -1;
+        return 0;
+      });
+      rows.forEach(function (row) { tbody.appendChild(row); });
+    });
+  });
+})();
+</script>
 {% endblock %}

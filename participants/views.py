@@ -1344,9 +1344,9 @@ class PointsLedgerView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
         else:
             entries = PointsLedgerEntry.objects.all()
 
-        context["entries"] = entries.select_related("participant__user", "granted_by")[
-            :200
-        ]
+        context["entries"] = entries.select_related(
+            "participant__user", "participant__group", "granted_by"
+        )[:200]
         context["show_participant_column"] = True
         context["navbar_items"] = build_navbar(self.request.user, "points_ledger")
         return context
