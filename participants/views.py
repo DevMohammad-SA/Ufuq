@@ -458,7 +458,7 @@ class ParticipantDashboardView(LoginRequiredMixin, TemplateView):
             return {
                 "eliteStatus": "not_qualified",
                 "difference": difference,
-                "message": f"بقي لك {difference} نقطة لتصل إلى رحلة النخبة",
+                "message": f"باقي عليك {difference} نقطة توصل رحلة النخبة 🚀",
             }
         else:
             rank_21_points = points_at_rank(21)
@@ -474,7 +474,7 @@ class ParticipantDashboardView(LoginRequiredMixin, TemplateView):
             return {
                 "eliteStatus": "qualified",
                 "difference": difference,
-                "message": f"بينك وبين عدم الترشيح {difference} نقطة",
+                "message": f"متقدم بـ{difference} نقطة، حافظ على مكانك 💪",
             }
 
     def _build_range(self, queryset, participant):
