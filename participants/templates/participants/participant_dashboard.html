@@ -8,7 +8,7 @@
 
 .currency-grid{
   display:grid;
-  grid-template-columns:repeat(3,1fr);
+  grid-template-columns:repeat(2,1fr);
   gap:var(--s2);
   margin-top:var(--s2);
 }
@@ -31,7 +31,6 @@
   font-family:var(--font-display);
 }
 .currency-card.miles .value{color:var(--gold-ink)}
-.currency-card.points .value{color:var(--asphalt)}
 .currency-card.purchase .value{color:var(--done)}
 .currency-card .hint{
   font-family:var(--font-ui);
@@ -168,10 +167,6 @@
     <div class="currency-card miles">
       <div class="label">الأميال</div>
       <div class="value">{{ participant.miles|default:0 }}</div>
-    </div>
-    <div class="currency-card points">
-      <div class="label">النقاط</div>
-      <div class="value">{{ participant.points|default:0 }}</div>
     </div>
     <div class="currency-card purchase">
       <div class="label">النقاط الشرائية</div>
