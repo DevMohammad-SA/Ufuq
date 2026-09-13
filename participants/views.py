@@ -1559,16 +1559,22 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
                     submission.rejection_reason = request.POST.get(
                         "rejection_reason", ""
                     ).strip()
+                is_featured = action == "accept" and request.POST.get("is_featured") == "on"
+                submission.is_featured = is_featured
                 submission.reviewed_by = request.user
                 submission.reviewed_at = timezone.now()
                 submission.save()
 
                 if action == "accept":
+                    points = 12 if is_featured else 10
+                    description = f'قبول مهمة "{submission.task.title}"'
+                    if is_featured:
+                        description += " (مميزة ⭐)"
                     apply_points_delta(
                         submission.participant,
-                        10,
+                        points,
                         source=PointsLedgerEntry.Source.WEEKLY_TASK,
-                        description=f'قبول مهمة "{submission.task.title}"',
+                        description=description,
                         granted_by=request.user,
                     )
 

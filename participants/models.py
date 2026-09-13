@@ -274,6 +274,7 @@ class TaskSubmission(models.Model):
         default=Status.PENDING,
         verbose_name="الحالة",
     )
+    is_featured = models.BooleanField(default=False, verbose_name="مميزة")
     rejection_reason = models.TextField(
         blank=True,
         verbose_name="سبب الرفض",

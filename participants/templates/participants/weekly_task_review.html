@@ -104,8 +104,17 @@ th{color:var(--slate); font-weight:600; font-size:12px}
 .status-rejected{background:#FBEEEA; color:var(--alert)}
 
 .review-actions{display:flex; gap:8px}
-.review-actions form{display:inline}
+.review-actions form{display:inline-flex; gap:6px; align-items:center}
 .reject-form{display:flex !important; gap:6px; align-items:center}
+.featured-checkbox-label{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  font-family:var(--font-ui);
+  font-size:12px;
+  color:var(--slate);
+  white-space:nowrap;
+}
 .reject-reason-input{
   border:1.5px solid var(--line);
   border-radius:var(--r-sm);
@@ -371,6 +380,10 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
                         {% csrf_token %}
                         <input type="hidden" name="action" value="accept">
                         <input type="hidden" name="submission_id" value="{{ submission.id }}">
+                        <label class="featured-checkbox-label">
+                          <input type="checkbox" name="is_featured">
+                          مميزة ⭐
+                        </label>
                         <button type="submit" class="btn btn-accept btn-sm">قبول</button>
                       </form>
                       <form method="post" class="reject-form">
