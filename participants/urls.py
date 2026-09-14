@@ -8,6 +8,7 @@ urlpatterns = [
     path("dashboard/", views.ParticipantDashboardView.as_view(), name="dashboard"),
     path("supervisor/dashboard/", views.SupervisorDashboardView.as_view(), name="supervisor_dashboard"),
     path("quran-circle/", views.QuranCircleAttendanceView.as_view(), name="quran_circle_attendance"),
+    path("weekly-activity/", views.WeeklyActivityAttendanceView.as_view(), name="weekly_activity_attendance"),
     path("import/", views.ParticipantImportView.as_view(), name="import_participants"),
     path("add-participant/", views.AddParticipantView.as_view(), name="add_participant"),
     path("general-supervisor/dashboard/", views.GeneralSupervisorDashboardView.as_view(), name="general_supervisor_dashboard"),

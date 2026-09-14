@@ -7,6 +7,7 @@ from .models import (
     PointsResetSnapshot,
     StoreProduct,
     TaskSubmission,
+    WeeklyActivityAttendance,
     WeeklyTask,
 )
 # Register your models here.
@@ -52,6 +53,13 @@ class StoreProductAdmin(ModelAdmin):
     list_display = ["name", "price", "stock"]
     list_filter = ["stock"]
     search_fields = ["name"]
+
+
+@admin.register(WeeklyActivityAttendance)
+class WeeklyActivityAttendanceAdmin(ModelAdmin):
+    list_display = ["participant", "date", "attended", "recorded_by"]
+    list_filter = ["date", "attended"]
+    search_fields = ["participant__user__full_name"]
 
 
 @admin.register(PointsResetSnapshot)
