@@ -16,17 +16,6 @@ right‑to‑left). This file is in English for GitHub; **[`README.ar.md`](READM
 Arabic version.** Detailed technical docs are in [`docs/`](docs/), and
 [`CHANGELOG.md`](CHANGELOG.md) tracks released versions.
 
-> ⚠️ **Historical note:** an earlier version of this README described
-> participant login as "passwordless". **That design was fully retired** —
-> participants now authenticate with a real password. See
-> [`docs/authentication.md`](docs/authentication.md). `docs/known-limitations.md`
-> also documents, in a dedicated section, several other things previously
-> described here that have since changed (a production Docker/PostgreSQL
-> setup now exists, the PDF letterhead image now exists, `Group.supervisor`
-> changed from a one‑to‑many to a many‑to‑many relationship, task acceptance
-> can now award 10 or 12 points) — read it before assuming this file's
-> current description is dated too.
-
 ## Overview
 
 - Participants belong to an **environment** (بيئة / `Group`), which one or
