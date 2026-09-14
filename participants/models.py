@@ -196,6 +196,19 @@ class MeetingAttendance(models.Model):
         return f"{self.participant.user.full_name} - {self.week_start_date}"
 
 
+# Maps a file-based AllowedFormat value to the filename extensions accepted
+# for it. Shared by TaskSubmissionForm.clean() (extension validation) and
+# TaskSubmission.get_submitted_format() (labeling an existing submission for
+# display) so the two never drift apart. "text" has no entry — a text
+# submission has no file at all.
+SUBMISSION_FORMAT_EXTENSIONS = {
+    "pdf": (".pdf",),
+    "image": (".jpg", ".jpeg", ".png"),
+    "audio": (".mp3", ".wav", ".m4a"),
+    "video": (".mp4", ".mov", ".webm"),
+}
+
+
 class WeeklyTask(models.Model):
     """
     A single week's assigned task for the whole program (not per-group).
@@ -208,15 +221,23 @@ class WeeklyTask(models.Model):
         IMAGE = "image", "صورة"
         AUDIO = "audio", "مقطع صوتي"
         VIDEO = "video", "مقطع فيديو"
+        TEXT = "text", "نص مباشر"
 
     title = models.CharField(max_length=200, verbose_name="عنوان المهمة")
     description = models.TextField(verbose_name="وصف المهمة")
     due_date = models.DateField(verbose_name="موعد التسليم")
-    # Which single format this specific task accepts.
+    # Comma-separated list of AllowedFormat values (e.g. "pdf,image") — a
+    # participant needs to satisfy only ONE of them. Deliberately not
+    # `choices=` (a joined value like "pdf,text" would fail Django's choices
+    # validator) and deliberately not a ManyToManyField (no separate join
+    # table needed for a handful of flat string values). A pre-existing task
+    # with a single bare value (e.g. "pdf", from before multi-format support)
+    # remains valid as-is — it's just a one-element list under the same
+    # split(",") logic. See get_allowed_formats_list/_display_list below.
     allowed_formats = models.CharField(
-        max_length=10,
-        choices=AllowedFormat.choices,
-        verbose_name="الصيغة المسموحة",
+        max_length=50,
+        verbose_name="الصيغ المسموحة",
+        help_text="يمكن اختيار أكثر من صيغة، يكفي المشارك تقديم واحدة منها",
     )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -236,6 +257,13 @@ class WeeklyTask(models.Model):
 
     def is_past_due(self):
         return datetime.date.today() > self.due_date
+
+    def get_allowed_formats_list(self):
+        return [f.strip() for f in self.allowed_formats.split(",") if f.strip()]
+
+    def get_allowed_formats_display_list(self):
+        values_to_labels = dict(self.AllowedFormat.choices)
+        return [values_to_labels.get(v, v) for v in self.get_allowed_formats_list()]
 
 
 class TaskSubmission(models.Model):
@@ -267,7 +295,17 @@ class TaskSubmission(models.Model):
         related_name="task_submissions",
         verbose_name="المشارك",
     )
-    file = models.FileField(upload_to="task_submissions/%Y/%W/", verbose_name="الملف")
+    file = models.FileField(
+        upload_to="task_submissions/%Y/%W/",
+        blank=True,
+        null=True,
+        verbose_name="الملف",
+    )
+    text_content = models.TextField(
+        blank=True,
+        verbose_name="المحتوى النصي",
+        help_text="يُستخدم فقط عند اختيار صيغة (نص مباشر) للتسليم",
+    )
     status = models.CharField(
         max_length=10,
         choices=Status.choices,
@@ -310,22 +348,43 @@ class TaskSubmission(models.Model):
         return f"{self.participant.user.full_name} - {self.task.title} - {self.get_status_display()}"
 
     def save(self, *args, **kwargs):
-        # Compress ONLY a freshly uploaded image, and only for image tasks.
-        # `_committed` is False exactly when `self.file` holds a new upload
-        # that has not been written to storage yet; a file loaded back from
-        # the database is already committed, so later saves (accept/reject,
-        # reopen) never re-encode it and cause JPEG generation loss.
-        # `self.task_id` avoids a needless task query when it is unset.
+        # Compress ONLY a freshly uploaded image file — keyed off the file's
+        # own extension, not the parent task's allowed formats (a
+        # multi-format task might allow "image,pdf", so the task alone
+        # doesn't say what this particular file is). `_committed` is False
+        # exactly when `self.file` holds a new upload that has not been
+        # written to storage yet; a file loaded back from the database is
+        # already committed, so later saves (accept/reject, reopen) never
+        # re-encode it and cause JPEG generation loss. `self.file` is falsy
+        # for a text submission (no file at all), so this is skipped there.
         if (
-            self.task_id
-            and self.file
+            self.file
             and not self.file._committed
-            and self.task.allowed_formats == "image"
+            and self.file.name.lower().endswith(SUBMISSION_FORMAT_EXTENSIONS["image"])
         ):
             compressed = compress_image_field(self.file)
             if compressed:
                 self.file = compressed
         super().save(*args, **kwargs)
+
+    def get_submitted_format(self):
+        """
+        Which single format this submission actually is: "text" for a text
+        submission, else the AllowedFormat value whose extensions
+        (SUBMISSION_FORMAT_EXTENSIONS) match the uploaded file's name, or ""
+        if the file's extension doesn't match anything recognized. Used by
+        templates to pick a preview widget per-submission now that a task
+        can allow more than one format.
+        """
+        if self.text_content:
+            return "text"
+        if not self.file:
+            return ""
+        name = self.file.name.lower()
+        for fmt, extensions in SUBMISSION_FORMAT_EXTENSIONS.items():
+            if name.endswith(extensions):
+                return fmt
+        return ""
 
 
 class StoreProduct(models.Model):
