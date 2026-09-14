@@ -33,6 +33,24 @@
   color:var(--asphalt);
   background:var(--sand);
 }
+.field textarea{
+  width:100%;
+  border:1.5px solid var(--line);
+  border-radius:var(--r-sm);
+  padding:10px 12px;
+  font-family:var(--font-ui);
+  font-size:14px;
+  color:var(--asphalt);
+  background:var(--sand);
+}
+.or-divider{
+  font-family:var(--font-ui);
+  font-size:13px;
+  font-weight:600;
+  color:var(--slate);
+  text-align:center;
+  margin:var(--s2) 0;
+}
 .field .errors{
   font-family:var(--font-ui);
   font-size:12px;
@@ -108,7 +126,12 @@
 
     {% elif existing_submission and not existing_submission.reopened_for_resubmission %}
       <h2>{{ task.title }}</h2>
-      <p>تم رفع ملفك لهذي المهمة بتاريخ {{ existing_submission.submitted_at }} ✅</p>
+      {% if existing_submission.file %}
+        <p>تم رفع ملفك لهذي المهمة بتاريخ {{ existing_submission.submitted_at }} ✅</p>
+      {% else %}
+        <p>تم تسليم النص التالي لهذي المهمة بتاريخ {{ existing_submission.submitted_at }} ✅</p>
+        <p class="task-meta" style="white-space:pre-wrap">{{ existing_submission.text_content }}</p>
+      {% endif %}
       {% if existing_submission.status == "pending" %}
         <span class="status-pill status-pending">قيد المراجعة ⏳</span>
       {% elif existing_submission.status == "accepted" %}
@@ -132,21 +155,41 @@
       <p>{{ task.description }}</p>
       <div class="task-meta">
         موعد التسليم: <b>{{ task.due_date }}</b>
-        · الصيغة المسموحة: <b>{{ task.get_allowed_formats_display }}</b>
-        {% if task.allowed_formats == "pdf" %}· الحد الأقصى للحجم: <b>10 ميجابايت</b>
-        {% elif task.allowed_formats == "audio" %}· الحد الأقصى للحجم: <b>15 ميجابايت</b>
-        {% elif task.allowed_formats == "video" %}· الحد الأقصى للحجم: <b>50 ميجابايت</b>
-        {% endif %}
+        · الصيغ المقبولة: <b>{{ task.get_allowed_formats_display_list|join:" أو " }}</b>
+        {% with allowed=task.get_allowed_formats_list %}
+          {% if "pdf" in allowed %}· PDF حتى <b>10 ميجابايت</b>{% endif %}
+          {% if "audio" in allowed %}· صوت حتى <b>15 ميجابايت</b>{% endif %}
+          {% if "video" in allowed %}· فيديو حتى <b>50 ميجابايت</b>{% endif %}
+        {% endwith %}
       </div>
+
+      {% if form.non_field_errors %}<div class="errors">{{ form.non_field_errors|join:"، " }}</div>{% endif %}
 
       <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
-        <div class="field">
-          <label for="id_file">الملف</label>
-          {{ form.file }}
-          {% if form.file.errors %}<div class="errors">{{ form.file.errors|join:"، " }}</div>{% endif %}
-        </div>
-        <button type="submit" class="btn">رفع الملف</button>
+        {% with allowed=task.get_allowed_formats_list %}
+          {% if allowed|length > 1 %}
+            <p class="task-meta">قدّم أحد الصيغ التالية فقط (ملفًا أو نصًا، وليس كليهما):</p>
+          {% endif %}
+          {% if "text" not in allowed or allowed|length > 1 %}
+            <div class="field">
+              <label for="id_file">الملف</label>
+              {{ form.file }}
+              {% if form.file.errors %}<div class="errors">{{ form.file.errors|join:"، " }}</div>{% endif %}
+            </div>
+          {% endif %}
+          {% if "text" in allowed and allowed|length > 1 %}
+            <div class="or-divider">— أو —</div>
+          {% endif %}
+          {% if "text" in allowed %}
+            <div class="field">
+              <label for="id_text_content">المحتوى النصي</label>
+              {{ form.text_content }}
+              {% if form.text_content.errors %}<div class="errors">{{ form.text_content.errors|join:"، " }}</div>{% endif %}
+            </div>
+          {% endif %}
+        {% endwith %}
+        <button type="submit" class="btn">تسليم المهمة</button>
       </form>
     {% endif %}
   </section>

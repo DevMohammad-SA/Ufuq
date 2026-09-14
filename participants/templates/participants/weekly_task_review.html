@@ -307,7 +307,7 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
       <div class="current-task-title">{{ current_task.title }}</div>
       <div class="current-task-meta">
         موعد التسليم: {{ current_task.due_date }}
-        · الصيغة المسموحة: {{ current_task.get_allowed_formats_display }}
+        · الصيغ المسموحة: {{ current_task.get_allowed_formats_display_list|join:" أو " }}
         {% if current_task.is_past_due %} · <span style="color:var(--alert)">انتهى الموعد</span>{% endif %}
       </div>
       <p class="current-task-desc">{{ current_task.description }}</p>
@@ -354,12 +354,17 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
                 <td>{{ submission.participant.group.name|default:"—" }}</td>
                 <td>{{ submission.submitted_at }}</td>
                 <td>
-                  <div class="file-actions">
-                    <a class="file-link" href="{{ submission.file.url }}" target="_blank">تحميل</a>
-                    <button type="button" class="btn-inline preview-btn"
-                            data-url="{{ submission.file.url }}"
-                            data-type="{{ current_task.allowed_formats }}">معاينة</button>
-                  </div>
+                  {% if submission.file %}
+                    <div class="file-actions">
+                      <a class="file-link" href="{{ submission.file.url }}" target="_blank">تحميل</a>
+                      <button type="button" class="btn-inline preview-btn"
+                              data-url="{{ submission.file.url }}"
+                              data-type="{{ submission.get_submitted_format }}">معاينة</button>
+                    </div>
+                  {% else %}
+                    <button type="button" class="btn-inline text-preview-btn"
+                            data-content="{{ submission.text_content }}">عرض النص</button>
+                  {% endif %}
                 </td>
                 <td>
                   {% if submission.status == "pending" %}
@@ -460,6 +465,22 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
   document.querySelectorAll(".preview-btn").forEach(function (btn) {
     btn.addEventListener("click", function () {
       openPreview(btn.getAttribute("data-url"), btn.getAttribute("data-type"));
+    });
+  });
+
+  document.querySelectorAll(".text-preview-btn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      content.innerHTML = "";
+      var pre = document.createElement("pre");
+      pre.style.whiteSpace = "pre-wrap";
+      pre.style.fontFamily = "var(--font-ui)";
+      pre.style.fontSize = "14px";
+      pre.style.color = "var(--asphalt)";
+      pre.style.margin = "0";
+      pre.style.maxWidth = "70vw";
+      pre.textContent = btn.getAttribute("data-content");
+      content.appendChild(pre);
+      modal.hidden = false;
     });
   });
 
