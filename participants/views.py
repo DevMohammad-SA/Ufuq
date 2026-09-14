@@ -39,6 +39,7 @@ from .models import (
     StoreOrder,
     StoreProduct,
     TaskSubmission,
+    WeeklyActivityAttendance,
     WeeklyTask,
 )
 
@@ -122,6 +123,11 @@ ICON_QURAN = (
     '<path d="M12 6c-1.8-1.2-4-1.8-6.5-1.8V18C8 18 10.2 18.6 12 20"/>'
     '<path d="M12 6c1.8-1.2 4-1.8 6.5-1.8V18C16 18 13.8 18.6 12 20"/>'
     '<path d="M12 6v14"/></svg>'
+)
+ICON_ACTIVITY = (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+    'stroke-linecap="round" stroke-linejoin="round" width="20" height="20">'
+    '<path d="M12 3l2.6 5.9 6.4.6-4.8 4.3 1.4 6.3L12 16.9l-5.6 3.2 1.4-6.3-4.8-4.3 6.4-.6z"/></svg>'
 )
 ICON_LOCK = (
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
@@ -227,6 +233,12 @@ def build_navbar(user, active_key):
                 "participants:quran_circle_attendance",
                 ICON_QURAN,
             ),
+            (
+                "weekly_activity",
+                "فعالية الأسبوع",
+                "participants:weekly_activity_attendance",
+                ICON_ACTIVITY,
+            ),
             ("data", "بيانات المشاركين", "participants:participants_data", ICON_DATA),
             (
                 "points_ledger",
@@ -274,6 +286,12 @@ def build_navbar(user, active_key):
                 "الحلقة القرآنية",
                 "participants:quran_circle_attendance",
                 ICON_QURAN,
+            ),
+            (
+                "weekly_activity",
+                "فعالية الأسبوع",
+                "participants:weekly_activity_attendance",
+                ICON_ACTIVITY,
             ),
             ("data", "بيانات المشاركين", "participants:participants_data", ICON_DATA),
             (
@@ -352,6 +370,11 @@ def quran_circle_points(attended, achieved):
     return (QURAN_ATTENDANCE_POINTS if attended else 0) + (
         QURAN_ACHIEVEMENT_POINTS if achieved else 0
     )
+
+
+# Flat points for the weekly activity — a single "attended" flag, unlike the
+# Quran circle's separate attendance/achievement dimensions.
+WEEKLY_ACTIVITY_POINTS = 10
 
 
 def meeting_attendance_points(attended, is_early):
@@ -809,6 +832,141 @@ class QuranCircleAttendanceView(LoginRequiredMixin, UserPassesTestMixin, Templat
 
         redirect_url = (
             f"{reverse('participants:quran_circle_attendance')}"
+            f"?date={selected_date.isoformat()}&group={group.id}"
+        )
+        return redirect(redirect_url)
+
+
+class WeeklyActivityAttendanceView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+    """
+    Manual interface for recording the weekly activity's attendance — same
+    bulk-roster-with-date-picker pattern as QuranCircleAttendanceView, but a
+    single flat "attended" flag (10 points) instead of separate
+    attendance/achievement dimensions. Available to both GROUP_SUPERVISOR
+    (their own group only) and GENERAL_SUPERVISOR/SUPERADMIN (any group,
+    selectable).
+    """
+
+    template_name = "participants/weekly_activity_attendance.html"
+    login_url = "accounts:login_supervisor"
+
+    def test_func(self):
+        return self.request.user.role in (
+            Role.GROUP_SUPERVISOR,
+            Role.GENERAL_SUPERVISOR,
+            Role.SUPERADMIN,
+        )
+
+    def get_selected_date(self):
+        raw = self.request.POST.get("date") or self.request.GET.get("date")
+        if raw:
+            try:
+                return datetime.date.fromisoformat(raw)
+            except ValueError:
+                pass
+        return datetime.date.today()
+
+    def get_selected_group(self):
+        # A GROUP_SUPERVISOR is locked to their own group — any `group` value
+        # in the request is ignored entirely for them. The general
+        # supervisor/superadmin picks any group via ?group=<id> (no selection
+        # means "no group chosen yet").
+        if self.request.user.role == Role.GROUP_SUPERVISOR:
+            return self.request.user.group_set.first()
+
+        group_id = self.request.POST.get("group") or self.request.GET.get("group")
+        if group_id:
+            return Group.objects.filter(id=group_id).first()
+        return None
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        selected_date = self.get_selected_date()
+        group = self.get_selected_group()
+
+        context["selected_date"] = selected_date
+        context["group"] = group
+        context["is_group_locked"] = self.request.user.role == Role.GROUP_SUPERVISOR
+        context["all_groups"] = (
+            Group.objects.all() if not context["is_group_locked"] else None
+        )
+        context["navbar_items"] = build_navbar(self.request.user, "weekly_activity")
+
+        if group:
+            participants = Participant.objects.filter(group=group).select_related(
+                "user"
+            )
+            existing_records = {
+                record.participant_id: record
+                for record in WeeklyActivityAttendance.objects.filter(
+                    participant__group=group, date=selected_date
+                )
+            }
+            roster = []
+            for participant in participants:
+                record = existing_records.get(participant.id)
+                roster.append(
+                    {
+                        "participant": participant,
+                        "attended": record.attended if record else False,
+                    }
+                )
+            context["roster"] = roster
+        else:
+            context["roster"] = []
+
+        return context
+
+    def post(self, request, *args, **kwargs):
+        selected_date = self.get_selected_date()
+        group = self.get_selected_group()
+
+        if not group:
+            return self.get(request, *args, **kwargs)
+
+        # Iterate ONLY over this group's own participant ids and read POST
+        # fields built from those ids, so a crafted request naming a
+        # participant from another group simply has no effect — same guard
+        # QuranCircleAttendanceView.post() uses.
+        participant_ids = set(
+            Participant.objects.filter(group=group).values_list("id", flat=True)
+        )
+
+        for participant_id in participant_ids:
+            attended = request.POST.get(f"attended_{participant_id}") == "on"
+            participant = Participant.objects.get(id=participant_id)
+
+            existing = WeeklyActivityAttendance.objects.filter(
+                participant_id=participant_id, date=selected_date
+            ).first()
+
+            old_points = WEEKLY_ACTIVITY_POINTS if (existing and existing.attended) else 0
+            new_points = WEEKLY_ACTIVITY_POINTS if attended else 0
+
+            if existing:
+                existing.attended = attended
+                existing.recorded_by = request.user
+                existing.save()
+            else:
+                WeeklyActivityAttendance.objects.create(
+                    participant_id=participant_id,
+                    date=selected_date,
+                    attended=attended,
+                    recorded_by=request.user,
+                )
+
+            delta = new_points - old_points
+            if delta != 0:
+                apply_points_delta(
+                    participant,
+                    delta,
+                    source=PointsLedgerEntry.Source.WEEKLY_ACTIVITY,
+                    description="فعالية الأسبوع" if attended else "تعديل فعالية الأسبوع",
+                    granted_by=request.user,
+                )
+
+        redirect_url = (
+            f"{reverse('participants:weekly_activity_attendance')}"
             f"?date={selected_date.isoformat()}&group={group.id}"
         )
         return redirect(redirect_url)

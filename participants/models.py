@@ -430,6 +430,7 @@ class PointsLedgerEntry(models.Model):
         MEETING_ATTENDANCE = "meeting_attendance", "حضور اللقاء الأسبوعي"
         QURAN_CIRCLE = "quran_circle", "الحلقة القرآنية"
         WEEKLY_TASK = "weekly_task", "المهمة الأسبوعية"
+        WEEKLY_ACTIVITY = "weekly_activity", "فعالية الأسبوع"
         EXTRA = "extra", "نقاط إضافية"
 
     participant = models.ForeignKey(
@@ -500,3 +501,42 @@ class PointsResetSnapshot(models.Model):
 
     def __str__(self):
         return f"{self.participant.user.full_name} - {self.points_before_reset} ({self.reset_at:%Y-%m-%d %H:%M})"
+
+
+class WeeklyActivityAttendance(models.Model):
+    """
+    Weekly activity attendance — a single flat 10-point activity with no
+    fixed day (recorded whenever the supervisor runs it that week), no
+    name/description needed (unlike WeeklyTask). Same bulk-roster-with-
+    date-picker UI pattern as CircleAttendance/MeetingAttendance/quran
+    circle, but with a single attended flag instead of separate
+    attendance/achievement dimensions.
+    """
+
+    participant = models.ForeignKey(
+        Participant,
+        on_delete=models.CASCADE,
+        related_name="weekly_activity_attendances",
+        verbose_name="المشارك",
+    )
+    date = models.DateField(verbose_name="التاريخ")
+    attended = models.BooleanField(default=False, verbose_name="حاضر؟")
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        verbose_name="سجّله",
+    )
+
+    class Meta:
+        verbose_name = "فعالية الأسبوع"
+        verbose_name_plural = "فعاليات الأسبوع"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["participant", "date"],
+                name="unique_weekly_activity_per_day",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.participant.user.full_name} - {self.date}"
