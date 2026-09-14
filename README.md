@@ -209,5 +209,5 @@ those notes. See [`CHANGELOG.md`](CHANGELOG.md) for the release history.
 ## License / ownership
 
 Developed for **Saqeel Society for Youth Development** (جمعية صقيل لتنمية
-الشباب) for the Horizon Program. No open‑source license file is present in the
+الشباب) for Ufuq Program. No open‑source license file is present in the
 repository; all rights are held by the association unless stated otherwise.
