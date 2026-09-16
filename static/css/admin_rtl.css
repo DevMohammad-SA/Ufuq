@@ -1,0 +1,86 @@
+/*
+ * RTL fixes for the Unfold admin (django-unfold==0.104.1), Rahhal identity.
+ *
+ * Why CSS instead of template overrides with logical-property class names
+ * (ms-*/me-*/ps-*/pe-*/text-start/text-end): this project has no Tailwind
+ * build step of its own (no package.json / tailwind config). Unfold's
+ * unfold/static/unfold/css/styles.css is a static bundle compiled once,
+ * at Unfold's own package-build time, by scanning only Unfold's own
+ * (LTR-authored) templates. A logical-property class typed into a project
+ * template override would not exist anywhere in that compiled CSS and
+ * would silently do nothing. So instead this file reinterprets Unfold's
+ * existing physical utility classes as logical ones, scoped to
+ * [dir="rtl"] only — [dir="ltr"] is completely untouched.
+ *
+ * Loaded via UNFOLD["STYLES"] in settings.py, which unfold/layouts/
+ * skeleton.html renders *before* unfold/css/styles.css. !important is
+ * required to win the cascade against Unfold's own utility class of the
+ * same selector, which loads after this file in source order.
+ *
+ * Every rule below corresponds to one item in the RTL diagnostic's list of
+ * ~25 physical-property occurrences actually reachable in this project
+ * (changelist header/cells, object history, home app list, navigation/
+ * account dropdowns, pagination, bulk actions bar, submit line, nested
+ * fieldset accent bar, sidebar resize handle, filter drawer, command
+ * palette results, empty-results panel, welcome header). Nothing beyond
+ * that list is touched.
+ */
+
+[dir="rtl"] .text-left { text-align: right !important; }
+[dir="rtl"] .text-right { text-align: left !important; }
+
+/* margins */
+[dir="rtl"] .ml-1 { margin-left: 0 !important; margin-right: .25rem !important; }
+[dir="rtl"] .ml-2 { margin-left: 0 !important; margin-right: .5rem !important; }
+[dir="rtl"] .ml-3 { margin-left: 0 !important; margin-right: .75rem !important; }
+[dir="rtl"] .ml-4 { margin-left: 0 !important; margin-right: 1rem !important; }
+[dir="rtl"] .ml-auto { margin-left: 0 !important; margin-right: auto !important; }
+[dir="rtl"] .-ml-1\.5 { margin-left: 0 !important; margin-right: -.375rem !important; }
+[dir="rtl"] .-ml-1 { margin-left: 0 !important; margin-right: -.25rem !important; }
+[dir="rtl"] .-ml-0\.5 { margin-left: 0 !important; margin-right: -.125rem !important; }
+
+[dir="rtl"] .mr-0\.5 { margin-right: 0 !important; margin-left: .125rem !important; }
+[dir="rtl"] .mr-2 { margin-right: 0 !important; margin-left: .5rem !important; }
+[dir="rtl"] .mr-3 { margin-right: 0 !important; margin-left: .75rem !important; }
+[dir="rtl"] .mr-4 { margin-right: 0 !important; margin-left: 1rem !important; }
+[dir="rtl"] .mr-auto { margin-right: 0 !important; margin-left: auto !important; }
+[dir="rtl"] .-mr-1 { margin-right: 0 !important; margin-left: -.25rem !important; }
+
+/* padding */
+[dir="rtl"] .pl-3 { padding-left: 0 !important; padding-right: .75rem !important; }
+[dir="rtl"] .pr-0 { padding-right: 0 !important; padding-left: 0 !important; }
+[dir="rtl"] .pr-2 { padding-right: 0 !important; padding-left: .5rem !important; }
+[dir="rtl"] .pr-4 { padding-right: 0 !important; padding-left: 1rem !important; }
+
+@media (min-width: 64rem) {
+    /* lg: breakpoint, matches Unfold's compiled lg\:pl-3 / lg\:pr-0 (change_list_results.html) */
+    [dir="rtl"] .lg\:pl-3 { padding-left: 0 !important; padding-right: .75rem !important; }
+    [dir="rtl"] .lg\:pr-0 { padding-right: 0 !important; padding-left: 0 !important; }
+}
+
+@media (min-width: 40rem) {
+    /* sm: breakpoint, matches Unfold's compiled sm\:ml-auto (admin/actions.html bulk-actions bar) */
+    [dir="rtl"] .sm\:ml-auto { margin-left: 0 !important; margin-right: auto !important; }
+}
+
+/* nested/stacked inline accent bar (admin/includes/fieldset.html) —
+   not reachable today (project registers no TabularInline/StackedInline),
+   fixed for correctness per the diagnostic's scope, not because it renders now. */
+[dir="rtl"] .border-l { border-left-width: 0 !important; border-right-width: 1px !important; border-right-style: solid !important; }
+[dir="rtl"] .before\:-left-3::before { left: auto !important; right: -.75rem !important; }
+
+/* sidebar resize handle (admin/nav_sidebar.html) — the sidebar itself sits on
+   the visual right in RTL (it is the first child of the plain `flex` #page
+   container, and dir="rtl" reverses flexbox main-start to the right per the
+   CSS spec), so its content-facing edge — where the drag handle lives — is
+   now the LEFT edge instead of the right. Selector matches Unfold's own
+   compiled arbitrary-value class directly; no template override needed. */
+[dir="rtl"] .right-\[-3px\] { right: auto !important; left: -3px !important; }
+
+/* theme-switch dropdown anchor (unfold/helpers/theme_switch_dropdown.html) */
+[dir="rtl"] .-right-2 { right: auto !important; left: -.5rem !important; }
+
+/* active-row indicator bar (admin/change_list_results.html); this exact
+   bg-primary-600 + w-0.5 combination is unique to that accent-bar pattern
+   (also reused verbatim by unfold/components/table.html, fixed for free). */
+[dir="rtl"] .bg-primary-600.w-0\.5 { left: auto !important; right: 0 !important; }

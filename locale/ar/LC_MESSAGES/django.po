@@ -1,0 +1,143 @@
+# Arabic translations for django-unfold's own UI strings (django-unfold==0.104.1).
+#
+# Unfold ships zero locale/ catalogs of its own for ANY language — see the
+# RTL/colors diagnostic. Django core and django.contrib.admin already ship a
+# complete Arabic catalog, so this file covers only the msgids that are
+# unique to Unfold's templates and therefore untranslated by those. Msgids
+# were extracted with the real `django-admin makemessages` (not hand-typed)
+# against copies of the exact Unfold template files, to avoid whitespace/
+# HTML mismatches that would silently fail to match at runtime. Two strings
+# Unfold reuses verbatim from Django's own admin catalog ("Add %(name)s",
+# "Show all") are intentionally left out here so this file can't drift out
+# of sync with core's translation of the same msgid.
+msgid ""
+msgstr ""
+"Project-Id-Version: rahhal-admin-unfold-strings\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-09-15 18:49+0300\n"
+"PO-Revision-Date: 2026-09-15 18:49+0300\n"
+"Last-Translator: \n"
+"Language-Team: Arabic\n"
+"Language: ar\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=6; plural=n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 "
+"&& n%100<=10 ? 3 : n%100>=11 && n%100<=99 ? 4 : 5;\n"
+
+msgid "Type to search"
+msgstr "اكتب للبحث"
+
+msgid "Navigate"
+msgstr "تنقّل"
+
+msgid "Select"
+msgstr "اختيار"
+
+msgid "Clear"
+msgstr "تفريغ"
+
+msgid "Nothing matched your search"
+msgstr "لا نتائج مطابقة لبحثك"
+
+#, python-format
+msgid ""
+"\n"
+"            Found <span class=\"font-medium text-important\">%(counter)s</span> result in %(time)s seconds\n"
+"        "
+msgid_plural ""
+"\n"
+"            Found <span class=\"font-medium text-important\">%(counter)s</span> results in %(time)s seconds\n"
+"        "
+msgstr[0] ""
+"\n"
+"            لم يُعثر على أي نتيجة خلال %(time)s ثانية\n"
+"        "
+msgstr[1] ""
+"\n"
+"            تم العثور على نتيجة واحدة خلال %(time)s ثانية\n"
+"        "
+msgstr[2] ""
+"\n"
+"            تم العثور على نتيجتين خلال %(time)s ثانية\n"
+"        "
+msgstr[3] ""
+"\n"
+"            تم العثور على <span class=\"font-medium text-important\">%(counter)s</span> نتائج خلال %(time)s ثانية\n"
+"        "
+msgstr[4] ""
+"\n"
+"            تم العثور على <span class=\"font-medium text-important\">%(counter)s</span> نتيجة خلال %(time)s ثانية\n"
+"        "
+msgstr[5] ""
+"\n"
+"            تم العثور على <span class=\"font-medium text-important\">%(counter)s</span> نتيجة خلال %(time)s ثانية\n"
+"        "
+
+msgid "No results found"
+msgstr "لا نتائج"
+
+msgid "This page yielded into no results. Create a new item or reset your filters."
+msgstr "لم تُسفر هذه الصفحة عن أي نتائج. أنشئ عنصرًا جديدًا أو أعد تعيين الفلاتر."
+
+msgid "Reset filters"
+msgstr "إعادة تعيين الفلاتر"
+
+msgid "Available shortcuts"
+msgstr "الاختصارات المتاحة"
+
+msgid "Global shortcuts"
+msgstr "اختصارات عامة"
+
+msgid "Open command tool"
+msgstr "فتح أداة الأوامر"
+
+msgid "Open shortcuts list"
+msgstr "فتح قائمة الاختصارات"
+
+msgid "Toggle sidebar"
+msgstr "إظهار الشريط الجانبي أو إخفاؤه"
+
+msgid "Toggle dark/light mode"
+msgstr "تبديل الوضع الداكن/الفاتح"
+
+msgid "Changelist shortcuts"
+msgstr "اختصارات قائمة العناصر"
+
+msgid "Toggle filter"
+msgstr "إظهار الفلاتر أو إخفاؤها"
+
+msgid "Create new record"
+msgstr "إنشاء عنصر جديد"
+
+msgid "Command tool shortcuts"
+msgstr "اختصارات أداة الأوامر"
+
+msgid "Open selection"
+msgstr "فتح العنصر المحدد"
+
+msgid "Open selection in new tab"
+msgstr "فتح العنصر المحدد في تبويب جديد"
+
+msgid "Light"
+msgstr "فاتح"
+
+msgid "Dark"
+msgstr "داكن"
+
+msgid "System"
+msgstr "النظام"
+
+#, python-format
+msgid "%(counter)s result"
+msgid_plural "%(counter)s results"
+msgstr[0] "%(counter)s نتيجة"
+msgstr[1] "نتيجة واحدة"
+msgstr[2] "نتيجتان"
+msgstr[3] "%(counter)s نتائج"
+msgstr[4] "%(counter)s نتيجة"
+msgstr[5] "%(counter)s نتيجة"
+
+#, python-format
+msgid "%(full_result_count)s total"
+msgstr "%(full_result_count)s إجمالاً"

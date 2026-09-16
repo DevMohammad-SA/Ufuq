@@ -61,6 +61,52 @@ INSTALLED_APPS = [
     "participants",
 ]
 
+# Rahhal brand identity applied to the Unfold admin (superadmin-only surface).
+# Hex values are passed straight through: unfold.utils.convert_color() accepts
+# "#RRGGBB" natively and turns it into rgb(...) itself, so no manual conversion
+# is needed for django-unfold==0.104.1. Only "base" (neutral/asphalt) and
+# "primary" (gold) participate in Unfold's dynamic --color-{name}-{weight} CSS
+# variables (see unfold/templates/unfold/layouts/skeleton.html) — the 50-950
+# steps below are interpolated from the brand anchors (sand/line/slate/asphalt
+# for base; gold/gold-ink for primary) since the identity only defines single
+# swatches, not a full tonal scale.
+UNFOLD = {
+    "SITE_TITLE": "لوحة تحكم رحّال",
+    "SITE_HEADER": "رحّال",
+    # RTL fixes for Unfold's own (LTR-authored) templates — see
+    # static/css/admin_rtl.css for why this has to be a stylesheet rather
+    # than template overrides using logical-property utility classes.
+    "STYLES": ["/static/css/admin_rtl.css"],
+    "COLORS": {
+        "base": {
+            "50": "#F7F3EA",
+            "100": "#F0EBE1",
+            "200": "#E2DCD0",
+            "300": "#C1BFB8",
+            "400": "#A0A29F",
+            "500": "#808486",
+            "600": "#5F676E",
+            "700": "#4E545A",
+            "800": "#3C4247",
+            "900": "#2B2F33",
+            "950": "#222629",
+        },
+        "primary": {
+            "50": "#FCFBF8",
+            "100": "#F5F2E9",
+            "200": "#E9E0C9",
+            "300": "#DECFA8",
+            "400": "#D5BD85",
+            "500": "#CDAC61",
+            "600": "#C79A3B",
+            "700": "#AA802C",
+            "800": "#8A6520",
+            "900": "#684A16",
+            "950": "#573D11",
+        },
+    },
+}
+
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -152,6 +198,12 @@ LANGUAGE_CODE = "ar-sa"
 TIME_ZONE = "Asia/Riyadh"
 
 USE_I18N = True
+
+# Project-level catalog covering django-unfold's own UI strings, which the
+# package ships with no locale/ of its own (Django core + django.contrib.admin
+# already ship complete Arabic catalogs and are unaffected). See locale/ar/
+# LC_MESSAGES/django.po for what it covers and why.
+LOCALE_PATHS = [BASE_DIR / "locale"]
 
 USE_TZ = True
 
