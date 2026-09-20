@@ -4,7 +4,7 @@
 {% block title %}بيانات المشاركين — رحّال{% endblock %}
 
 {% block extra_style %}
-.wrap{max-width:1120px}
+.wrap{max-width:96vw}
 
 table.roster{
   width:100%;
@@ -168,15 +168,16 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
         <table class="roster" id="roster-table">
           <thead>
             <tr>
-              <th class="sortable" data-sort="text" data-col="0">الاسم الكامل<span class="sort-arrow"></span></th>
+              <th class="num-col">#</th>
+              <th class="sortable" data-sort="text" data-col="1">الاسم الكامل<span class="sort-arrow"></span></th>
               <th>رقم الهوية</th>
-              <th class="sortable" data-sort="text" data-col="2">البيئة<span class="sort-arrow"></span></th>
-              <th class="sortable" data-sort="text" data-col="3">المرحلة الدراسية<span class="sort-arrow"></span></th>
-              <th class="sortable num-col" data-sort="number" data-col="4">الأميال<span class="sort-arrow"></span></th>
-              <th class="sortable num-col" data-sort="number" data-col="5">النقاط<span class="sort-arrow"></span></th>
-              <th class="sortable num-col" data-sort="number" data-col="6">النقاط الشرائية<span class="sort-arrow"></span></th>
-              <th class="sortable num-col" data-sort="number" data-col="7">أيام حضور الحلقة<span class="sort-arrow"></span></th>
-              <th class="sortable num-col" data-sort="number" data-col="8">مرات حضور اللقاء<span class="sort-arrow"></span></th>
+              <th class="sortable" data-sort="text" data-col="3">البيئة<span class="sort-arrow"></span></th>
+              <th class="sortable" data-sort="text" data-col="4">المرحلة الدراسية<span class="sort-arrow"></span></th>
+              <th class="sortable num-col" data-sort="number" data-col="5">الأميال<span class="sort-arrow"></span></th>
+              <th class="sortable num-col" data-sort="number" data-col="6">النقاط<span class="sort-arrow"></span></th>
+              <th class="sortable num-col" data-sort="number" data-col="7">النقاط الشرائية<span class="sort-arrow"></span></th>
+              <th class="sortable num-col" data-sort="number" data-col="8">أيام حضور الحلقة<span class="sort-arrow"></span></th>
+              <th class="sortable num-col" data-sort="number" data-col="9">مرات حضور اللقاء<span class="sort-arrow"></span></th>
               <th>رقم جوال المشارك</th>
               <th>رقم جوال ولي الأمر</th>
             </tr>
@@ -184,6 +185,7 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
           <tbody id="roster-body">
             {% for participant in participants %}
               <tr data-search="{{ participant.user.full_name|default:''|lower }} {{ participant.user.national_id|default:''|lower }}" data-group="{{ participant.group.name|default:'' }}">
+                <td class="num-cell row-number"></td>
                 <td>{{ participant.user.full_name|default:"—" }}</td>
                 <td>{{ participant.user.national_id|default:"—" }}</td>
                 <td>{{ participant.group.name|default:"—" }}</td>
@@ -217,6 +219,18 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
   var selectAllBtn = document.getElementById("group-filter-all");
   var selectNoneBtn = document.getElementById("group-filter-none");
 
+  function renumberRows() {
+    if (!tbody) return;
+    var visibleRows = Array.prototype.filter.call(
+      tbody.querySelectorAll("tr"),
+      function (row) { return !row.hidden; }
+    );
+    visibleRows.forEach(function (row, index) {
+      var numberCell = row.querySelector(".row-number");
+      if (numberCell) numberCell.textContent = index + 1;
+    });
+  }
+
   function getSelectedGroups() {
     var selected = [];
     groupCheckboxes.forEach(function (cb) {
@@ -242,6 +256,7 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
       if (match) visible++;
     });
     if (empty) empty.hidden = visible !== 0;
+    renumberRows();
   }
 
   if (search) search.addEventListener("input", applyFilters);
@@ -305,8 +320,11 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
         return 0;
       });
       rows.forEach(function (row) { tbody.appendChild(row); });
+      renumberRows();
     });
   });
+
+  renumberRows();
 })();
 </script>
 
