@@ -192,9 +192,6 @@ table.roster input[type="checkbox"]{
             <thead>
               <tr>
                 <th class="sortable" data-sort="text" data-col="0">الاسم الكامل<span class="sort-arrow"></span></th>
-                <th>رقم الهوية</th>
-                <th class="sortable" data-sort="number" data-col="2">الأميال<span class="sort-arrow"></span></th>
-                <th class="sortable" data-sort="number" data-col="3">النقاط<span class="sort-arrow"></span></th>
                 <th class="check-col">
                   حضور الحلقة
                   <button type="button" class="select-all" data-target="attended">تحديد الكل</button>
@@ -203,21 +200,24 @@ table.roster input[type="checkbox"]{
                   إنجاز الحلقة
                   <button type="button" class="select-all" data-target="achieved">تحديد الكل</button>
                 </th>
+                <th>رقم الهوية</th>
+                <th class="sortable" data-sort="number" data-col="4">الأميال<span class="sort-arrow"></span></th>
+                <th class="sortable" data-sort="number" data-col="5">النقاط<span class="sort-arrow"></span></th>
               </tr>
             </thead>
             <tbody id="roster-body">
               {% for entry in roster %}
                 <tr data-search="{{ entry.participant.user.full_name|default:''|lower }} {{ entry.participant.user.national_id|default:''|lower }}">
                   <td>{{ entry.participant.user.full_name|default:"—" }}</td>
-                  <td>{{ entry.participant.user.national_id|default:"—" }}</td>
-                  <td class="num-cell">{{ entry.participant.miles }}</td>
-                  <td class="num-cell">{{ entry.participant.points }}</td>
                   <td class="check-cell">
                     <input type="checkbox" data-col="attended" name="attended_{{ entry.participant.id }}"{% if entry.attended %} checked{% endif %}>
                   </td>
                   <td class="check-cell">
                     <input type="checkbox" data-col="achieved" name="achieved_{{ entry.participant.id }}"{% if entry.achieved %} checked{% endif %}>
                   </td>
+                  <td>{{ entry.participant.user.national_id|default:"—" }}</td>
+                  <td class="num-cell">{{ entry.participant.miles }}</td>
+                  <td class="num-cell">{{ entry.participant.points }}</td>
                 </tr>
               {% endfor %}
             </tbody>
