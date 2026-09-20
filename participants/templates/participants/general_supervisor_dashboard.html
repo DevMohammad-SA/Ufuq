@@ -79,9 +79,17 @@
   background:var(--alert);
 }
 .btn-danger:hover{background:#9a4632}
+
+.welcome-note{
+  font-family:var(--font-ui);
+  font-size:14px;
+  color:var(--slate);
+  margin:0 0 var(--s1);
+}
 {% endblock %}
 
 {% block content %}
+  <p class="welcome-note">مرحبًا، {{ request.user.full_name }} 👋</p>
   <h1 class="page-title">لوحة المشرف العام</h1>
   <p class="page-sub">إدارة بيانات المشاركين على مستوى البرنامج بالكامل.</p>
 

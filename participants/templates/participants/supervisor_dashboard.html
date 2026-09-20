@@ -135,9 +135,17 @@ table.roster input[type="checkbox"]{
 }
 .save-bar{margin-top:var(--s3)}
 .save-bar .btn{max-width:280px}
+
+.welcome-note{
+  font-family:var(--font-ui);
+  font-size:14px;
+  color:var(--slate);
+  margin:0 0 var(--s1);
+}
 {% endblock %}
 
 {% block content %}
+  <p class="welcome-note">مرحبًا، {{ request.user.full_name }} 👋</p>
   <h1 class="page-title">تحضير اللقاء الأسبوعي</h1>
   <p class="page-sub">
     {% if group %}بيئة <b>{{ group.name }}</b> · {% endif %}اختر تاريخ اللقاء، ثم علّم حضور مشاركي بيئتك واحفظ الجدول دفعة واحدة. اضغط على عنوان أي عمود للفرز حسبه.
