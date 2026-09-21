@@ -38,8 +38,8 @@ class ParticipantAdmin(ModelAdmin):
 
 @admin.register(WeeklyTask)
 class WeeklyTaskAdmin(ModelAdmin):
-    list_display = ["title", "due_date", "created_at"]
-    list_filter = ["due_date"]
+    list_display = ["title", "due_date", "is_active", "created_at"]
+    list_filter = ["due_date", "is_active"]
 
 
 @admin.register(TaskSubmission)
