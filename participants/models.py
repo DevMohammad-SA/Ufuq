@@ -196,8 +196,9 @@ class MeetingAttendance(models.Model):
         return f"{self.participant.user.full_name} - {self.week_start_date}"
 
 
-# Maps a file-based AllowedFormat value to the filename extensions accepted
-# for it. Shared by TaskSubmissionForm.clean() (extension validation) and
+# Maps a file-based format value (WeeklyTask.FORMAT_CHOICES) to the filename
+# extensions accepted for it. Shared by TaskSubmissionForm.clean() (extension
+# validation) and
 # TaskSubmission.get_submitted_format() (labeling an existing submission for
 # display) so the two never drift apart. "text" has no entry — a text
 # submission has no file at all.
@@ -219,22 +220,29 @@ class WeeklyTask(models.Model):
     result.
     """
 
-    class AllowedFormat(models.TextChoices):
-        PDF = "pdf", "ملف PDF"
-        IMAGE = "image", "صورة"
-        AUDIO = "audio", "مقطع صوتي"
-        VIDEO = "video", "مقطع فيديو"
-        TEXT = "text", "نص مباشر"
-        IMAGE_TEXT = "image_text", "صورة + نص"
-        PDF_TEXT = "pdf_text", "PDF + نص"
+    FORMAT_CHOICES = [
+        ("pdf", "ملف PDF"),
+        ("image", "صورة"),
+        ("audio", "مقطع صوتي"),
+        ("video", "مقطع فيديو"),
+        ("text", "نص مباشر"),
+    ]
 
     title = models.CharField(max_length=200, verbose_name="عنوان المهمة")
     description = models.TextField(verbose_name="وصف المهمة")
     due_date = models.DateField(verbose_name="موعد التسليم")
     allowed_formats = models.CharField(
-        max_length=20,
-        choices=AllowedFormat.choices,
-        verbose_name="الصيغة المطلوبة",
+        max_length=50,
+        verbose_name="الصيغ المسموحة",
+        help_text="قائمة مفصولة بفواصل من: pdf, image, audio, video, text",
+    )
+    require_all_formats = models.BooleanField(
+        default=False,
+        verbose_name="تتطلب كل الصيغ معًا (AND)",
+        help_text=(
+            "إذا كان مفعّلًا، يجب على الطالب تقديم كل الصيغ المختارة معًا. "
+            "إذا كان معطّلًا، يكفي تقديم صيغة واحدة يختارها الطالب."
+        ),
     )
     is_active = models.BooleanField(default=False, verbose_name="مهمة نشطة")
     created_by = models.ForeignKey(
@@ -268,45 +276,30 @@ class WeeklyTask(models.Model):
             is_active=True, due_date__gte=datetime.date.today()
         ).order_by("due_date")
 
-    def requires_file(self):
-        return self.allowed_formats in (
-            self.AllowedFormat.PDF,
-            self.AllowedFormat.IMAGE,
-            self.AllowedFormat.AUDIO,
-            self.AllowedFormat.VIDEO,
-            self.AllowedFormat.IMAGE_TEXT,
-            self.AllowedFormat.PDF_TEXT,
-        )
+    def get_allowed_formats_list(self):
+        return [f.strip() for f in self.allowed_formats.split(",") if f.strip()]
 
-    def requires_text(self):
-        return self.allowed_formats in (
-            self.AllowedFormat.TEXT,
-            self.AllowedFormat.IMAGE_TEXT,
-            self.AllowedFormat.PDF_TEXT,
-        )
+    def has_file_formats(self):
+        return any(f != "text" for f in self.get_allowed_formats_list())
 
-    def file_extensions(self):
-        mapping = {
-            self.AllowedFormat.PDF: SUBMISSION_FORMAT_EXTENSIONS["pdf"],
-            self.AllowedFormat.IMAGE: SUBMISSION_FORMAT_EXTENSIONS["image"],
-            self.AllowedFormat.AUDIO: SUBMISSION_FORMAT_EXTENSIONS["audio"],
-            self.AllowedFormat.VIDEO: SUBMISSION_FORMAT_EXTENSIONS["video"],
-            self.AllowedFormat.IMAGE_TEXT: SUBMISSION_FORMAT_EXTENSIONS["image"],
-            self.AllowedFormat.PDF_TEXT: SUBMISSION_FORMAT_EXTENSIONS["pdf"],
+    def has_text_format(self):
+        return "text" in self.get_allowed_formats_list()
+
+    def get_allowed_formats_display_list(self):
+        labels = dict(self.FORMAT_CHOICES)
+        return [labels.get(f, f) for f in self.get_allowed_formats_list()]
+
+    def get_allowed_formats_display(self):
+        separator = " و" if self.require_all_formats else " أو "
+        return separator.join(self.get_allowed_formats_display_list())
+
+    def format_extensions_map(self):
+        return {
+            "pdf": SUBMISSION_FORMAT_EXTENSIONS["pdf"],
+            "image": SUBMISSION_FORMAT_EXTENSIONS["image"],
+            "audio": SUBMISSION_FORMAT_EXTENSIONS["audio"],
+            "video": SUBMISSION_FORMAT_EXTENSIONS["video"],
         }
-        return mapping.get(self.allowed_formats, ())
-
-    def file_format_for_size_limit(self):
-        """
-        Which base AllowedFormat governs the max upload size for this
-        task's file component (TaskSubmissionForm.MAX_FILE_SIZES is keyed
-        by these base values, e.g. pdf_text uses the same ceiling as pdf).
-        """
-        mapping = {
-            self.AllowedFormat.PDF_TEXT: self.AllowedFormat.PDF,
-            self.AllowedFormat.IMAGE_TEXT: self.AllowedFormat.IMAGE,
-        }
-        return mapping.get(self.allowed_formats, self.allowed_formats)
 
 
 class TaskSubmission(models.Model):
@@ -413,7 +406,7 @@ class TaskSubmission(models.Model):
     def get_submitted_format(self):
         """
         Which single format this submission actually is: "text" for a text
-        submission, else the AllowedFormat value whose extensions
+        submission, else the format value whose extensions
         (SUBMISSION_FORMAT_EXTENSIONS) match the uploaded file's name, or ""
         if the file's extension doesn't match anything recognized. Used by
         templates to pick a preview widget per-submission now that a task
