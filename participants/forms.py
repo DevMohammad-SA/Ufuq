@@ -33,13 +33,39 @@ class ParticipantImportForm(forms.Form):
 
 
 class WeeklyTaskForm(forms.ModelForm):
+    allowed_formats = forms.MultipleChoiceField(
+        choices=WeeklyTask.FORMAT_CHOICES,
+        widget=forms.CheckboxSelectMultiple,
+        label="الصيغ المسموحة",
+    )
+
     class Meta:
         model = WeeklyTask
-        fields = ["title", "description", "due_date", "allowed_formats", "is_active"]
+        fields = [
+            "title",
+            "description",
+            "due_date",
+            "allowed_formats",
+            "require_all_formats",
+            "is_active",
+        ]
         widgets = {
             "due_date": forms.DateInput(attrs={"type": "date"}),
             "description": forms.Textarea(attrs={"rows": 4}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            self.fields["allowed_formats"].initial = (
+                self.instance.get_allowed_formats_list()
+            )
+
+    def clean_allowed_formats(self):
+        formats = self.cleaned_data["allowed_formats"]
+        if not formats:
+            raise forms.ValidationError("يجب اختيار صيغة واحدة على الأقل")
+        return ",".join(formats)
 
 
 class TaskSubmissionForm(forms.ModelForm):
@@ -48,16 +74,21 @@ class TaskSubmissionForm(forms.ModelForm):
         widget=forms.Textarea(attrs={"rows": 6}),
         required=False,
     )
+    chosen_format = forms.ChoiceField(
+        label="اختر الصيغة",
+        required=False,
+        widget=forms.Select,
+    )
 
     class Meta:
         model = TaskSubmission
         fields = ["file", "text_content"]
 
-    # Server-side gate: an uploaded file's extension must match one of the
-    # task's allowed formats. The browser's file picker `accept` attribute
-    # is trivially bypassed, so this check is the real enforcement.
-    # Shared with TaskSubmission.get_submitted_format() (see models.py) so
-    # the two never drift apart.
+    # Server-side gate: an uploaded file's extension must match the chosen
+    # (OR) or required (AND) format(s). The browser's file picker `accept`
+    # attribute is trivially bypassed, so this check is the real
+    # enforcement. Shared with TaskSubmission.get_submitted_format() (see
+    # models.py) so the two never drift apart.
     FORMAT_EXTENSIONS = SUBMISSION_FORMAT_EXTENSIONS
 
     # Hard upload ceilings per format. "image" is intentionally absent —
@@ -78,6 +109,38 @@ class TaskSubmissionForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["file"].required = False
 
+        if self.task and not self.task.require_all_formats:
+            labels = dict(WeeklyTask.FORMAT_CHOICES)
+            self.fields["chosen_format"].choices = [
+                (f, labels.get(f, f)) for f in self.task.get_allowed_formats_list()
+            ]
+        else:
+            del self.fields["chosen_format"]
+
+    def _validate_file_against_formats(self, file, formats):
+        extensions_map = self.task.format_extensions_map()
+        filename = file.name.lower()
+        matched_format = None
+        for fmt in formats:
+            extensions = extensions_map.get(fmt, ())
+            if any(filename.endswith(ext) for ext in extensions):
+                matched_format = fmt
+                break
+
+        if matched_format is None:
+            labels = dict(WeeklyTask.FORMAT_CHOICES)
+            allowed_display = "، ".join(labels.get(f, f) for f in formats)
+            raise forms.ValidationError(
+                f"صيغة الملف غير مقبولة. الصيغ المطلوبة: {allowed_display}"
+            )
+
+        max_size = self.MAX_FILE_SIZES.get(matched_format)
+        if max_size and file.size > max_size:
+            max_mb = max_size // (1024 * 1024)
+            raise forms.ValidationError(
+                f"حجم الملف يتجاوز الحد المسموح ({max_mb} ميجابايت) لهذا النوع."
+            )
+
     def clean(self):
         cleaned_data = super().clean()
         text_content = cleaned_data.get("text_content", "").strip()
@@ -94,43 +157,47 @@ class TaskSubmissionForm(forms.ModelForm):
         if not self.task:
             return cleaned_data
 
-        needs_file = self.task.requires_file()
-        needs_text = self.task.requires_text()
+        allowed = self.task.get_allowed_formats_list()
 
-        if needs_file and not file:
-            raise forms.ValidationError("هذه المهمة تتطلب رفع ملف")
-        if needs_text and not text_content:
-            raise forms.ValidationError("هذه المهمة تتطلب كتابة نص")
-        if not needs_file and file:
-            raise forms.ValidationError("هذه المهمة لا تقبل رفع ملف")
-        if not needs_text and text_content:
-            raise forms.ValidationError("هذه المهمة لا تقبل التسليم النصي")
+        if self.task.require_all_formats:
+            needs_text = "text" in allowed
+            needs_file_formats = [f for f in allowed if f != "text"]
 
-        if file and needs_file:
-            filename = file.name.lower()
-            extensions = self.task.file_extensions()
-            if not any(filename.endswith(ext) for ext in extensions):
-                raise forms.ValidationError(
-                    f"صيغة الملف غير مقبولة لهذه المهمة. الصيغة المطلوبة: {self.task.get_allowed_formats_display()}"
-                )
+            if needs_text and not text_content:
+                raise forms.ValidationError("هذه المهمة تتطلب كتابة نص")
+            if not needs_text and text_content:
+                raise forms.ValidationError("هذه المهمة لا تقبل التسليم النصي")
+            if needs_file_formats and not file:
+                raise forms.ValidationError("هذه المهمة تتطلب رفع ملف")
+            if not needs_file_formats and file:
+                raise forms.ValidationError("هذه المهمة لا تقبل رفع ملف")
 
-            # Size ceiling, keyed by the base format governing this task's
-            # file component (e.g. pdf_text uses the same ceiling as pdf).
-            # Images have no entry here (compressed on save, never rejected).
-            max_size = self.MAX_FILE_SIZES.get(self.task.file_format_for_size_limit())
-            if max_size and file.size > max_size:
-                max_mb = max_size // (1024 * 1024)
-                raise forms.ValidationError(
-                    f"حجم الملف يتجاوز الحد المسموح ({max_mb} ميجابايت) لهذا النوع."
-                )
+            if file and needs_file_formats:
+                self._validate_file_against_formats(file, needs_file_formats)
 
-        # A text-only submission must not keep a stale file from an earlier
-        # attempt on the same row (a reopened resubmission reuses the same
-        # TaskSubmission instance). False is Django's FileField sentinel for
-        # "clear this field" — distinct from None, which means "no change"
-        # and would otherwise leave the old file in place on save().
-        if not needs_file:
-            cleaned_data["file"] = False
+            if not needs_file_formats:
+                cleaned_data["file"] = False
+
+        else:
+            chosen = cleaned_data.get("chosen_format")
+            if not chosen:
+                raise forms.ValidationError("يجب اختيار صيغة التسليم أولًا")
+            if chosen not in allowed:
+                raise forms.ValidationError("صيغة التسليم المختارة غير متاحة لهذه المهمة")
+
+            if chosen == "text":
+                if not text_content:
+                    raise forms.ValidationError("يجب كتابة نص لهذه الصيغة")
+                if file:
+                    raise forms.ValidationError("هذه الصيغة لا تقبل رفع ملف")
+                cleaned_data["file"] = False
+            else:
+                if not file:
+                    raise forms.ValidationError("يجب رفع ملف لهذه الصيغة")
+                if text_content:
+                    raise forms.ValidationError("هذه الصيغة لا تتطلب نصًا")
+                self._validate_file_against_formats(file, [chosen])
+                cleaned_data["text_content"] = ""
 
         return cleaned_data
 

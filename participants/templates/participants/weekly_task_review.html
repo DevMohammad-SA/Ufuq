@@ -318,9 +318,14 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
       </div>
 
       <div class="field">
-        <label for="id_allowed_formats">الصيغة المطلوبة</label>
+        <label>الصيغ المسموحة</label>
         {{ create_form.allowed_formats }}
         {% if create_form.allowed_formats.errors %}<div class="errors">{{ create_form.allowed_formats.errors|join:"، " }}</div>{% endif %}
+      </div>
+
+      <div class="field-checkbox">
+        {{ create_form.require_all_formats }}
+        <label for="id_require_all_formats">تتطلب كل الصيغ المختارة معًا (إن كانت معطّلة يختار الطالب صيغة واحدة فقط)</label>
       </div>
 
       <div class="field-checkbox">
@@ -524,11 +529,11 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
   function openPreview(url, type) {
     content.innerHTML = "";
     var el;
-    if (type === "image" || type === "image_text") {
+    if (type === "image") {
       el = document.createElement("img");
       el.src = url;
       el.alt = "معاينة الملف";
-    } else if (type === "pdf" || type === "pdf_text") {
+    } else if (type === "pdf") {
       el = document.createElement("iframe");
       el.src = url;
     } else if (type === "video") {

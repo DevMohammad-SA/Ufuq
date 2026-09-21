@@ -164,10 +164,10 @@
           <p>{{ task.description }}</p>
           <div class="task-meta">
             موعد التسليم: <b>{{ task.due_date }}</b>
-            · الصيغة المطلوبة: <b>{{ task.get_allowed_formats_display }}</b>
-            {% if task.allowed_formats == "pdf" or task.allowed_formats == "pdf_text" %}· PDF حتى <b>10 ميجابايت</b>{% endif %}
-            {% if task.allowed_formats == "audio" %}· صوت حتى <b>15 ميجابايت</b>{% endif %}
-            {% if task.allowed_formats == "video" %}· فيديو حتى <b>50 ميجابايت</b>{% endif %}
+            · الصيغ المسموحة: <b>{{ task.get_allowed_formats_display }}</b>
+            {% if "pdf" in task.get_allowed_formats_list %}· PDF حتى <b>10 ميجابايت</b>{% endif %}
+            {% if "audio" in task.get_allowed_formats_list %}· صوت حتى <b>15 ميجابايت</b>{% endif %}
+            {% if "video" in task.get_allowed_formats_list %}· فيديو حتى <b>50 ميجابايت</b>{% endif %}
           </div>
 
           {% if form.non_field_errors %}<div class="errors">{{ form.non_field_errors|join:"، " }}</div>{% endif %}
@@ -175,19 +175,36 @@
           <form method="post" enctype="multipart/form-data">
             {% csrf_token %}
             <input type="hidden" name="task_id" value="{{ task.id }}">
-            {% if task.allowed_formats == "image_text" or task.allowed_formats == "pdf_text" %}
-              <p class="task-meta">هذه المهمة تتطلب تقديم الملف والنص معًا:</p>
-            {% endif %}
-            {% if task.requires_file %}
+            {% if task.require_all_formats %}
+              <p class="task-meta">هذه المهمة تتطلب تقديم كل الصيغ التالية معًا: {{ task.get_allowed_formats_display }}</p>
+              {% if task.has_text_format %}
+                <div class="field">
+                  <label for="{{ form.text_content.id_for_label }}">المحتوى النصي</label>
+                  {{ form.text_content }}
+                  {% if form.text_content.errors %}<div class="errors">{{ form.text_content.errors|join:"، " }}</div>{% endif %}
+                </div>
+              {% endif %}
+              {% if task.has_file_formats %}
+                <div class="field">
+                  <label for="{{ form.file.id_for_label }}">الملف</label>
+                  {{ form.file }}
+                  {% if form.file.errors %}<div class="errors">{{ form.file.errors|join:"، " }}</div>{% endif %}
+                </div>
+              {% endif %}
+            {% else %}
+              <p class="task-meta">اختر إحدى الصيغ التالية وقدّمها: {{ task.get_allowed_formats_display }}</p>
               <div class="field">
-                <label for="{{ form.file.id_for_label }}">الملف</label>
+                <label for="{{ form.chosen_format.id_for_label }}">اختر الصيغة</label>
+                {{ form.chosen_format }}
+                {% if form.chosen_format.errors %}<div class="errors">{{ form.chosen_format.errors|join:"، " }}</div>{% endif %}
+              </div>
+              <div class="field">
+                <label for="{{ form.file.id_for_label }}">الملف (إن اخترت صيغة ملف)</label>
                 {{ form.file }}
                 {% if form.file.errors %}<div class="errors">{{ form.file.errors|join:"، " }}</div>{% endif %}
               </div>
-            {% endif %}
-            {% if task.requires_text %}
               <div class="field">
-                <label for="{{ form.text_content.id_for_label }}">المحتوى النصي</label>
+                <label for="{{ form.text_content.id_for_label }}">المحتوى النصي (إن اخترت صيغة النص)</label>
                 {{ form.text_content }}
                 {% if form.text_content.errors %}<div class="errors">{{ form.text_content.errors|join:"، " }}</div>{% endif %}
               </div>
