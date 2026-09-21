@@ -165,14 +165,10 @@ def get_notification_counts(user):
     counts = {}
 
     if user.role in (Role.GENERAL_SUPERVISOR, Role.SUPERADMIN):
-        latest_task = WeeklyTask.objects.order_by("-created_at").first()
-        counts["tasks"] = (
-            TaskSubmission.objects.filter(
-                task=latest_task, status=TaskSubmission.Status.PENDING
-            ).count()
-            if latest_task
-            else 0
-        )
+        counts["tasks"] = TaskSubmission.objects.filter(
+            task__in=WeeklyTask.get_active_tasks(),
+            status=TaskSubmission.Status.PENDING,
+        ).count()
         counts["store_management"] = StoreOrder.objects.filter(
             status=StoreOrder.Status.PENDING
         ).count()
@@ -181,14 +177,15 @@ def get_notification_counts(user):
         participant = getattr(user, "participant", None)
         if participant:
             tasks_badge = 0
-            latest_task = WeeklyTask.objects.order_by("-created_at").first()
-            if latest_task:
-                submission = TaskSubmission.objects.filter(
-                    task=latest_task, participant=participant
-                ).first()
+            submissions_by_task = {
+                s.task_id: s
+                for s in TaskSubmission.objects.filter(participant=participant)
+            }
+            for task in WeeklyTask.get_active_tasks():
+                submission = submissions_by_task.get(task.id)
                 # Mutually exclusive in practice: reopened_for_resubmission
                 # can only be True on a submission that already exists, so
-                # this can never add up to more than 1.
+                # each task can only add up to 1.
                 if submission is None:
                     tasks_badge += 1
                 elif submission.reopened_for_resubmission:
@@ -1245,11 +1242,11 @@ class GeneralSupervisorDashboardView(
             .values_list("name", "avg_points")
         )
 
-        # Chart 2: submission-status breakdown for the most recent weekly task.
-        # TaskSubmission has UniqueConstraint(task, participant), so each
-        # participant has at most one submission per task — "not submitted"
-        # is a clean subtraction with no double-counting.
-        latest_task = WeeklyTask.objects.order_by("-created_at").first()
+        # Chart 2: submission-status breakdown for the most recently created
+        # active task. TaskSubmission has UniqueConstraint(task, participant),
+        # so each participant has at most one submission per task —
+        # "not submitted" is a clean subtraction with no double-counting.
+        latest_task = WeeklyTask.get_active_tasks().order_by("-created_at").first()
         if latest_task:
             total_participants = Participant.objects.count()
             status_counts = {
@@ -1672,22 +1669,23 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        current_task = WeeklyTask.objects.order_by("-created_at").first()
-        context["current_task"] = current_task
         context.setdefault("create_form", WeeklyTaskForm())
-        if current_task:
-            context["submissions"] = current_task.submissions.select_related(
+
+        tasks_with_submissions = []
+        all_group_names = set()
+        for task in WeeklyTask.get_active_tasks():
+            submissions = task.submissions.select_related(
                 "participant__user", "participant__group"
             ).order_by("-submitted_at")
-        else:
-            context["submissions"] = TaskSubmission.objects.none()
-        context["group_names"] = sorted(
-            {
-                submission.participant.group.name
-                for submission in context["submissions"]
-                if submission.participant.group
-            }
-        )
+            group_names = sorted(
+                {s.participant.group.name for s in submissions if s.participant.group}
+            )
+            all_group_names.update(group_names)
+            tasks_with_submissions.append(
+                {"task": task, "submissions": submissions, "group_names": group_names}
+            )
+        context["tasks_with_submissions"] = tasks_with_submissions
+        context["all_tasks"] = WeeklyTask.objects.all().order_by("-created_at")
         context["navbar_items"] = build_navbar(self.request.user, "tasks")
         return context
 
@@ -1704,8 +1702,17 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
                 context = self.get_context_data(create_form=form)
                 return self.render_to_response(context)
 
+        elif action == "toggle_active":
+            task = WeeklyTask.objects.filter(id=request.POST.get("task_id")).first()
+            if task:
+                task.is_active = not task.is_active
+                task.save(update_fields=["is_active"])
+
         elif action in ("accept", "reject"):
             submission_id = request.POST.get("submission_id")
+            # Looked up directly by id — not scoped to any particular task,
+            # since a supervisor now reviews submissions across every active
+            # task from the same page.
             submission = TaskSubmission.objects.filter(id=submission_id).first()
             if submission and submission.status == TaskSubmission.Status.PENDING:
                 submission.status = (
@@ -1739,34 +1746,47 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
         return redirect("participants:weekly_task_review")
 
 
-class TaskSubmissionView(LoginRequiredMixin, UserPassesTestMixin, FormView):
+class TaskSubmissionView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
     template_name = "participants/task_submission_form.html"
-    form_class = TaskSubmissionForm
 
     def test_func(self):
         return self.request.user.role == Role.PARTICIPANT
 
-    def get_current_task(self):
-        return WeeklyTask.objects.order_by("-created_at").first()
-
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        task = self.get_current_task()
-        context["task"] = task
+        participant = self.request.user.participant
 
-        if task:
-            context["existing_submission"] = TaskSubmission.objects.filter(
-                task=task, participant=self.request.user.participant
-            ).first()
-        else:
-            context["existing_submission"] = None
+        submissions_by_task = {
+            s.task_id: s
+            for s in TaskSubmission.objects.filter(participant=participant)
+        }
 
+        tasks_data = []
+        for task in WeeklyTask.get_active_tasks():
+            existing = submissions_by_task.get(task.id)
+            needs_form = existing is None or existing.reopened_for_resubmission
+            tasks_data.append(
+                {
+                    "task": task,
+                    "existing_submission": existing,
+                    # A unique auto_id prefix per task avoids duplicate
+                    # element ids now that several task forms render on the
+                    # same page at once.
+                    "form": (
+                        TaskSubmissionForm(task=task, auto_id=f"id_{task.id}_%s")
+                        if needs_form
+                        else None
+                    ),
+                }
+            )
+        context["tasks_data"] = tasks_data
         context["navbar_items"] = build_navbar(self.request.user, "tasks")
         return context
 
     def post(self, request, *args, **kwargs):
-        task = self.get_current_task()
+        task_id = request.POST.get("task_id")
         participant = request.user.participant
+        task = WeeklyTask.get_active_tasks().filter(id=task_id).first()
 
         if not task:
             return redirect("participants:task_submission")
@@ -1808,11 +1828,15 @@ class TaskSubmissionView(LoginRequiredMixin, UserPassesTestMixin, FormView):
             submission.reviewed_at = None
             submission.reopened_for_resubmission = False
             submission.save()
-            return redirect("participants:task_submission")
+        else:
+            # The page lists every active task's form at once, so a failed
+            # form can't simply be re-rendered in place of the whole list
+            # without losing the others — surface the error via messages
+            # and redirect back to the full list instead.
+            for error in form.non_field_errors():
+                messages.error(request, error)
 
-        # Invalid (e.g. wrong file format) — re-render so the participant
-        # actually sees the Arabic error message instead of a silent bounce.
-        return self.render_to_response(self.get_context_data(form=form))
+        return redirect("participants:task_submission")
 
 
 class TasksArchiveView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):

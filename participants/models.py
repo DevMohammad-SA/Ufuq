@@ -211,9 +211,12 @@ SUBMISSION_FORMAT_EXTENSIONS = {
 
 class WeeklyTask(models.Model):
     """
-    A single week's assigned task for the whole program (not per-group).
-    A NEW record is created each week by the General Supervisor — old
-    records are never edited in place, they remain as historical archive.
+    A weekly task assigned to the whole program (not per-group). Several
+    tasks can be active in parallel (e.g. "مهمة1" still under review while
+    "مهمة2" is already open) — see get_active_tasks() below, which is the
+    one source of truth for "which tasks are currently shown" and must be
+    used everywhere instead of ordering by created_at and taking the first
+    result.
     """
 
     class AllowedFormat(models.TextChoices):
@@ -222,23 +225,18 @@ class WeeklyTask(models.Model):
         AUDIO = "audio", "مقطع صوتي"
         VIDEO = "video", "مقطع فيديو"
         TEXT = "text", "نص مباشر"
+        IMAGE_TEXT = "image_text", "صورة + نص"
+        PDF_TEXT = "pdf_text", "PDF + نص"
 
     title = models.CharField(max_length=200, verbose_name="عنوان المهمة")
     description = models.TextField(verbose_name="وصف المهمة")
     due_date = models.DateField(verbose_name="موعد التسليم")
-    # Comma-separated list of AllowedFormat values (e.g. "pdf,image") — a
-    # participant needs to satisfy only ONE of them. Deliberately not
-    # `choices=` (a joined value like "pdf,text" would fail Django's choices
-    # validator) and deliberately not a ManyToManyField (no separate join
-    # table needed for a handful of flat string values). A pre-existing task
-    # with a single bare value (e.g. "pdf", from before multi-format support)
-    # remains valid as-is — it's just a one-element list under the same
-    # split(",") logic. See get_allowed_formats_list/_display_list below.
     allowed_formats = models.CharField(
-        max_length=50,
-        verbose_name="الصيغ المسموحة",
-        help_text="يمكن اختيار أكثر من صيغة، يكفي المشارك تقديم واحدة منها",
+        max_length=20,
+        choices=AllowedFormat.choices,
+        verbose_name="الصيغة المطلوبة",
     )
+    is_active = models.BooleanField(default=False, verbose_name="مهمة نشطة")
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -258,12 +256,57 @@ class WeeklyTask(models.Model):
     def is_past_due(self):
         return datetime.date.today() > self.due_date
 
-    def get_allowed_formats_list(self):
-        return [f.strip() for f in self.allowed_formats.split(",") if f.strip()]
+    @classmethod
+    def get_active_tasks(cls):
+        """
+        Tasks currently shown to participants and supervisors: manually
+        activated (is_active=True) AND not yet past their due date. A task
+        past its due date drops out of this list automatically, with no
+        need to also flip is_active off.
+        """
+        return cls.objects.filter(
+            is_active=True, due_date__gte=datetime.date.today()
+        ).order_by("due_date")
 
-    def get_allowed_formats_display_list(self):
-        values_to_labels = dict(self.AllowedFormat.choices)
-        return [values_to_labels.get(v, v) for v in self.get_allowed_formats_list()]
+    def requires_file(self):
+        return self.allowed_formats in (
+            self.AllowedFormat.PDF,
+            self.AllowedFormat.IMAGE,
+            self.AllowedFormat.AUDIO,
+            self.AllowedFormat.VIDEO,
+            self.AllowedFormat.IMAGE_TEXT,
+            self.AllowedFormat.PDF_TEXT,
+        )
+
+    def requires_text(self):
+        return self.allowed_formats in (
+            self.AllowedFormat.TEXT,
+            self.AllowedFormat.IMAGE_TEXT,
+            self.AllowedFormat.PDF_TEXT,
+        )
+
+    def file_extensions(self):
+        mapping = {
+            self.AllowedFormat.PDF: SUBMISSION_FORMAT_EXTENSIONS["pdf"],
+            self.AllowedFormat.IMAGE: SUBMISSION_FORMAT_EXTENSIONS["image"],
+            self.AllowedFormat.AUDIO: SUBMISSION_FORMAT_EXTENSIONS["audio"],
+            self.AllowedFormat.VIDEO: SUBMISSION_FORMAT_EXTENSIONS["video"],
+            self.AllowedFormat.IMAGE_TEXT: SUBMISSION_FORMAT_EXTENSIONS["image"],
+            self.AllowedFormat.PDF_TEXT: SUBMISSION_FORMAT_EXTENSIONS["pdf"],
+        }
+        return mapping.get(self.allowed_formats, ())
+
+    def file_format_for_size_limit(self):
+        """
+        Which base AllowedFormat governs the max upload size for this
+        task's file component (TaskSubmissionForm.MAX_FILE_SIZES is keyed
+        by these base values, e.g. pdf_text uses the same ceiling as pdf).
+        """
+        mapping = {
+            self.AllowedFormat.PDF_TEXT: self.AllowedFormat.PDF,
+            self.AllowedFormat.IMAGE_TEXT: self.AllowedFormat.IMAGE,
+        }
+        return mapping.get(self.allowed_formats, self.allowed_formats)
 
 
 class TaskSubmission(models.Model):

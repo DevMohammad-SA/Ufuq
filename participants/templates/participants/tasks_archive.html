@@ -197,7 +197,7 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
           <div class="current-task-title">{{ selected_task.title }}</div>
           <div class="current-task-meta">
             موعد التسليم: {{ selected_task.due_date|date:"Y-m-d" }}
-            · الصيغ المطلوبة: {{ selected_task.get_allowed_formats_display_list|join:" أو " }}
+            · الصيغة المطلوبة: {{ selected_task.get_allowed_formats_display }}
             {% if selected_task.is_past_due %} · <span style="color:var(--alert)">انتهى الموعد</span>{% endif %}
           </div>
           <p class="current-task-desc">{{ selected_task.description }}</p>

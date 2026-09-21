@@ -1,7 +1,7 @@
 {% extends "participants/app_base.html" %}
 {% load static %}
 
-{% block title %}المهمة الأسبوعية — رحّال{% endblock %}
+{% block title %}المهام الأسبوعية — رحّال{% endblock %}
 
 {% block extra_style %}
 .field{margin-bottom:var(--s2)}
@@ -15,6 +15,7 @@
 }
 .field input[type="text"],
 .field input[type="date"],
+.field select,
 .field textarea{
   width:100%;
   border:1.5px solid var(--line);
@@ -37,6 +38,19 @@
   color:var(--alert);
   margin-top:4px;
 }
+.field-checkbox{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-bottom:var(--s2);
+}
+.field-checkbox label{
+  font-family:var(--font-ui);
+  font-size:13px;
+  font-weight:600;
+  color:var(--asphalt);
+}
+.field-checkbox input[type="checkbox"]{width:18px; height:18px; cursor:pointer}
 
 .btn{
   display:inline-flex;
@@ -77,6 +91,15 @@
   margin-bottom:0;
 }
 
+.task-toggle-form{display:inline-flex; align-items:center}
+.task-header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:var(--s2);
+  flex-wrap:wrap;
+}
+
 .table-scroll{overflow-x:auto}
 table{
   width:100%;
@@ -102,6 +125,9 @@ th{color:var(--slate); font-weight:600; font-size:12px}
 .status-pending{background:var(--gold-soft); color:var(--gold-ink)}
 .status-accepted{background:#E4EFE5; color:var(--done)}
 .status-rejected{background:#FBEEEA; color:var(--alert)}
+.status-active{background:#E4EFE5; color:var(--done)}
+.status-inactive{background:var(--sand); color:var(--slate)}
+.status-past-due{background:#FBEEEA; color:var(--alert)}
 
 .review-actions{display:flex; gap:8px}
 .review-actions form{display:inline-flex; gap:6px; align-items:center}
@@ -261,14 +287,14 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
 {% endblock %}
 
 {% block content %}
-  <h1 class="page-title">المهمة الأسبوعية</h1>
-  <p class="page-sub">إنشاء مهمة الأسبوع ومراجعة تسليمات المشاركين.</p>
+  <h1 class="page-title">المهام الأسبوعية</h1>
+  <p class="page-sub">إنشاء مهام الأسبوع، تفعيلها، ومراجعة تسليمات المشاركين.</p>
 
   <p><a href="{% url 'participants:tasks_archive' %}" class="btn-inline">عرض أرشيف المهام السابقة</a></p>
 
   <section class="card">
     <h2>إنشاء مهمة جديدة</h2>
-    <p>إنشاء مهمة جديدة يجعلها المهمة النشطة الحالية للبرنامج بالكامل. المهام السابقة تبقى محفوظة كأرشيف.</p>
+    <p>المهمة الجديدة تُنشأ بحالة "غير نشطة" افتراضيًا — فعّلها بالـ checkbox أدناه لإظهارها للمشاركين فورًا، أو اتركها لتفعيلها لاحقًا.</p>
     <form method="post">
       {% csrf_token %}
       <input type="hidden" name="action" value="create_task">
@@ -292,116 +318,180 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
       </div>
 
       <div class="field">
-        <label for="id_allowed_formats">الصيغة المسموحة</label>
+        <label for="id_allowed_formats">الصيغة المطلوبة</label>
         {{ create_form.allowed_formats }}
         {% if create_form.allowed_formats.errors %}<div class="errors">{{ create_form.allowed_formats.errors|join:"، " }}</div>{% endif %}
+      </div>
+
+      <div class="field-checkbox">
+        {{ create_form.is_active }}
+        <label for="id_is_active">تفعيل المهمة فورًا (تظهر للمشاركين مباشرة)</label>
       </div>
 
       <button type="submit" class="btn btn-block">إنشاء المهمة</button>
     </form>
   </section>
 
-  <section class="card">
-    <h2>المهمة الحالية</h2>
-    {% if current_task %}
-      <div class="current-task-title">{{ current_task.title }}</div>
-      <div class="current-task-meta">
-        موعد التسليم: {{ current_task.due_date }}
-        · الصيغ المسموحة: {{ current_task.get_allowed_formats_display_list|join:" أو " }}
-        {% if current_task.is_past_due %} · <span style="color:var(--alert)">انتهى الموعد</span>{% endif %}
+  {% for entry in tasks_with_submissions %}
+    <section class="card">
+      <div class="task-header">
+        <div>
+          <div class="current-task-title">{{ entry.task.title }}</div>
+          <div class="current-task-meta">
+            موعد التسليم: {{ entry.task.due_date }}
+            · الصيغة المطلوبة: {{ entry.task.get_allowed_formats_display }}
+          </div>
+          <p class="current-task-desc">{{ entry.task.description }}</p>
+        </div>
+        <form method="post" class="task-toggle-form">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="toggle_active">
+          <input type="hidden" name="task_id" value="{{ entry.task.id }}">
+          <button type="submit" class="btn-inline">تعطيل هذه المهمة</button>
+        </form>
       </div>
-      <p class="current-task-desc">{{ current_task.description }}</p>
-    {% else %}
-      <p class="empty-note">لا توجد مهمة حاليًا.</p>
-    {% endif %}
-  </section>
+
+      <h3>التسليمات</h3>
+      {% if entry.submissions %}
+        {% if entry.group_names|length > 1 %}
+          <div class="group-filter-bar">
+            <div class="group-filter-actions">
+              <button type="button" class="select-all group-filter-all" data-task="{{ entry.task.id }}">تحديد الكل</button>
+              <button type="button" class="select-all group-filter-none" data-task="{{ entry.task.id }}">إلغاء تحديد الكل</button>
+            </div>
+            <div class="group-filter-checkboxes">
+              {% for group_name in entry.group_names %}
+                <label class="group-filter-item">
+                  <input type="checkbox" class="group-filter-checkbox" data-task="{{ entry.task.id }}" value="{{ group_name }}" checked>
+                  <span>{{ group_name }}</span>
+                </label>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+        <div class="table-scroll">
+          <table class="submissions-table" data-task="{{ entry.task.id }}">
+            <thead>
+              <tr>
+                <th class="sortable" data-sort="text" data-col="0">المشارك<span class="sort-arrow"></span></th>
+                <th class="sortable" data-sort="text" data-col="1">البيئة<span class="sort-arrow"></span></th>
+                <th>تاريخ الرفع</th>
+                <th>الملف</th>
+                <th>الحالة</th>
+                <th>إجراء</th>
+              </tr>
+            </thead>
+            <tbody class="submissions-body" data-task="{{ entry.task.id }}">
+              {% for submission in entry.submissions %}
+                <tr data-group="{{ submission.participant.group.name|default:'' }}">
+                  <td>{{ submission.participant.user.full_name }}</td>
+                  <td>{{ submission.participant.group.name|default:"—" }}</td>
+                  <td>{{ submission.submitted_at }}</td>
+                  <td>
+                    {% if submission.file %}
+                      <div class="file-actions">
+                        <a class="file-link" href="{{ submission.file.url }}" target="_blank">تحميل</a>
+                        <button type="button" class="btn-inline preview-btn"
+                                data-url="{{ submission.file.url }}"
+                                data-type="{{ submission.get_submitted_format }}">معاينة</button>
+                        {% if submission.text_content %}
+                          <button type="button" class="btn-inline text-preview-btn"
+                                  data-content="{{ submission.text_content }}">عرض النص</button>
+                        {% endif %}
+                      </div>
+                    {% else %}
+                      <button type="button" class="btn-inline text-preview-btn"
+                              data-content="{{ submission.text_content }}">عرض النص</button>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if submission.status == "pending" %}
+                      <span class="status-pill status-pending">قيد المراجعة</span>
+                    {% elif submission.status == "accepted" %}
+                      <span class="status-pill status-accepted">مقبولة</span>
+                    {% else %}
+                      <span class="status-pill status-rejected">مرفوضة</span>
+                      {% if submission.rejection_reason %}
+                        <p class="rejection-note">السبب: {{ submission.rejection_reason }}</p>
+                      {% endif %}
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if submission.status == "pending" %}
+                      <div class="review-actions">
+                        <form method="post">
+                          {% csrf_token %}
+                          <input type="hidden" name="action" value="accept">
+                          <input type="hidden" name="submission_id" value="{{ submission.id }}">
+                          <label class="featured-checkbox-label">
+                            <input type="checkbox" name="is_featured">
+                            مميزة ⭐
+                          </label>
+                          <button type="submit" class="btn btn-accept btn-sm">قبول</button>
+                        </form>
+                        <form method="post" class="reject-form">
+                          {% csrf_token %}
+                          <input type="hidden" name="action" value="reject">
+                          <input type="hidden" name="submission_id" value="{{ submission.id }}">
+                          <input type="text" name="rejection_reason" placeholder="سبب الرفض (اختياري)" class="reject-reason-input">
+                          <button type="submit" class="btn btn-reject btn-sm">رفض</button>
+                        </form>
+                      </div>
+                    {% else %}
+                      —
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="empty-note">لا توجد تسليمات بعد لهذه المهمة.</p>
+      {% endif %}
+    </section>
+  {% empty %}
+    <section class="card">
+      <p class="empty-note">لا توجد مهام نشطة حاليًا.</p>
+    </section>
+  {% endfor %}
 
   <section class="card">
-    <h2>التسليمات</h2>
-    {% if submissions %}
-      {% if group_names|length > 1 %}
-        <div class="group-filter-bar">
-          <div class="group-filter-actions">
-            <button type="button" class="select-all" id="group-filter-all">تحديد الكل</button>
-            <button type="button" class="select-all" id="group-filter-none">إلغاء تحديد الكل</button>
-          </div>
-          <div class="group-filter-checkboxes">
-            {% for group_name in group_names %}
-              <label class="group-filter-item">
-                <input type="checkbox" class="group-filter-checkbox" value="{{ group_name }}" checked>
-                <span>{{ group_name }}</span>
-              </label>
-            {% endfor %}
-          </div>
-        </div>
-      {% endif %}
+    <h2>كل المهام</h2>
+    {% if all_tasks %}
       <div class="table-scroll">
-        <table id="submissions-table">
+        <table>
           <thead>
             <tr>
-              <th class="sortable" data-sort="text" data-col="0">المشارك<span class="sort-arrow"></span></th>
-              <th class="sortable" data-sort="text" data-col="1">البيئة<span class="sort-arrow"></span></th>
-              <th>تاريخ الرفع</th>
-              <th>الملف</th>
+              <th>العنوان</th>
+              <th>موعد التسليم</th>
+              <th>الصيغة</th>
               <th>الحالة</th>
               <th>إجراء</th>
             </tr>
           </thead>
-          <tbody id="submissions-body">
-            {% for submission in submissions %}
-              <tr data-group="{{ submission.participant.group.name|default:'' }}">
-                <td>{{ submission.participant.user.full_name }}</td>
-                <td>{{ submission.participant.group.name|default:"—" }}</td>
-                <td>{{ submission.submitted_at }}</td>
+          <tbody>
+            {% for task in all_tasks %}
+              <tr>
+                <td>{{ task.title }}</td>
+                <td>{{ task.due_date }}</td>
+                <td>{{ task.get_allowed_formats_display }}</td>
                 <td>
-                  {% if submission.file %}
-                    <div class="file-actions">
-                      <a class="file-link" href="{{ submission.file.url }}" target="_blank">تحميل</a>
-                      <button type="button" class="btn-inline preview-btn"
-                              data-url="{{ submission.file.url }}"
-                              data-type="{{ submission.get_submitted_format }}">معاينة</button>
-                    </div>
+                  {% if task.is_past_due %}
+                    <span class="status-pill status-past-due">منتهية</span>
+                  {% elif task.is_active %}
+                    <span class="status-pill status-active">نشطة</span>
                   {% else %}
-                    <button type="button" class="btn-inline text-preview-btn"
-                            data-content="{{ submission.text_content }}">عرض النص</button>
+                    <span class="status-pill status-inactive">غير نشطة</span>
                   {% endif %}
                 </td>
                 <td>
-                  {% if submission.status == "pending" %}
-                    <span class="status-pill status-pending">قيد المراجعة</span>
-                  {% elif submission.status == "accepted" %}
-                    <span class="status-pill status-accepted">مقبولة</span>
-                  {% else %}
-                    <span class="status-pill status-rejected">مرفوضة</span>
-                    {% if submission.rejection_reason %}
-                      <p class="rejection-note">السبب: {{ submission.rejection_reason }}</p>
-                    {% endif %}
-                  {% endif %}
-                </td>
-                <td>
-                  {% if submission.status == "pending" %}
-                    <div class="review-actions">
-                      <form method="post">
-                        {% csrf_token %}
-                        <input type="hidden" name="action" value="accept">
-                        <input type="hidden" name="submission_id" value="{{ submission.id }}">
-                        <label class="featured-checkbox-label">
-                          <input type="checkbox" name="is_featured">
-                          مميزة ⭐
-                        </label>
-                        <button type="submit" class="btn btn-accept btn-sm">قبول</button>
-                      </form>
-                      <form method="post" class="reject-form">
-                        {% csrf_token %}
-                        <input type="hidden" name="action" value="reject">
-                        <input type="hidden" name="submission_id" value="{{ submission.id }}">
-                        <input type="text" name="rejection_reason" placeholder="سبب الرفض (اختياري)" class="reject-reason-input">
-                        <button type="submit" class="btn btn-reject btn-sm">رفض</button>
-                      </form>
-                    </div>
-                  {% else %}
-                    —
-                  {% endif %}
+                  <form method="post" class="task-toggle-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="toggle_active">
+                    <input type="hidden" name="task_id" value="{{ task.id }}">
+                    <button type="submit" class="btn-inline">{% if task.is_active %}تعطيل{% else %}تفعيل{% endif %}</button>
+                  </form>
                 </td>
               </tr>
             {% endfor %}
@@ -409,7 +499,7 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
         </table>
       </div>
     {% else %}
-      <p class="empty-note">لا توجد تسليمات بعد.</p>
+      <p class="empty-note">لا توجد مهام بعد.</p>
     {% endif %}
   </section>
 
@@ -434,11 +524,11 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
   function openPreview(url, type) {
     content.innerHTML = "";
     var el;
-    if (type === "image") {
+    if (type === "image" || type === "image_text") {
       el = document.createElement("img");
       el.src = url;
       el.alt = "معاينة الملف";
-    } else if (type === "pdf") {
+    } else if (type === "pdf" || type === "pdf_text") {
       el = document.createElement("iframe");
       el.src = url;
     } else if (type === "video") {
@@ -496,89 +586,91 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
 
 <script>
 (function () {
-  // فلتر البيئات متعدد الاختيار + الفرز بالضغط على رأس العمود لجدول التسليمات
-  // (نفس نمط participants_data.html، معزول بـ IIFE خاص به)
-  var table = document.getElementById("submissions-table");
-  var tbody = document.getElementById("submissions-body");
-  if (!table || !tbody) return;
+  // فلتر البيئات متعدد الاختيار + الفرز بالضغط على رأس العمود، مكرر لكل
+  // جدول تسليمات مستقل (واحد لكل مهمة نشطة) عبر data-task فريد.
+  document.querySelectorAll(".submissions-table").forEach(function (table) {
+    var taskId = table.getAttribute("data-task");
+    var tbody = table.querySelector(".submissions-body[data-task='" + taskId + "']");
+    if (!tbody) return;
 
-  var groupCheckboxes = document.querySelectorAll(".group-filter-checkbox");
-  var selectAllBtn = document.getElementById("group-filter-all");
-  var selectNoneBtn = document.getElementById("group-filter-none");
+    var groupCheckboxes = document.querySelectorAll(".group-filter-checkbox[data-task='" + taskId + "']");
+    var selectAllBtn = document.querySelector(".group-filter-all[data-task='" + taskId + "']");
+    var selectNoneBtn = document.querySelector(".group-filter-none[data-task='" + taskId + "']");
 
-  function getSelectedGroups() {
-    var selected = [];
-    groupCheckboxes.forEach(function (cb) {
-      if (cb.checked) selected.push(cb.value);
-    });
-    return selected;
-  }
-
-  function applyFilters() {
-    var selectedGroups = getSelectedGroups();
-    var groupFilterActive = groupCheckboxes.length > 0;
-    Array.prototype.forEach.call(tbody.querySelectorAll("tr"), function (row) {
-      var matchesGroup = !groupFilterActive
-        || selectedGroups.indexOf(row.getAttribute("data-group") || "") !== -1;
-      row.hidden = !matchesGroup;
-    });
-  }
-
-  groupCheckboxes.forEach(function (cb) {
-    cb.addEventListener("change", applyFilters);
-  });
-
-  if (selectAllBtn) {
-    selectAllBtn.addEventListener("click", function () {
-      groupCheckboxes.forEach(function (cb) { cb.checked = true; });
-      applyFilters();
-    });
-  }
-
-  if (selectNoneBtn) {
-    selectNoneBtn.addEventListener("click", function () {
-      groupCheckboxes.forEach(function (cb) { cb.checked = false; });
-      applyFilters();
-    });
-  }
-
-  var currentSort = { col: null, dir: null };
-
-  function getCellValue(row, colIndex, type) {
-    var cell = row.children[colIndex];
-    var text = cell ? cell.textContent.trim() : "";
-    if (type === "number") {
-      var n = parseFloat(text.replace(/[^\d.-]/g, ""));
-      return isNaN(n) ? -Infinity : n;
+    function getSelectedGroups() {
+      var selected = [];
+      groupCheckboxes.forEach(function (cb) {
+        if (cb.checked) selected.push(cb.value);
+      });
+      return selected;
     }
-    return text.toLocaleLowerCase("ar");
-  }
 
-  table.querySelectorAll("th.sortable").forEach(function (header) {
-    header.addEventListener("click", function () {
-      var colIndex = parseInt(header.getAttribute("data-col"), 10);
-      var type = header.getAttribute("data-sort");
+    function applyFilters() {
+      var selectedGroups = getSelectedGroups();
+      var groupFilterActive = groupCheckboxes.length > 0;
+      Array.prototype.forEach.call(tbody.querySelectorAll("tr"), function (row) {
+        var matchesGroup = !groupFilterActive
+          || selectedGroups.indexOf(row.getAttribute("data-group") || "") !== -1;
+        row.hidden = !matchesGroup;
+      });
+    }
 
-      var dir = "asc";
-      if (currentSort.col === colIndex && currentSort.dir === "asc") {
-        dir = "desc";
+    groupCheckboxes.forEach(function (cb) {
+      cb.addEventListener("change", applyFilters);
+    });
+
+    if (selectAllBtn) {
+      selectAllBtn.addEventListener("click", function () {
+        groupCheckboxes.forEach(function (cb) { cb.checked = true; });
+        applyFilters();
+      });
+    }
+
+    if (selectNoneBtn) {
+      selectNoneBtn.addEventListener("click", function () {
+        groupCheckboxes.forEach(function (cb) { cb.checked = false; });
+        applyFilters();
+      });
+    }
+
+    var currentSort = { col: null, dir: null };
+
+    function getCellValue(row, colIndex, type) {
+      var cell = row.children[colIndex];
+      var text = cell ? cell.textContent.trim() : "";
+      if (type === "number") {
+        var n = parseFloat(text.replace(/[^\d.-]/g, ""));
+        return isNaN(n) ? -Infinity : n;
       }
-      currentSort = { col: colIndex, dir: dir };
+      return text.toLocaleLowerCase("ar");
+    }
 
-      table.querySelectorAll("th.sortable").forEach(function (h) {
-        h.classList.remove("sort-asc", "sort-desc");
-      });
-      header.classList.add(dir === "asc" ? "sort-asc" : "sort-desc");
+    table.querySelectorAll("th.sortable").forEach(function (header) {
+      header.addEventListener("click", function () {
+        var colIndex = parseInt(header.getAttribute("data-col"), 10);
+        var type = header.getAttribute("data-sort");
 
-      var rows = Array.prototype.slice.call(tbody.querySelectorAll("tr"));
-      rows.sort(function (a, b) {
-        var va = getCellValue(a, colIndex, type);
-        var vb = getCellValue(b, colIndex, type);
-        if (va < vb) return dir === "asc" ? -1 : 1;
-        if (va > vb) return dir === "asc" ? 1 : -1;
-        return 0;
+        var dir = "asc";
+        if (currentSort.col === colIndex && currentSort.dir === "asc") {
+          dir = "desc";
+        }
+        currentSort = { col: colIndex, dir: dir };
+
+        table.querySelectorAll("th.sortable").forEach(function (h) {
+          h.classList.remove("sort-asc", "sort-desc");
+        });
+        header.classList.add(dir === "asc" ? "sort-asc" : "sort-desc");
+
+        var rows = Array.prototype.slice.call(tbody.querySelectorAll("tr"));
+        rows.sort(function (a, b) {
+          var va = getCellValue(a, colIndex, type);
+          var vb = getCellValue(b, colIndex, type);
+          if (va < vb) return dir === "asc" ? -1 : 1;
+          if (va > vb) return dir === "asc" ? 1 : -1;
+          return 0;
+        });
+        rows.forEach(function (row) { tbody.appendChild(row); });
       });
-      rows.forEach(function (row) { tbody.appendChild(row); });
     });
   });
 })();
