@@ -59,7 +59,7 @@
 | الحقل | النوع | ملاحظات |
 |-------|------|---------|
 | `name` | `CharField(max_length=50, unique=True)` | اسم البيئة. المطابقة في الاستيراد تتم بالاسم الدقيق. |
-| `supervisor` | `ManyToManyField(AUTH_USER_MODEL, blank=True, limit_choices_to={"role": GROUP_SUPERVISOR})` | **⚠️ تغيّر مؤخرًا من `ForeignKey` إلى `ManyToManyField`** — بيئة واحدة يمكن أن يكون لها **أكثر من مشرف بيئة**. بدون `related_name` → العلاقة العكسية من `User` لا تزال `group_set` (نفس اسم العلاقة العكسية الافتراضي لكل من `ForeignKey` و`ManyToManyField` غير المسمّاة)، لذا كود مثل `request.user.group_set.first()` يستمر بالعمل دون تعديل، لكنه الآن يُرجع **بيئة واحدة عشوائية من عدة محتملة** إن كان للمستخدم أكثر من بيئة، وليس بالضرورة "بيئته الوحيدة". أدمن Django يعرض هذا الحقل بأداة `filter_horizontal` (قائمة مزدوجة لاختيار عدة مشرفين). |
+| `supervisor` | `ManyToManyField(AUTH_USER_MODEL, blank=True, limit_choices_to={"role": GROUP_SUPERVISOR})` | **⚠️ تغيّر مؤخرًا من `ForeignKey` إلى `ManyToManyField`** — بيئة واحدة يمكن أن يكون لها **أكثر من مشرف بيئة**. بدون `related_name` → العلاقة العكسية من `User` لا تزال `group_set` (نفس اسم العلاقة العكسية الافتراضي لكل من `ForeignKey` و`ManyToManyField` غير المسمّاة)، لذا كود مثل `request.user.group_set.first()` يستمر بالعمل دون تعديل، لكنه الآن يُرجع **بيئة واحدة عشوائية من عدة محتملة** إن كان للمستخدم أكثر من بيئة، وليس بالضرورة "بيئته الوحيدة". أدمن Django يعرض هذا الحقل بأداة `filter_horizontal` (قائمة مزدوجة لاختيار عدة مشرفين). **هجرة `0010` التي نفّذت هذا التحويل لا تنقل بيانات العلاقة القديمة** إلى جدول الربط الجديد — راجع [`deployment.md`](deployment.md#5-فحص-توافق-البيانات-قبل-الترقية). |
 
 ### `Participant` (مشارك) — `participants/models.py`, كلاس `Participant`
 
@@ -124,7 +124,8 @@
 
 ### صيغ تسليم المهام — `SUBMISSION_FORMAT_EXTENSIONS` (`participants/models.py`)
 
-قاموس على مستوى الوحدة يربط قيمة `AllowedFormat` الخاصة بالملف بامتدادات الملفات
+قاموس على مستوى الوحدة يربط **قيمة صيغة ملف** (من `WeeklyTask.FORMAT_CHOICES`)
+بامتدادات الملفات
 المقبولة لها. يشترك فيه `TaskSubmissionForm.clean()` (التحقق من الامتداد) و
 `TaskSubmission.get_submitted_format()` (تصنيف تسليم موجود للعرض) كي لا يتباعدا:
 
@@ -146,16 +147,31 @@ SUBMISSION_FORMAT_EXTENSIONS = {
 | `title` | `CharField(max_length=200)` | — |
 | `description` | `TextField` | — |
 | `due_date` | `DateField` | موعد التسليم. |
-| `allowed_formats` | `CharField(max_length=50)` | **⚠️ تغيّر جذريًا**: لم يعد اختيار صيغة واحدة عبر `choices=`. الآن قائمة قيَم `AllowedFormat` مفصولة بفواصل (مثل `"pdf,image"`) — يكفي المشارك تقديم **واحدة منها**. عمدًا **ليس** `choices=` (قيمة مجمّعة مثل `"pdf,text"` تفشل مدقّق Django) وعمدًا **ليس** `ManyToManyField` (لا حاجة لجدول ربط منفصل لعدد صغير من القيم النصية الثابتة). مهمة قديمة بقيمة مفردة (مثل `"pdf"` فقط، من قبل دعم تعدد الصيغ) تبقى صالحة كما هي — تُعامَل كقائمة عنصر واحد عبر نفس منطق `split(",")`. الدوال `get_allowed_formats_list()` / `get_allowed_formats_display_list()` تُرجعان القائمة كقيَم/كتسميات عربية. |
+| `allowed_formats` | `CharField(max_length=50)` | **⚠️ تغيّر جذريًا**: لم يعد اختيار صيغة واحدة عبر `choices=`. الآن **قائمة مفصولة بفواصل** من قيَم `FORMAT_CHOICES` (مثل `"pdf,image"`). عمدًا **ليس** `choices=` (قيمة مجمّعة مثل `"pdf,text"` تفشل مدقّق Django) وعمدًا **ليس** `ManyToManyField` (لا حاجة لجدول ربط منفصل لعدد صغير من القيم النصية الثابتة). مهمة قديمة بقيمة مفردة (مثل `"pdf"` فقط) تبقى صالحة — تُعامَل كقائمة عنصر واحد عبر نفس منطق `split(",")`. الدوال `get_allowed_formats_list()` / `get_allowed_formats_display_list()` تُرجعان القائمة كقيَم/كتسميات عربية. |
+| `require_all_formats` | `BooleanField(default=False)` | **جديد في 1.2.0**. يحدّد تأويل `allowed_formats`: `True` = **AND** (على الطالب تقديم كل الصيغ المختارة معًا)، `False` = **OR** (يكفي صيغة واحدة يختارها). يغيّر أيضًا فاصل العرض في `get_allowed_formats_display()` (" و" مقابل " أو "). راجع [`weekly-tasks.md`](weekly-tasks.md). |
+| `is_active` | `BooleanField(default=False)` | **جديد في 1.2.0**. المهمة الجديدة تُنشأ **غير نشطة** ولا تظهر لأحد حتى يفعّلها المشرف العام يدويًا (`action=toggle_active`). |
 | `created_by` | `FK(AUTH_USER_MODEL, on_delete=SET_NULL, null=True)` | — |
 | `created_at` | `DateTimeField(auto_now_add=True)` | — |
 
-كلاس `WeeklyTask.AllowedFormat` (`TextChoices`) — القيَم الخمس المتاحة اليوم:
-`pdf` (ملف PDF)، `image` (صورة)، `audio` (مقطع صوتي)، `video` (مقطع فيديو)،
-**`text`** (نص مباشر — **جديد**، لا يتطلب أي ملف).
+`WeeklyTask.FORMAT_CHOICES` — قائمة عادية (وليست `TextChoices`) بالقيَم الخمس
+المتاحة اليوم: `pdf` (ملف PDF)، `image` (صورة)، `audio` (مقطع صوتي)،
+`video` (مقطع فيديو)، `text` (نص مباشر — لا يتطلب أي ملف).
 
-`Meta.ordering = ["-created_at"]`. المهمة "الحالية" دائمًا الأحدث إنشاءً.
-`is_past_due()` = `date.today() > due_date`.
+> **⚠️ أُلغي:** كان هنا كلاس `WeeklyTask.AllowedFormat` (`TextChoices`) بسبع
+> قيَم، تشمل قيمتين مركّبتين جاهزتين `image_text` ("صورة + نص") و`pdf_text`
+> ("PDF + نص")، ومعه الدالتان `requires_file()` / `requires_text()`. حُذف
+> الكلاس والدالتان في 1.2.0 (commit `34da424`) واستُبدلت التركيبات الجاهزة
+> بـ`require_all_formats`. **لا توجد هجرة بيانات تحوّل القيَم القديمة** —
+> راجع [`weekly-tasks.md`](weekly-tasks.md#7-ما-أُلغي-ومتى) و
+> [`known-limitations.md`](known-limitations.md).
+
+`Meta.ordering = ["-created_at"]`. `is_past_due()` = `date.today() > due_date`.
+
+> **⚠️ تصحيح:** كانت نسخة سابقة من هذا الملف تقول إن المهمة "الحالية" **دائمًا
+> الأحدث إنشاءً**. هذا **لم يعد صحيحًا** منذ 1.2.0: عدة مهام قد تكون نشطة
+> بالتوازي، والمصدر الوحيد لـ"أي المهام مفتوحة" هو
+> `WeeklyTask.get_active_tasks()` = `is_active=True` **و** `due_date >= اليوم`،
+> مرتَّبة بـ`due_date`. راجع [`weekly-tasks.md`](weekly-tasks.md).
 
 ### `TaskSubmission` (تسليم مهمة) — `participants/models.py`, كلاس `TaskSubmission`
 
@@ -181,10 +197,20 @@ SUBMISSION_FORMAT_EXTENSIONS = {
 وليس بناءً على صيغ المهمة المسموحة، لأن مهمة متعددة الصيغ (مثل `"image,pdf"`)
 لا تخبرنا وحدها بنوع هذا الملف تحديدًا.
 
-طريقة `get_submitted_format()` (**جديدة**): تُرجع `"text"` إن وُجد `text_content`،
-وإلا تطابق امتداد `file` مع `SUBMISSION_FORMAT_EXTENSIONS`، أو `""` إن لم تُطابق
-شيئًا. تُستخدم في القوالب لاختيار عنصر معاينة مناسب لكل تسليم الآن بعد أن باتت
-المهمة تقبل أكثر من صيغة.
+طريقة `get_submitted_format()`: تُستخدم في القوالب لاختيار عنصر معاينة مناسب
+لكل تسليم، بعد أن باتت المهمة تقبل أكثر من صيغة. ترتيب الفحص:
+
+1. **إن وُجد `file`** → تطابق امتداده مع `SUBMISSION_FORMAT_EXTENSIONS`، وتُرجع
+   الصيغة المطابقة، أو `""` إن لم يطابق شيئًا معروفًا.
+2. وإلا، إن وُجد `text_content` → `"text"`.
+3. وإلا → `""`.
+
+> **⚠️ تصحيح:** كانت نسخة سابقة من هذا الملف تصف الترتيب معكوسًا (`text_content`
+> أولًا ثم الملف). هذا كان **خطأً فعليًا في الكود** ظهر في الإنتاج وأُصلح في
+> 1.2.0 (hotfix `ff10fc2`): مهمة AND تجمع صيغة ملف مع `text` (مثل
+> `"image,text"`) تخزّن الاثنين على نفس الصف، فكان النص يغطّي على الملف وتظهر
+> الصورة/الـPDF على أنها "نص". **الملف يُفحص أولًا**، لأن زر المعاينة مرتبط
+> بالملف.
 
 ### `StoreProduct` (منتج) — `participants/models.py`, كلاس `StoreProduct`
 

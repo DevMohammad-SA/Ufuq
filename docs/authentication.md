@@ -94,7 +94,7 @@ AUTHENTICATION_BACKENDS = [
 
 **تغيير كلمة المرور الاختياري** — `SupervisorPasswordChangeView`
 (`accounts/views.py`, المسار `accounts:change_password`): صفحة يفتحها
-المشرف من navbar متى شاء. النموذج `SupervisorPasswordChangeForm`
+المشرف من قسم "الحساب" في قائمة التنقل متى شاء. النموذج `SupervisorPasswordChangeForm`
 (`accounts/forms.py`) يتطلب **كلمة المرور الحالية** (طريقة
 `clean_current_password` تفحص `self.user.check_password`) + كلمة جديدة
 `min_length=8` + تطابق. `form_valid` يستدعي `update_session_auth_hash` بعد
@@ -126,6 +126,8 @@ AUTHENTICATION_BACKENDS = [
 
 `accounts/tests.py` يحتوي حاليًا اختبارات فعلية (وليست ملفًا فارغًا) تغطي:
 تدفق كلمة مرور المشارك الأول (`ParticipantPasswordFlowTests`)، ورفض تسجيل
-دخول المشرف بكلمة مرور خاطئة (`SupervisorLoginUnaffectedTests`). راجع
+دخول المشرف بكلمة مرور خاطئة (`SupervisorLoginUnaffectedTests`). المجموعة
+الكاملة (‏`accounts` + `participants`) **37 اختبارًا، كلها ناجحة** في إصدار
+1.2.0. راجع
 [`docs/README.md`](README.md) والقسم المخصص للاختبارات في `README.md` بجذر
 المشروع.

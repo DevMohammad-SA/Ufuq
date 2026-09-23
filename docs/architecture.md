@@ -1,7 +1,7 @@
 # البنية المعمارية
 
 > كل ما في هذا الملف مستخرج من فحص الكود الفعلي في المستودع بتاريخ آخر
-> مراجعة (2026-09-14)، وليس من افتراضات. عند أي تعارض بين هذا الملف والكود،
+> مراجعة (2026-09-23)، وليس من افتراضات. عند أي تعارض بين هذا الملف والكود،
 > **الكود هو المرجع**. المراجع أدناه بصيغة اسم الدالة/الكلاس بدل رقم السطر،
 > لأن أرقام الأسطر تتغيّر مع كل تعديل.
 
@@ -25,9 +25,13 @@
 - `templates/home.html` — صفحة هبوط عامة (بدون تسجيل دخول).
 - `static/` — الشعار، الترويسة الرسمية (`letterhead.png`)، خط Tajawal، وملف
   قالب الاستيراد `participants_import_template.xlsx`.
+- `locale/ar/LC_MESSAGES/` — كتالوج ترجمة موجود **لنصوص django-unfold وحدها**
+  (unfold لا يشحن `locale/`)، إذ يشحن Django و`django.contrib.admin` العربية
+  كاملة أصلًا.
 - `docker/` + `Dockerfile` + `docker-compose.yml` — إعداد نشر إنتاجي كامل
   (Postgres + Gunicorn + Nginx + Certbot). راجع
-  [قسم النشر الإنتاجي](#النشر-الإنتاجي-docker) أدناه — هذا **جديد** منذ آخر
+  [قسم النشر الإنتاجي](#النشر-الإنتاجي-docker) أدناه و**إجراءات التشغيل
+  الكاملة في [`deployment.md`](deployment.md)** — هذا **جديد** منذ آخر
   مراجعة لهذا الملف؛ سابقًا لم يكن يوجد أي إعداد نشر في المستودع.
 
 ## فلسفة الفصل: `User` مقابل `Participant`
@@ -75,15 +79,23 @@ Django (`GroupAdmin` في `participants/admin.py`) يستخدم `filter_horizont
 ## طبقة العرض
 
 - كل صفحات ما بعد الدخول (باستثناء صفحات `accounts`) ترث من
-  `participants/templates/participants/app_base.html`، الذي يرسم شريط تنقل
-  (navbar) حسب الدور من قائمة `navbar_items` في السياق، مع **عدّادات إشعارات**
-  (badge) لكل عنصر — راجع [`features.md`](features.md#شريط-التنقل-والإشعارات).
+  `participants/templates/participants/app_base.html`، الذي يرسم التنقل حسب
+  الدور من قائمة `navbar_items` في السياق، مع **عدّادات إشعارات** (badge) لكل
+  عنصر.
+  > **⚠️ تغيّر في 1.2.0:** كان هذا القالب يرسم **شريط تنقل أفقيًا** أعلى
+  > الصفحة. أُلغي الشريط الأفقي واستُبدل بـ**قائمة جانبية قابلة للطي** على
+  > سطح المكتب و**شريط سفلي ثابت + درج منزلق** على الجوال، وكلاهما يُدرج
+  > نفس الملف `_nav_sections.html` فلا يتباعدان. التفاصيل الكاملة في
+  > [`navigation.md`](navigation.md). (اسم المتغيّر `navbar_items` وتعليق
+  > "horizontal on desktop" في `views.py` بقيا من التسمية القديمة.)
 - `navbar_items` تُبنى بدالة `build_navbar(user, active_key)`
   (`participants/views.py`) — دالة عرض بحتة بلا منطق أعمال، تستدعي داخليًا
-  `get_notification_counts(user)` لجلب أعداد الإشعارات لكل مفتاح عنصر.
+  `get_notification_counts(user)` لجلب أعداد الإشعارات لكل مفتاح عنصر. كل
+  مُدخَل يحمل `group`/`group_label`/`mobile_primary` التي يُبنى منها التقسيم
+  في القالب.
 - صفحات المصادقة (`accounts/templates/accounts/`) ترث من
   `accounts/templates/base.html` (تصميم شاشة دخول منفصل)، ما عدا
-  `change_password.html` التي ترث من `app_base.html` لأنها ضمن navbar
+  `change_password.html` التي ترث من `app_base.html` لأنها ضمن قائمة تنقل
   المشرفين.
 - قالب واحد مستقل تمامًا لا يرث شيئًا: `participants_data_pdf.html`
   (مستند HTML كامل يُحوّل إلى PDF عبر WeasyPrint).
@@ -148,7 +160,11 @@ View يحسب الفرق (`new_points - old_points`) ويطبّقه مرة وا�
 ## سجل الهجرات (Migrations)
 
 - `accounts`: 3 هجرات (آخرها `0003_user_must_set_password_passwordresetrequest`).
-- `participants`: 15 هجرة (آخرها `0015_tasksubmission_text_content_and_more`) —
-  ارتفع العدد من 9 في مراجعة سابقة نتيجة الميزات المضافة في الإصدار 1.1.0
-  (سجل النقاط، فعالية الأسبوع، سبب الرفض، التسليم المميز، تعدد صيغ المهام
-  والتسليم النصي).
+- `participants`: **17 هجرة** (آخرها `0017_weeklytask_require_all_formats_and_more`)
+  — كانت 15 في مراجعة سابقة؛ أضاف الإصدار 1.2.0 هجرتين:
+  `0016_weeklytask_is_active_and_more` و
+  `0017_weeklytask_require_all_formats_and_more` (إعادة تصميم المهام والصيغ).
+- **لا توجد أي هجرة بيانات (`RunPython`) في المستودع كله.** كل الهجرات تعدّل
+  البنية فقط، وبعضها يغيّر معنى قيَم مخزَّنة دون تحويلها — راجع
+  [`deployment.md`](deployment.md#5-فحص-توافق-البيانات-قبل-الترقية) قبل أي
+  ترقية لقاعدة إنتاج.

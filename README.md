@@ -16,6 +16,12 @@ right‑to‑left). This file is in English for GitHub; **[`README.ar.md`](READM
 Arabic version.** Detailed technical docs are in [`docs/`](docs/), and
 [`CHANGELOG.md`](CHANGELOG.md) tracks released versions.
 
+**Current version: 1.2.0** (see [`CHANGELOG.md`](CHANGELOG.md)). Its headline
+changes: several weekly tasks can be open in parallel with free AND/OR
+submission formats ([`docs/weekly-tasks.md`](docs/weekly-tasks.md)), and the
+horizontal navbar was replaced by a collapsible sidebar plus a mobile drawer
+([`docs/navigation.md`](docs/navigation.md)).
+
 ## Overview
 
 - Participants belong to an **environment** (بيئة / `Group`), which one or
@@ -37,10 +43,10 @@ Arabic version.** Detailed technical docs are in [`docs/`](docs/), and
 
   | Source | Points | Notes |
   | --- | --- | --- |
-  | Weekly gathering | 8 (+2 early‑arrival bonus) | `MeetingAttendance` |
+  | Weekly gathering | 8 attended + 2 early (independent) | `MeetingAttendance` — the early flag scores 2 on its own, even with attendance unchecked |
   | Quran circle | 3 attended + 2 achieved (independent) | `CircleAttendance` |
   | Weekly activity | 10 (flat, single attendance flag) | `WeeklyActivityAttendance` — new |
-  | Weekly task acceptance | 10, or 12 if marked "featured" (⭐) | `TaskSubmission.is_featured` — new |
+  | Weekly task acceptance | 10, or 12 if marked "featured" (⭐) | `TaskSubmission.is_featured` |
   | Manual extra points / deduction | −1000 to +1000, mandatory reason | `ExtraPointsView`, general supervisor/superadmin only — new |
 
   Every one of these (except the store) also writes an audit-log row to
@@ -54,12 +60,49 @@ Defined in `accounts/models.py` (`Role`):
 
 | Role | Arabic | Summary |
 | --- | --- | --- |
-| `participant` | مشارك | Logs in with **national ID + password**. Personal dashboard (with an embedded points ledger and the elite‑trip indicator), weekly task upload, store. |
+| `participant` | مشارك | Logs in with **national ID + password**. Personal dashboard (with an embedded points ledger and the elite‑trip indicator), submission page listing **every open weekly task**, store. |
 | `group_supervisor` | مشرف بيئة | Records weekly‑gathering, Quran‑circle, and weekly‑activity attendance for **their own environment(s) only**; views their group's participant data and points ledger. |
-| `general_supervisor` | مشرف عام | Program‑wide: Excel import, single‑participant add form, weekly tasks, store management, manual extra‑points grants, points reset, full points ledger, all environments. |
+| `general_supervisor` | مشرف عام | Program‑wide: Excel import, single‑participant add form, weekly tasks (create, activate/deactivate, review, archive, reopen), store management, manual extra‑points grants, points reset, full points ledger, all environments. |
 | `superadmin` | مشرف النظام | Same permissions as general supervisor in every view, plus Django admin (`is_staff`/`is_superuser`). |
 
 Full permission matrix: [`docs/roles-and-permissions.md`](docs/roles-and-permissions.md).
+
+## Features
+
+Every item below maps to a real view and URL — see
+[`docs/features.md`](docs/features.md) for the view/template of each.
+
+- **Attendance, three independent kinds**, each a bulk roster with a date
+  picker: the weekly gathering (group supervisor, own environment), the Quran
+  circle (attendance + achievement scored separately), and the weekly
+  activity. Re‑submitting a roster applies only the delta, so it never
+  double‑awards.
+- **Weekly tasks**: several can be open in parallel; each is created inactive
+  and shown only once a supervisor activates it, then drops out by itself at
+  its due date. Submission formats are free checkboxes (PDF / image / audio /
+  video / direct text) combined as AND ("submit all of these together") or OR
+  ("pick one"), validated server‑side. Review is accept (+10, or +12 when
+  marked featured ⭐) or reject with a reason the participant sees. One
+  submission per participant per task, unless a supervisor reopens it.
+- **Store**: participants spend purchase points; supervisors add/edit/delete
+  products and complete or refund orders. Stock and balance are re‑checked
+  under `select_for_update()` inside a transaction.
+- **Points ledger** (`PointsLedgerEntry`): a central audit row for every
+  points movement, with search/sort/filter — scoped to their own environment
+  for a group supervisor, program‑wide for a general supervisor.
+- **Points reset with a snapshot**: resets `points` only, after bulk‑saving
+  every participant's current total into `PointsResetSnapshot` in the same
+  transaction; past reset events are browsable.
+- **Participant roster**: a filterable/sortable data table, plus a **PDF
+  export** on the official letterhead (WeasyPrint, embedded Tajawal font).
+- **Accounts**: Excel import or a single‑participant form; first password is
+  the national ID, and `must_set_password` forces a real one on first login;
+  a forgotten password is reset by general‑supervisor approval.
+- **Navigation**: a collapsible sidebar on desktop (state persisted in
+  `localStorage`) and a fixed bottom bar + slide‑in drawer on mobile, with
+  live notification badges — [`docs/navigation.md`](docs/navigation.md).
+- **Admin** at `/admin/`, themed with django‑unfold in the Rahhal palette and
+  fixed for RTL.
 
 ## Tech stack
 
@@ -133,8 +176,8 @@ uv run python manage.py test participants     # one app
 
 `accounts/tests.py` and `participants/tests.py` contain real test coverage
 (participant password flow, Quran circle point deltas, points‑reset
-snapshot history, store management branches, PDF export role scoping) — they
-are no longer empty stubs.
+snapshot history, store management branches, PDF export role scoping, and the
+navigation shell). As of 1.2.0 the suite is **37 tests, all passing**.
 
 > **WeasyPrint note:** the PDF export endpoint (`/participants/data/export-pdf/`)
 > needs the system libraries WeasyPrint depends on (Pango, Cairo, GObject).
@@ -190,8 +233,9 @@ Full technical breakdown: [`docs/architecture.md`](docs/architecture.md#النش
 config/         Django project package (settings, urls, wsgi/asgi)
 accounts/       Identity & authentication — custom User, Role, auth backend, middleware
 participants/   Program data — Group, Participant, attendance (3 kinds), tasks, store, points ledger, dashboards
-templates/      Shared templates (public home page)
-static/         Logo, PDF letterhead, Tajawal font, and the Excel import template
+templates/      Shared templates (public home page, Unfold admin overrides)
+static/         Logo, PDF letterhead, Tajawal font, admin RTL stylesheet, and the Excel import template
+locale/         Arabic catalog for django-unfold's own strings only
 docker/         Production deployment: entrypoint script, Nginx configs, certbot init script
 docs/           Detailed technical documentation (Arabic)
 ```
@@ -200,11 +244,23 @@ Dependency direction is always `participants → accounts`, never the reverse.
 
 ## Documentation
 
-Start with [`docs/README.md`](docs/README.md). Most important for anyone
-picking up maintenance: **[`docs/known-limitations.md`](docs/known-limitations.md)**
-— it now also has a dedicated section documenting exactly what has changed
-since earlier reviews of this documentation, rather than silently dropping
-those notes. See [`CHANGELOG.md`](CHANGELOG.md) for the release history.
+All docs are in Arabic, under [`docs/`](docs/):
+
+| File | Contents |
+| --- | --- |
+| [`docs/README.md`](docs/README.md) | Index — start here. |
+| [`docs/known-limitations.md`](docs/known-limitations.md) | **Read first.** What is *not* built or automated, plus a section recording every constraint that has since changed. |
+| [`docs/architecture.md`](docs/architecture.md) | App split, dependency direction, presentation layer, Docker setup, migration history. |
+| [`docs/roles-and-permissions.md`](docs/roles-and-permissions.md) | The four roles and a per‑view permission matrix taken from each `test_func()`. |
+| [`docs/points-system.md`](docs/points-system.md) | The three currencies, `apply_points_delta`, and the exact value of every point source. |
+| [`docs/models.md`](docs/models.md) | Every model field by field, constraints, `related_name`s, admin registration. |
+| [`docs/authentication.md`](docs/authentication.md) | Auth backend, forced password setup, supervisor‑approved reset. |
+| [`docs/features.md`](docs/features.md) | Every feature mapped to its view + template, and the full URL table. |
+| [`docs/weekly-tasks.md`](docs/weekly-tasks.md) | **New in 1.2.0.** Task lifecycle, `get_active_tasks()`, AND/OR submission formats with examples, validation rules, and what was retired. |
+| [`docs/navigation.md`](docs/navigation.md) | **New in 1.2.0.** Sidebar/drawer structure, per‑role menus, badge logic, and how to add a new page to the navigation. |
+| [`docs/deployment.md`](docs/deployment.md) | **New in 1.2.0.** Deploy/update runbook: Docker, SSL, **backup before every `migrate`**, and data‑compatibility checks before sensitive migrations. |
+
+See [`CHANGELOG.md`](CHANGELOG.md) for the release history.
 
 ## License / ownership
 

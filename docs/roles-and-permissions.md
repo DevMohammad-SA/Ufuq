@@ -43,6 +43,7 @@
 
 | View | المسار (`name`) | `test_func()` — من يُسمح له |
 |------|------------------|------------------------------|
+| `HomeView` | `home` (في `config/urls.py`) | **عام** — `TemplateView` بلا أي mixin؛ صفحة الهبوط لا تتطلب دخولًا |
 | `ParticipantDashboardView` | `dashboard` | `LoginRequiredMixin` فقط (بدون `test_func`) — أي مستخدم مسجّل، لكن الصفحة تصل لـ `request.user.participant` فورًا فتتعطّل بـ `RelatedObjectDoesNotExist` لغير المشاركين |
 | `SupervisorDashboardView` | `supervisor_dashboard` | `role == GROUP_SUPERVISOR` |
 | `QuranCircleAttendanceView` | `quran_circle_attendance` | `role in (GROUP_SUPERVISOR, GENERAL_SUPERVISOR, SUPERADMIN)` |
@@ -56,7 +57,7 @@
 | `ParticipantsDataView` | `participants_data` | `role in (GROUP_SUPERVISOR, GENERAL_SUPERVISOR, SUPERADMIN)` |
 | `ParticipantsDataPDFExportView` | `participants_data_pdf` | `role in (GROUP_SUPERVISOR, GENERAL_SUPERVISOR, SUPERADMIN)` |
 | `WeeklyTaskReviewView` | `weekly_task_review` | `role in (GENERAL_SUPERVISOR, SUPERADMIN)` |
-| `TaskSubmissionView` | `task_submission` | `role == PARTICIPANT` |
+| `TaskSubmissionView` | `task_submission` | `role == PARTICIPANT` — ولا يقبل POST إلا لمهمة ضمن `get_active_tasks()`، راجع [`weekly-tasks.md`](weekly-tasks.md) |
 | `TasksArchiveView` | `tasks_archive` | `role in (GENERAL_SUPERVISOR, SUPERADMIN)` |
 | `StoreView` | `store` | `role == PARTICIPANT` |
 | `StoreManagementView` | `store_management` | `role in (GENERAL_SUPERVISOR, SUPERADMIN)` |
@@ -89,7 +90,7 @@
 
 > **ملاحظة على `SupervisorPasswordChangeView`:** لا يوجد `UserPassesTestMixin`،
 > فأي مستخدم مسجّل دخوله (بما فيه مشارك) يستطيع الوصول لـ
-> `/accounts/change-password/`. عمليًا الرابط يظهر في navbar المشرفين فقط،
+> `/accounts/change-password/`. عمليًا الرابط يظهر في قسم "الحساب" بقائمة تنقل المشرفين فقط،
 > ومشارك عليه `must_set_password=True` يُعاد توجيهه بواسطة
 > `ForcePasswordSetupMiddleware` قبل الوصول.
 
