@@ -18,6 +18,21 @@ from participants.models import (
 )
 
 
+def make_group(name, supervisors=()):
+    """
+    Create a Group and attach its supervisors.
+
+    `Group.supervisor` became a ManyToManyField in migration 0010 (one
+    environment may have several supervisors), so the old
+    `Group.objects.create(supervisor=user)` now raises TypeError. Use this
+    helper instead of repeating the create/`.set()` pair everywhere.
+    """
+    group = Group.objects.create(name=name)
+    if supervisors:
+        group.supervisor.set(supervisors)
+    return group
+
+
 class SupervisorPasswordChangeTests(TestCase):
     def setUp(self):
         self.supervisor = User.objects.create_user(
@@ -89,8 +104,9 @@ class QuranCircleAttendanceTests(TestCase):
         self.general = User.objects.create_user(
             username="gen", password="pw12345678", role=Role.GENERAL_SUPERVISOR
         )
-        self.group_a = Group.objects.create(name="بيئة أ", supervisor=self.group_sup)
-        self.group_b = Group.objects.create(name="بيئة ب", supervisor=self.other_sup)
+        # Group.supervisor is many-to-many since migration 0010.
+        self.group_a = make_group("بيئة أ", [self.group_sup])
+        self.group_b = make_group("بيئة ب", [self.other_sup])
 
         self.p_a = self._participant("1000000001", self.group_a)
         self.p_b = self._participant("2000000002", self.group_b)
@@ -364,15 +380,35 @@ class PointsResetSnapshotTests(TestCase):
         order.refresh_from_db()
         self.assertEqual(order.status, StoreOrder.Status.REFUNDED)
 
+        # Deliberate change (hotfix 046c64f "allow deleting products with only
+        # refunded orders", see CHANGELOG): a product is now blocked only by
+        # *non-refunded* orders — refunded ones are deleted along with it.
+        # The original expectation ("product had an order -> ProtectedError ->
+        # the branch re-renders the page (200) with an Arabic error rather than
+        # redirecting, and the product is kept. Branch still executes
+        # correctly.") still holds, but now needs a pending order to trigger
+        # it instead of the refunded one above.
+        pending_order = StoreOrder.objects.create(
+            participant=self.p2, product=product, price_at_order=6
+        )
         resp = self.client.post(
             mgmt_url, {"action": "delete_product", "product_id": product.id}
         )
-        # product had an order -> ProtectedError -> the branch re-renders the
-        # page (200) with an Arabic error rather than redirecting, and the
-        # product is kept. Branch still executes correctly.
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "لا يمكن حذف هذا المنتج")
         self.assertTrue(StoreProduct.objects.filter(id=product.id).exists())
+
+        # ...and once only refunded orders remain, the delete goes through and
+        # the branch redirects instead.
+        resp = self.client.post(
+            mgmt_url, {"action": "refund", "order_id": pending_order.id}
+        )
+        self.assertRedirects(resp, mgmt_url)
+        resp = self.client.post(
+            mgmt_url, {"action": "delete_product", "product_id": product.id}
+        )
+        self.assertRedirects(resp, mgmt_url)
+        self.assertFalse(StoreProduct.objects.filter(id=product.id).exists())
 
 
 class ParticipantsDataPDFExportTests(TestCase):
@@ -401,7 +437,8 @@ class ParticipantsDataPDFExportTests(TestCase):
         self.general = User.objects.create_user(
             username="gen", password="pw12345678", role=Role.GENERAL_SUPERVISOR
         )
-        self.group_a = Group.objects.create(name="بيئة أ", supervisor=self.gs_a)
+        # Group.supervisor is many-to-many since migration 0010.
+        self.group_a = make_group("بيئة أ", [self.gs_a])
         self.group_b = Group.objects.create(name="بيئة ب")
 
         self.a1 = self._p("5000000001", "أحمد", self.group_a)
