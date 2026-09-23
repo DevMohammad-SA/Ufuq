@@ -27,6 +27,9 @@
 
   --font-display:"Tajawal","Cairo","Segoe UI",sans-serif;
   --font-ui:"IBM Plex Sans Arabic","Tajawal",sans-serif;
+
+  --topbar-h:56px;
+  --sidebar-w:248px;
 }
 *{box-sizing:border-box}
 body{
@@ -81,10 +84,9 @@ body{
   padding:var(--s3) 0;
 }
 
-/* ---- Navbar (مشترك) ---------------------------------------------------- */
-.app-nav__icon{display:inline-flex;align-items:center;justify-content:center}
+/* ---- مشترك بين كل أسطح التنقل ------------------------------------------ */
+.app-nav__icon{display:inline-flex;align-items:center;justify-content:center;flex:none}
 .app-nav__icon svg{display:block}
-.app-nav--top .app-nav__icon svg{width:16px;height:16px}
 .app-nav--bottom .app-nav__icon svg{width:20px;height:20px}
 .app-nav__badge{
   display:inline-flex;
@@ -101,91 +103,114 @@ body{
   line-height:1;
   margin-inline-start:4px;
 }
+/* نقطة حمراء تُنبّه إلى شارة مخفية عن النظر (داخل Sidebar مطوي أو داخل الدرج) */
+.app-nav__dot{
+  position:absolute;
+  top:6px;
+  inset-inline-end:6px;
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:var(--alert);
+}
 
-/* شريط علوي أفقي — سطح المكتب */
-.app-nav--top{
+/* ---- الشريط العلوي الرفيع — سطح المكتب --------------------------------- */
+.app-topbar{
+  position:fixed;
+  top:0;
+  inset-inline:0;
+  z-index:60;
+  height:var(--topbar-h);
   background:#fff;
   border-bottom:1px solid var(--line);
-}
-.app-nav--top .app-nav__inner{
-  max-width:1120px;
-  margin:0 auto;
-  padding:10px var(--s3);
   display:flex;
   align-items:center;
-  justify-content:space-between;
   gap:var(--s2);
+  padding:0 var(--s2);
 }
-.app-nav--top .app-nav__brand{display:flex;align-items:center;gap:10px}
-.app-nav--top .app-nav__brand img{height:30px;width:auto}
-.app-nav--top .app-nav__brand .wordmark{font-weight:800;font-size:19px}
-.app-nav--top .app-nav__links{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
-.app-nav--top .app-nav__link,
-.app-nav--top .app-nav__logout button{
+.app-topbar__toggle{
+  position:relative;
   display:inline-flex;
   align-items:center;
-  gap:6px;
-  padding:8px 14px;
-  border-radius:99px;
-  font-family:var(--font-ui);
-  font-size:14px;
-  font-weight:600;
-  color:var(--slate);
-  text-decoration:none;
-  background:transparent;
-  border:none;
-  cursor:pointer;
-  line-height:1.4;
-}
-.app-nav--top .app-nav__link:hover,
-.app-nav--top .app-nav__logout button:hover{color:var(--asphalt);background:var(--sand)}
-.app-nav--top .app-nav__link.is-active{color:var(--gold-ink);background:var(--gold-soft)}
-.app-nav__logout{margin:0}
-
-/* أزرار التصنيف بقوائم منسدلة مستقلة — سطح المكتب */
-.app-nav__dropdown{position:relative}
-.app-nav__dropdown-toggle{
-  display:inline-flex;
-  align-items:center;
-  gap:4px;
-  background:none;
-  border:none;
-  font-family:inherit;
-  cursor:pointer;
-}
-.app-nav__dropdown-menu{
-  position:absolute;
-  top:100%;
-  right:0;
-  background:#fff;
+  justify-content:center;
+  width:38px;
+  height:38px;
   border:1px solid var(--line);
   border-radius:var(--r-sm);
-  box-shadow:var(--shadow);
-  min-width:220px;
-  padding:6px;
-  z-index:50;
+  background:#fff;
+  color:var(--slate);
+  cursor:pointer;
 }
-.app-nav__dropdown-menu[hidden]{display:none}
-.app-nav__dropdown-item{
+.app-topbar__toggle:hover{background:var(--sand);color:var(--asphalt)}
+/* الشارات نفسها مرئية داخل الـ Sidebar حين يكون مفتوحًا، فلا داعي للنقطة إلا عند طيّه */
+.app-topbar__toggle .app-nav__dot{display:none}
+body.sidebar-collapsed .app-topbar__toggle .app-nav__dot{display:block}
+.app-topbar__brand{display:flex;align-items:center;gap:10px}
+.app-topbar__brand img{height:30px;width:auto}
+.app-topbar__brand .wordmark{font-weight:800;font-size:19px}
+
+/* ---- الـ Sidebar الجانبي — سطح المكتب ---------------------------------- */
+.app-sidebar{
+  position:fixed;
+  top:var(--topbar-h);
+  bottom:0;
+  inset-inline-start:0;
+  z-index:40;
+  width:var(--sidebar-w);
+  background:#fff;
+  border-inline-end:1px solid var(--line);
+  overflow-y:auto;
+  display:flex;
+  flex-direction:column;
+  padding:var(--s2) 12px calc(var(--s2) + env(safe-area-inset-bottom));
+  transition:transform .22s ease;
+}
+/* dir="rtl" لا يقلب الـ transforms: الـ Sidebar ملتصق بالحافة اليمنى فعليًا،
+   فطيّه يعني دفعه نحو اليمين خارج الشاشة. */
+body.sidebar-collapsed .app-sidebar{transform:translateX(100%)}
+
+body{
+  padding-top:var(--topbar-h);
+  padding-inline-start:var(--sidebar-w);
+  transition:padding-inline-start .22s ease;
+}
+body.sidebar-collapsed{padding-inline-start:0}
+
+.side-section{display:flex;flex-direction:column;gap:2px;margin-bottom:var(--s2)}
+.side-section__title{
+  font-family:var(--font-ui);
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.04em;
+  color:var(--slate);
+  padding:var(--s1) 12px 4px;
+}
+.side-link{
+  position:relative;
   display:flex;
   align-items:center;
   gap:10px;
+  width:100%;
   padding:10px 12px;
+  border:none;
   border-radius:var(--r-sm);
-  text-decoration:none;
+  background:transparent;
   color:var(--asphalt);
   font-family:var(--font-ui);
   font-size:14px;
-  white-space:nowrap;
+  font-weight:600;
+  line-height:1.4;
+  text-align:start;
+  text-decoration:none;
+  cursor:pointer;
 }
-.app-nav__dropdown-item:hover,
-.app-nav__dropdown-item.is-active{background:var(--sand);color:var(--gold-ink)}
+.side-link__label{flex:1;min-width:0}
+.side-link:hover{background:var(--sand)}
+.side-link.is-active{background:var(--gold-soft);color:var(--gold-ink)}
+.side-logout{margin:auto 0 0;padding-top:var(--s2);border-top:1px solid var(--line)}
+.side-link--logout{color:var(--alert)}
 
-@media (max-width:720px){
-  .app-nav__dropdown-menu{display:none !important}
-}
-
-/* شريط سفلي ثابت — الجوال */
+/* ---- الشريط السفلي الثابت — الجوال ------------------------------------- */
 .app-nav--bottom{
   display:none;
   position:fixed;
@@ -201,9 +226,10 @@ body{
   justify-content:space-around;
   align-items:stretch;
 }
-.app-nav--bottom .app-nav__logout{flex:1;display:flex}
+.app-nav--bottom .app-nav__logout{flex:1;display:flex;margin:0}
 .app-nav--bottom .app-nav__link,
 .app-nav--bottom .app-nav__logout button{
+  position:relative;
   flex:1;
   width:100%;
   display:flex;
@@ -222,91 +248,67 @@ body{
 }
 .app-nav--bottom .app-nav__link.is-active{color:var(--gold-ink)}
 
-@media (max-width:720px){
-  .app-nav--top{display:none}
-  .app-nav--bottom{display:block}
-  body{padding-bottom:74px}
-}
-
-/* زر "المزيد" + الورقة السفلية — الجوال فقط (للأدوار ذات أكثر من 3 عناصر) */
-.app-nav__more-btn{
-  background:none;
-  border:none;
-  font-family:inherit;
-}
-
-.mobile-more-overlay{
-  position:fixed;
+/* ---- الدرج الجانبي — الجوال -------------------------------------------- */
+.nav-drawer{position:fixed;inset:0;z-index:80;visibility:hidden}
+.nav-drawer.is-open{visibility:visible}
+.nav-drawer__scrim{
+  position:absolute;
   inset:0;
   background:rgba(43,47,51,.5);
-  z-index:60;
-  display:flex;
-  align-items:flex-end;
+  opacity:0;
+  transition:opacity .22s ease;
 }
-.mobile-more-overlay[hidden]{display:none}
-
-.mobile-more-sheet{
+.nav-drawer.is-open .nav-drawer__scrim{opacity:1}
+.nav-drawer__panel{
+  position:absolute;
+  top:0;
+  bottom:0;
+  inset-inline-start:0;
+  width:min(86vw,300px);
   background:#fff;
-  width:100%;
-  border-radius:16px 16px 0 0;
-  padding:var(--s3);
-  padding-bottom:calc(var(--s3) + env(safe-area-inset-bottom));
+  display:flex;
+  flex-direction:column;
+  overflow-y:auto;
+  padding:var(--s2) 12px calc(var(--s2) + env(safe-area-inset-bottom));
+  transform:translateX(100%);
+  transition:transform .22s ease;
 }
-
-.mobile-more-header{
+.nav-drawer.is-open .nav-drawer__panel{transform:translateX(0)}
+.nav-drawer__header{
   display:flex;
   justify-content:space-between;
   align-items:center;
-  font-family:var(--font-ui);
-  font-weight:700;
-  font-size:15px;
-  margin-bottom:var(--s2);
-  padding-bottom:var(--s2);
+  gap:10px;
+  padding:0 4px var(--s2);
+  margin-bottom:var(--s1);
   border-bottom:1px solid var(--line);
 }
-.mobile-more-close{
+.nav-drawer__header .wordmark{font-weight:800;font-size:18px}
+.nav-drawer__close{
   background:var(--sand);
   border:none;
   border-radius:50%;
-  width:28px;
-  height:28px;
+  width:30px;
+  height:30px;
   display:inline-flex;
   align-items:center;
   justify-content:center;
-  cursor:pointer;
   color:var(--asphalt);
-}
-
-.mobile-more-links{
-  display:flex;
-  flex-direction:column;
-  gap:4px;
-}
-.mobile-more-links form{margin:0}
-.mobile-more-link{
-  display:flex;
-  align-items:center;
-  gap:12px;
-  padding:12px 8px;
-  border-radius:var(--r-sm);
-  text-decoration:none;
-  color:var(--asphalt);
-  font-family:var(--font-ui);
-  font-weight:600;
-  font-size:14px;
-  background:none;
-  border:none;
-  width:100%;
-  text-align:right;
   cursor:pointer;
 }
-.mobile-more-link:hover,
-.mobile-more-link.is-active{background:var(--sand); color:var(--gold-ink)}
-.mobile-more-link .app-nav__icon svg{width:20px; height:20px}
-.mobile-more-logout{color:var(--alert)}
+body.drawer-open{overflow:hidden}
 
+@media (max-width:720px){
+  .app-topbar,.app-sidebar{display:none}
+  body,body.sidebar-collapsed{
+    padding-top:0;
+    padding-inline-start:0;
+    padding-bottom:74px;
+  }
+  .app-nav--bottom{display:block}
+}
 @media (min-width:721px){
-  .mobile-more-overlay{display:none !important}
+  .nav-drawer{display:none}
 }
 
 /* تذييل اعتماد المطوّر — في تدفق الصفحة الطبيعي أسفل المحتوى */
@@ -335,138 +337,40 @@ body{
 </style>
 </head>
 <body>
+<script>
+/* تطبيق حالة الـ Sidebar المحفوظة قبل رسم المحتوى — يمنع وميض الانتقال من
+   "مفتوح" إلى "مطوي" عند كل تحميل صفحة. الافتراضي عند غياب قيمة محفوظة: مفتوح. */
+(function () {
+  try {
+    if (localStorage.getItem("rahhal.sidebar") === "collapsed") {
+      document.body.classList.add("sidebar-collapsed");
+    }
+  } catch (e) {}
+})();
+</script>
 
-<nav class="app-nav app-nav--top">
-  <div class="app-nav__inner">
-    <div class="app-nav__brand">
-      <img src="{% static 'images/logo.png' %}" alt="رحّال">
-      <span class="wordmark">رحّال</span>
-    </div>
-    <div class="app-nav__links">
-      {% for item in navbar_items|slice:":1" %}
-        <a href="{{ item.url }}" class="app-nav__link{% if item.active %} is-active{% endif %}">
-          <span class="app-nav__icon">{{ item.icon|safe }}</span>
-          <span class="app-nav__label">{{ item.label }}</span>
-          {% if item.badge_count > 0 %}<span class="app-nav__badge">{{ item.badge_count }}</span>{% endif %}
-        </a>
-      {% endfor %}
-
-      {% comment %}
-        Per-category buttons (desktop navbar only). Category membership is
-        matched by item.label/item.key text — there is no "group" field on
-        navbar_items itself (build_navbar() is untouched). The top-level
-        split below still uses navbar_items|length==3 to tell the
-        participant role apart (its 3 items are fully independent plain
-        links, never dropdowns). Everything past that point must NOT branch
-        on item count again: a previous bug gated the "المهام" dropdown and
-        "طلبات المتجر" link behind navbar_items|length > 6, assuming only
-        general_supervisor/superadmin could ever cross that threshold — but
-        group_supervisor's own item count grew past 6 in later work, so the
-        dropdown rendered for group_supervisor too with zero matching items
-        inside, i.e. an empty "المهام ▾" menu. Each category button below is
-        now self-gated: it only renders when navbar_items actually contains
-        a matching item, regardless of how many items exist in total.
-      {% endcomment %}
-      {% if navbar_items|length == 3 %}
-        {% comment %}Participant: 3 fully independent items — plain links, no dropdowns.{% endcomment %}
-        {% for item in navbar_items|slice:"1:" %}
-          <a href="{{ item.url }}" class="app-nav__link{% if item.active %} is-active{% endif %}">
-            <span class="app-nav__icon">{{ item.icon|safe }}</span>
-            <span class="app-nav__label">{{ item.label }}</span>
-            {% if item.badge_count > 0 %}<span class="app-nav__badge">{{ item.badge_count }}</span>{% endif %}
-          </a>
-        {% endfor %}
-      {% else %}
-        {% for tasks_item in navbar_items %}
-          {% if tasks_item.key == "tasks" %}
-            {% comment %}General supervisor / superadmin only: "المهام" (2 items). Gated on the item actually existing, not on a total-item-count threshold.{% endcomment %}
-            <div class="app-nav__dropdown">
-              <button type="button" class="app-nav__link app-nav__dropdown-toggle" id="navTasksBtn"
-                      aria-haspopup="true" aria-expanded="false" aria-controls="navTasksMenu">
-                <span class="app-nav__label">المهام</span>
-                {% if tasks_item.badge_count > 0 %}<span class="app-nav__badge">{{ tasks_item.badge_count }}</span>{% endif %}
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M6 9l6 6 6-6"/></svg>
-              </button>
-              <div class="app-nav__dropdown-menu" id="navTasksMenu" hidden>
-                {% for item in navbar_items %}
-                  {% if item.label == "المهام" or item.label == "أرشيف المهام" %}
-                    <a href="{{ item.url }}" class="app-nav__dropdown-item{% if item.active %} is-active{% endif %}">
-                      <span class="app-nav__icon">{{ item.icon|safe }}</span><span>{{ item.label }}</span>
-                      {% if item.badge_count > 0 %}<span class="app-nav__badge">{{ item.badge_count }}</span>{% endif %}
-                    </a>
-                  {% endif %}
-                {% endfor %}
-              </div>
-            </div>
-          {% endif %}
-        {% endfor %}
-        {% for item in navbar_items %}
-          {% if item.label == "طلبات المتجر" %}
-            <a href="{{ item.url }}" class="app-nav__link{% if item.active %} is-active{% endif %}">
-              <span class="app-nav__icon">{{ item.icon|safe }}</span>
-              <span class="app-nav__label">{{ item.label }}</span>
-              {% if item.badge_count > 0 %}<span class="app-nav__badge">{{ item.badge_count }}</span>{% endif %}
-            </a>
-          {% endif %}
-        {% endfor %}
-
-        {% comment %}Shared by group_supervisor and general_supervisor/superadmin.{% endcomment %}
-        <div class="app-nav__dropdown">
-          <button type="button" class="app-nav__link app-nav__dropdown-toggle" id="navStudentsBtn"
-                  aria-haspopup="true" aria-expanded="false" aria-controls="navStudentsMenu">
-            <span class="app-nav__label">الطلاب</span>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M6 9l6 6 6-6"/></svg>
-          </button>
-          <div class="app-nav__dropdown-menu" id="navStudentsMenu" hidden>
-            {% for item in navbar_items %}
-              {% if item.label == "الاستيراد" or item.label == "بيانات المشاركين" or item.label == "الحلقة القرآنية" or item.label == "فعالية الأسبوع" or item.label == "إضافة طالب" %}
-                <a href="{{ item.url }}" class="app-nav__dropdown-item{% if item.active %} is-active{% endif %}">
-                  <span class="app-nav__icon">{{ item.icon|safe }}</span><span>{{ item.label }}</span>
-                  {% if item.badge_count > 0 %}<span class="app-nav__badge">{{ item.badge_count }}</span>{% endif %}
-                </a>
-              {% endif %}
-            {% endfor %}
-          </div>
-        </div>
-
-        <div class="app-nav__dropdown">
-          <button type="button" class="app-nav__link app-nav__dropdown-toggle" id="navPointsBtn"
-                  aria-haspopup="true" aria-expanded="false" aria-controls="navPointsMenu">
-            <span class="app-nav__label">النقاط</span>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M6 9l6 6 6-6"/></svg>
-          </button>
-          <div class="app-nav__dropdown-menu" id="navPointsMenu" hidden>
-            {% for item in navbar_items %}
-              {% if item.label == "نقاط إضافية" or item.label == "سجل النقاط" %}
-                <a href="{{ item.url }}" class="app-nav__dropdown-item{% if item.active %} is-active{% endif %}">
-                  <span class="app-nav__icon">{{ item.icon|safe }}</span><span>{{ item.label }}</span>
-                  {% if item.badge_count > 0 %}<span class="app-nav__badge">{{ item.badge_count }}</span>{% endif %}
-                </a>
-              {% endif %}
-            {% endfor %}
-          </div>
-        </div>
-
-        {% for item in navbar_items %}
-          {% if item.label == "تغيير كلمة المرور" %}
-            <a href="{{ item.url }}" class="app-nav__link{% if item.active %} is-active{% endif %}">
-              <span class="app-nav__icon">{{ item.icon|safe }}</span>
-              <span class="app-nav__label">{{ item.label }}</span>
-              {% if item.badge_count > 0 %}<span class="app-nav__badge">{{ item.badge_count }}</span>{% endif %}
-            </a>
-          {% endif %}
-        {% endfor %}
-      {% endif %}
-
-      <form class="app-nav__logout" method="post" action="{% url 'accounts:logout' %}">
-        {% csrf_token %}
-        <button type="submit">
-          <span class="app-nav__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M14 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8"/><path d="M18 8l4 4-4 4"/><path d="M22 12H10"/></svg></span>
-          <span class="app-nav__label">خروج</span>
-        </button>
-      </form>
-    </div>
+<header class="app-topbar">
+  <button type="button" class="app-topbar__toggle" id="sidebarToggle"
+          aria-controls="appSidebar" aria-expanded="true" aria-label="إظهار/إخفاء القائمة الجانبية">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="20" height="20"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></svg>
+    {% comment %}
+      النقطة الحمراء على زر الهامبورجر: تُصيَّر متى وُجدت أي شارة على أي عنصر،
+      وتظهر بالـ CSS فقط حين يكون الـ Sidebar مطويًا (حين يكون مفتوحًا تكون
+      الشارة نفسها مرئية بجانب رابطها). الحساب بلا أي منطق في الـ view:
+      dictsortreversed على badge_count يضع صاحب أعلى شارة أولًا.
+    {% endcomment %}
+    {% with most_badged=navbar_items|dictsortreversed:"badge_count"|first %}
+      {% if most_badged.badge_count > 0 %}<span class="app-nav__dot"></span>{% endif %}
+    {% endwith %}
+  </button>
+  <div class="app-topbar__brand">
+    <img src="{% static 'images/logo.png' %}" alt="رحّال">
+    <span class="wordmark">رحّال</span>
   </div>
+</header>
+
+<nav class="app-sidebar" id="appSidebar" aria-label="القائمة الجانبية">
+  {% include "participants/_nav_sections.html" %}
 </nav>
 
 <div class="wrap">
@@ -477,135 +381,116 @@ body{
   <a href="https://linktr.ee/devmohammad_sa" target="_blank" rel="noopener noreferrer">تطوير: محمد</a>
 </footer>
 
+{% comment %}
+  الشريط السفلي: عناصر mobile_primary فقط. زر "القائمة" يظهر فقط إن وُجد عنصر
+  ثانوي واحد على الأقل — dictsort على mobile_primary يضع False أولًا، فإن كان
+  أول عنصر بعد الفرز ثانويًا فثمّة ما يُعرض في الدرج. للمشارك (كل عناصره
+  أساسية) لا يظهر الزر ويبقى "خروج" في الشريط السفلي كما كان.
+{% endcomment %}
 <nav class="app-nav app-nav--bottom">
   <div class="app-nav__inner">
-    {% for item in navbar_items|slice:":3" %}
-      <a href="{{ item.url }}" class="app-nav__link{% if item.active %} is-active{% endif %}">
-        <span class="app-nav__icon">{{ item.icon|safe }}</span>
-        <span class="app-nav__label">{{ item.label }}</span>
-        {% if item.badge_count > 0 %}<span class="app-nav__badge">{{ item.badge_count }}</span>{% endif %}
-      </a>
-    {% endfor %}
-
-    {% if navbar_items|length > 3 %}
-      <button type="button" class="app-nav__link app-nav__more-btn" id="mobileMoreBtn"
-              aria-haspopup="true" aria-expanded="false" aria-controls="mobileMoreSheet">
-        <span class="app-nav__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></span>
-        <span class="app-nav__label">المزيد</span>
-        {% for item in navbar_items|slice:"3:" %}
-          {% if item.badge_count > 0 %}<span class="app-nav__badge">{{ item.badge_count }}</span>{% endif %}
-        {% endfor %}
-      </button>
-    {% else %}
-      {% for item in navbar_items|slice:"3:" %}
+    {% for item in navbar_items %}
+      {% if item.mobile_primary %}
         <a href="{{ item.url }}" class="app-nav__link{% if item.active %} is-active{% endif %}">
           <span class="app-nav__icon">{{ item.icon|safe }}</span>
           <span class="app-nav__label">{{ item.label }}</span>
           {% if item.badge_count > 0 %}<span class="app-nav__badge">{{ item.badge_count }}</span>{% endif %}
         </a>
-      {% endfor %}
-      <form class="app-nav__logout" method="post" action="{% url 'accounts:logout' %}">
-        {% csrf_token %}
-        <button type="submit">
-          <span class="app-nav__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M14 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8"/><path d="M18 8l4 4-4 4"/><path d="M22 12H10"/></svg></span>
-          <span class="app-nav__label">خروج</span>
+      {% endif %}
+    {% endfor %}
+
+    {% with first_by_primary=navbar_items|dictsort:"mobile_primary"|first %}
+      {% if first_by_primary.mobile_primary %}
+        <form class="app-nav__logout" method="post" action="{% url 'accounts:logout' %}">
+          {% csrf_token %}
+          <button type="submit">
+            <span class="app-nav__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M14 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8"/><path d="M18 8l4 4-4 4"/><path d="M22 12H10"/></svg></span>
+            <span class="app-nav__label">خروج</span>
+          </button>
+        </form>
+      {% else %}
+        <button type="button" class="app-nav__link" id="drawerOpen"
+                aria-haspopup="dialog" aria-expanded="false" aria-controls="navDrawer">
+          <span class="app-nav__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="20" height="20"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></svg></span>
+          <span class="app-nav__label">القائمة</span>
+          {% comment %}
+            نفس حيلة الفرز، لكن بعد دفع العناصر الثانوية إلى المقدمة: الفرز
+            مستقر، فأول عنصر بعد dictsortreversed:"badge_count" ثم
+            dictsort:"mobile_primary" هو الثانوي صاحب أعلى شارة.
+          {% endcomment %}
+          {% with top_secondary=navbar_items|dictsortreversed:"badge_count"|dictsort:"mobile_primary"|first %}
+            {% if top_secondary.badge_count > 0 %}<span class="app-nav__dot"></span>{% endif %}
+          {% endwith %}
         </button>
-      </form>
-    {% endif %}
+      {% endif %}
+    {% endwith %}
   </div>
 </nav>
 
-{% if navbar_items|length > 3 %}
-  <div id="mobileMoreSheet" class="mobile-more-overlay" hidden>
-    <div class="mobile-more-sheet" role="dialog" aria-modal="true" aria-label="قائمة المزيد">
-      <div class="mobile-more-header">
-        <span>المزيد</span>
-        <button type="button" id="mobileMoreClose" class="mobile-more-close" aria-label="إغلاق">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg>
-        </button>
-      </div>
-      <div class="mobile-more-links">
-        {% for item in navbar_items|slice:"3:" %}
-          <a href="{{ item.url }}" class="mobile-more-link{% if item.active %} is-active{% endif %}">
-            <span class="app-nav__icon">{{ item.icon|safe }}</span>
-            <span>{{ item.label }}</span>
-            {% if item.badge_count > 0 %}<span class="app-nav__badge">{{ item.badge_count }}</span>{% endif %}
-          </a>
-        {% endfor %}
-        <form method="post" action="{% url 'accounts:logout' %}">
-          {% csrf_token %}
-          <button type="submit" class="mobile-more-link mobile-more-logout">
-            <span class="app-nav__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M14 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8"/><path d="M18 8l4 4-4 4"/><path d="M22 12H10"/></svg></span>
-            <span>خروج</span>
+{% with first_by_primary=navbar_items|dictsort:"mobile_primary"|first %}
+  {% if not first_by_primary.mobile_primary %}
+    <div class="nav-drawer" id="navDrawer" aria-hidden="true">
+      <div class="nav-drawer__scrim" id="drawerScrim"></div>
+      <nav class="nav-drawer__panel" role="dialog" aria-modal="true" aria-label="القائمة">
+        <div class="nav-drawer__header">
+          <span class="wordmark">رحّال</span>
+          <button type="button" class="nav-drawer__close" id="drawerClose" aria-label="إغلاق">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="18" height="18"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg>
           </button>
-        </form>
-      </div>
+        </div>
+        {% include "participants/_nav_sections.html" %}
+      </nav>
     </div>
-  </div>
-{% endif %}
+  {% endif %}
+{% endwith %}
 
 {% block scripts %}{% endblock %}
+{% comment %}خارج block scripts عمدًا حتى لا تستبدله القوالب الفرعية.{% endcomment %}
 <script>
 (function () {
-  var moreBtn = document.getElementById("mobileMoreBtn");
-  var moreSheet = document.getElementById("mobileMoreSheet");
-  var closeBtn = document.getElementById("mobileMoreClose");
-  if (!moreBtn || !moreSheet || !closeBtn) return;
-
-  function openSheet() {
-    moreSheet.hidden = false;
-    moreBtn.setAttribute("aria-expanded", "true");
+  var toggle = document.getElementById("sidebarToggle");
+  if (!toggle) return;
+  function sync() {
+    toggle.setAttribute(
+      "aria-expanded",
+      String(!document.body.classList.contains("sidebar-collapsed"))
+    );
   }
-  function closeSheet() {
-    moreSheet.hidden = true;
-    moreBtn.setAttribute("aria-expanded", "false");
-  }
-
-  moreBtn.addEventListener("click", openSheet);
-  closeBtn.addEventListener("click", closeSheet);
-  moreSheet.addEventListener("click", function (e) {
-    if (e.target === moreSheet) closeSheet();
-  });
-  document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape" && !moreSheet.hidden) closeSheet();
+  sync();
+  toggle.addEventListener("click", function () {
+    var collapsed = document.body.classList.toggle("sidebar-collapsed");
+    try {
+      localStorage.setItem("rahhal.sidebar", collapsed ? "collapsed" : "open");
+    } catch (e) {}
+    sync();
   });
 })();
-</script>
-<script>
-(function () {
-  var dropdowns = document.querySelectorAll(".app-nav--top .app-nav__dropdown");
 
-  function closeAll(except) {
-    dropdowns.forEach(function (dd) {
-      if (dd !== except) {
-        var menu = dd.querySelector(".app-nav__dropdown-menu");
-        var btn = dd.querySelector(".app-nav__dropdown-toggle");
-        if (menu) menu.hidden = true;
-        if (btn) btn.setAttribute("aria-expanded", "false");
-      }
-    });
+(function () {
+  var drawer = document.getElementById("navDrawer");
+  var openBtn = document.getElementById("drawerOpen");
+  var closeBtn = document.getElementById("drawerClose");
+  var scrim = document.getElementById("drawerScrim");
+  if (!drawer || !openBtn || !closeBtn || !scrim) return;
+
+  function open() {
+    drawer.classList.add("is-open");
+    drawer.setAttribute("aria-hidden", "false");
+    openBtn.setAttribute("aria-expanded", "true");
+    document.body.classList.add("drawer-open");
+  }
+  function close() {
+    drawer.classList.remove("is-open");
+    drawer.setAttribute("aria-hidden", "true");
+    openBtn.setAttribute("aria-expanded", "false");
+    document.body.classList.remove("drawer-open");
   }
 
-  dropdowns.forEach(function (dd) {
-    var btn = dd.querySelector(".app-nav__dropdown-toggle");
-    var menu = dd.querySelector(".app-nav__dropdown-menu");
-    if (!btn || !menu) return;
-
-    btn.addEventListener("click", function (e) {
-      e.stopPropagation();
-      var isHidden = menu.hidden;
-      closeAll(dd);
-      menu.hidden = !isHidden;
-      btn.setAttribute("aria-expanded", String(!isHidden));
-    });
-  });
-
-  document.addEventListener("click", function () {
-    closeAll(null);
-  });
-
+  openBtn.addEventListener("click", open);
+  closeBtn.addEventListener("click", close);
+  scrim.addEventListener("click", close);
   document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape") closeAll(null);
+    if (e.key === "Escape" && drawer.classList.contains("is-open")) close();
   });
 })();
 </script>

@@ -4,7 +4,9 @@
 {% block title %}بيانات المشاركين — رحّال{% endblock %}
 
 {% block extra_style %}
-.wrap{max-width:96vw}
+/* عرض نسبي لمنطقة المحتوى، لا لعرض الشاشة: مع الـ Sidebar المفتوح
+   (248px) كان 96vw يتجاوز المساحة المتاحة ويُحدث تمريرًا أفقيًا للصفحة. */
+.wrap{max-width:100%}
 
 table.roster{
   width:100%;

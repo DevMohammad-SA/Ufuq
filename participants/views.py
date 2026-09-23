@@ -205,13 +205,48 @@ def get_notification_counts(user):
     return counts
 
 
+# Sidebar/drawer section headings, keyed by the `group` field every
+# build_navbar() entry carries. "main" is deliberately label-less: its
+# entries render at the top of the sidebar with no heading above them.
+# The template groups purely on these fields ({% regroup %}) — it never
+# matches on item.label, which caused two production regressions before.
+NAV_GROUP_LABELS = {
+    "main": "",
+    "tasks": "المهام",
+    "store": "المتجر",
+    "students": "الطلاب",
+    "points": "النقاط",
+    "account": "الحساب",
+}
+
+
 def build_navbar(user, active_key):
+    """
+    Entries are (key, label, url_name, icon, group, mobile_primary).
+
+    `group` drives the sidebar/drawer section it lands in (heading text
+    comes from NAV_GROUP_LABELS), and `mobile_primary` decides whether the
+    entry also appears in the fixed bottom bar on phones. Entries of the
+    same group MUST stay adjacent in these lists — {% regroup %} only
+    merges consecutive runs.
+    """
     counts = get_notification_counts(user)
     if user.role == Role.PARTICIPANT:
+        # Three fully independent links: grouping three items under headings
+        # buys nothing, so they all sit in the label-less "main" section and
+        # all three are bottom-bar primaries (hence no "القائمة" button and
+        # no drawer for this role).
         entries = [
-            ("home", "الرئيسية", "participants:dashboard", ICON_HOME),
-            ("tasks", "المهام", "participants:task_submission", ICON_TASKS),
-            ("store", "المتجر", "participants:store", ICON_STORE),
+            ("home", "الرئيسية", "participants:dashboard", ICON_HOME, "main", True),
+            (
+                "tasks",
+                "المهام",
+                "participants:task_submission",
+                ICON_TASKS,
+                "main",
+                True,
+            ),
+            ("store", "المتجر", "participants:store", ICON_STORE, "main", True),
         ]
     elif user.role == Role.GROUP_SUPERVISOR:
         # A group supervisor has no dashboard separate from the attendance
@@ -223,31 +258,48 @@ def build_navbar(user, active_key):
                 "التحضير",
                 "participants:supervisor_dashboard",
                 ICON_ATTENDANCE,
+                "main",
+                True,
             ),
             (
                 "quran",
                 "الحلقة القرآنية",
                 "participants:quran_circle_attendance",
                 ICON_QURAN,
+                "students",
+                True,
             ),
             (
                 "weekly_activity",
                 "فعالية الأسبوع",
                 "participants:weekly_activity_attendance",
                 ICON_ACTIVITY,
+                "students",
+                True,
             ),
-            ("data", "بيانات المشاركين", "participants:participants_data", ICON_DATA),
+            (
+                "data",
+                "بيانات المشاركين",
+                "participants:participants_data",
+                ICON_DATA,
+                "students",
+                False,
+            ),
             (
                 "points_ledger",
                 "سجل النقاط",
                 "participants:points_ledger",
                 ICON_LEDGER,
+                "points",
+                False,
             ),
             (
                 "change_password",
                 "تغيير كلمة المرور",
                 "accounts:change_password",
                 ICON_LOCK,
+                "account",
+                False,
             ),
         ]
     else:  # GENERAL_SUPERVISOR / SUPERADMIN
@@ -257,57 +309,96 @@ def build_navbar(user, active_key):
                 "الرئيسية",
                 "participants:general_supervisor_dashboard",
                 ICON_HOME,
+                "main",
+                True,
             ),
-            ("tasks", "المهام", "participants:weekly_task_review", ICON_TASKS),
+            (
+                "tasks",
+                "المهام",
+                "participants:weekly_task_review",
+                ICON_TASKS,
+                "tasks",
+                True,
+            ),
             (
                 "tasks_archive",
                 "أرشيف المهام",
                 "participants:tasks_archive",
                 ICON_ARCHIVE,
+                "tasks",
+                False,
             ),
             (
                 "store_management",
                 "طلبات المتجر",
                 "participants:store_management",
                 ICON_CART,
+                "store",
+                True,
             ),
-            ("import", "الاستيراد", "participants:import_participants", ICON_IMPORT),
+            (
+                "import",
+                "الاستيراد",
+                "participants:import_participants",
+                ICON_IMPORT,
+                "students",
+                False,
+            ),
             (
                 "add_participant",
                 "إضافة طالب",
                 "participants:add_participant",
                 ICON_ADD_PARTICIPANT,
+                "students",
+                False,
             ),
             (
                 "quran",
                 "الحلقة القرآنية",
                 "participants:quran_circle_attendance",
                 ICON_QURAN,
+                "students",
+                False,
             ),
             (
                 "weekly_activity",
                 "فعالية الأسبوع",
                 "participants:weekly_activity_attendance",
                 ICON_ACTIVITY,
+                "students",
+                False,
             ),
-            ("data", "بيانات المشاركين", "participants:participants_data", ICON_DATA),
+            (
+                "data",
+                "بيانات المشاركين",
+                "participants:participants_data",
+                ICON_DATA,
+                "students",
+                False,
+            ),
             (
                 "extra_points",
                 "نقاط إضافية",
                 "participants:extra_points",
                 ICON_EXTRA,
+                "points",
+                False,
             ),
             (
                 "points_ledger",
                 "سجل النقاط",
                 "participants:points_ledger",
                 ICON_LEDGER,
+                "points",
+                False,
             ),
             (
                 "change_password",
                 "تغيير كلمة المرور",
                 "accounts:change_password",
                 ICON_LOCK,
+                "account",
+                False,
             ),
         ]
 
@@ -319,8 +410,11 @@ def build_navbar(user, active_key):
             "icon": icon,
             "active": key == active_key,
             "badge_count": counts.get(key, 0),
+            "group": group,
+            "group_label": NAV_GROUP_LABELS[group],
+            "mobile_primary": mobile_primary,
         }
-        for key, label, url_name, icon in entries
+        for key, label, url_name, icon, group, mobile_primary in entries
     ]
 
 

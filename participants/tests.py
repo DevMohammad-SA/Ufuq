@@ -1,4 +1,7 @@
 import datetime
+import pathlib
+import re
+from unittest import mock
 
 from django.test import TestCase
 from django.urls import reverse
@@ -494,3 +497,238 @@ class ParticipantsDataPDFExportTests(TestCase):
         self.client.login(username="5000000001", password="5000000001")
         resp = self.client.get(self.url)
         self.assertIn(resp.status_code, (302, 403))
+
+
+class NavigationShellTests(TestCase):
+    """
+    Guards the sidebar/drawer navigation shell in app_base.html.
+
+    The headline case is the "orphan" test: every entry build_navbar()
+    returns must actually render. Two production regressions ("المهام"
+    rendering as an empty menu, "فعالية الأسبوع" vanishing entirely) came
+    from the template classifying items by matching item.label text, so the
+    template now groups only on the explicit `group`/`mobile_primary`
+    fields — and these tests fail loudly if a future entry stops rendering.
+    """
+
+    def setUp(self):
+        self.group_sup = User.objects.create_user(
+            username="navgs", password="pw12345678", role=Role.GROUP_SUPERVISOR
+        )
+        self.general = User.objects.create_user(
+            username="navgen", password="pw12345678", role=Role.GENERAL_SUPERVISOR
+        )
+        self.group = Group.objects.create(name="بيئة التنقل")
+        self.group.supervisor.add(self.group_sup)
+
+        self.participant_user = User.objects.create_user(
+            national_id="9000000001",
+            full_name="مشارك التنقل",
+            role=Role.PARTICIPANT,
+            password="9000000001",
+        )
+        self.participant = Participant.objects.create(
+            user=self.participant_user, group=self.group, academic_stage="grade_7"
+        )
+
+    # -- helpers ---------------------------------------------------------
+    ROLE_PAGES = {
+        "participant": "participants:dashboard",
+        "group_supervisor": "participants:supervisor_dashboard",
+        "general_supervisor": "participants:general_supervisor_dashboard",
+    }
+
+    def _login(self, role):
+        if role == "participant":
+            self.client.force_login(self.participant_user)
+        elif role == "group_supervisor":
+            self.client.login(username="navgs", password="pw12345678")
+        else:
+            self.client.login(username="navgen", password="pw12345678")
+
+    def _render(self, role, url=None):
+        self._login(role)
+        response = self.client.get(url or reverse(self.ROLE_PAGES[role]))
+        self.assertEqual(response.status_code, 200)
+        return response
+
+    @staticmethod
+    def _region(html, start_marker, end_marker):
+        """Slice the markup between a unique opening marker and its close."""
+        start = html.index(start_marker)
+        end = html.index(end_marker, start)
+        return html[start:end]
+
+    def _sidebar(self, html):
+        return self._region(html, '<nav class="app-sidebar"', "</nav>")
+
+    def _bottom_bar(self, html):
+        return self._region(html, '<nav class="app-nav app-nav--bottom"', "</nav>")
+
+    def _drawer(self, html):
+        if '<nav class="nav-drawer__panel"' not in html:
+            return None
+        return self._region(html, '<nav class="nav-drawer__panel"', "</nav>")
+
+    @staticmethod
+    def _side_links(region):
+        return re.findall(r'<a href="([^"]+)" class="side-link', region)
+
+    @staticmethod
+    def _bottom_links(region):
+        return re.findall(r'<a href="([^"]+)" class="app-nav__link', region)
+
+    @staticmethod
+    def _section_titles(region):
+        return re.findall(r'side-section__title">([^<]*)<', region)
+
+    # 1. Orphan guard: nothing build_navbar() returns may fail to render.
+    def test_every_navbar_item_renders_in_sidebar_and_on_mobile(self):
+        for role in self.ROLE_PAGES:
+            with self.subTest(role=role):
+                response = self._render(role)
+                items = response.context["navbar_items"]
+                html = response.content.decode()
+
+                sidebar_links = self._side_links(self._sidebar(html))
+                self.assertEqual(len(sidebar_links), len(items))
+                self.assertEqual(sorted(sidebar_links), sorted(i["url"] for i in items))
+
+                bottom_links = self._bottom_links(self._bottom_bar(html))
+                drawer = self._drawer(html)
+                drawer_links = self._side_links(drawer) if drawer else []
+
+                # The drawer mirrors the sidebar exactly (a deliberate design
+                # decision), so the bottom bar's primaries appear in both —
+                # what matters is coverage, plus no stray link in either.
+                if drawer is not None:
+                    self.assertEqual(len(drawer_links), len(items))
+                    self.assertEqual(
+                        sorted(drawer_links), sorted(i["url"] for i in items)
+                    )
+                mobile_urls = set(bottom_links) | set(drawer_links)
+                self.assertEqual(mobile_urls, {i["url"] for i in items})
+                self.assertTrue(set(bottom_links).issubset(mobile_urls))
+
+    # 2. Section headings come from group_label, and never render empty.
+    def test_section_titles_match_groups(self):
+        expected = {
+            "participant": [],
+            "group_supervisor": ["الطلاب", "النقاط", "الحساب"],
+            "general_supervisor": [
+                "المهام",
+                "المتجر",
+                "الطلاب",
+                "النقاط",
+                "الحساب",
+            ],
+        }
+        for role, titles in expected.items():
+            with self.subTest(role=role):
+                html = self._render(role).content.decode()
+                rendered = self._section_titles(self._sidebar(html))
+                self.assertEqual(rendered, titles)
+                self.assertNotIn("", rendered)
+
+    # 3. Bottom bar holds only mobile_primary items; "القائمة" only when
+    #    something is actually hidden behind it.
+    def test_bottom_bar_is_primaries_only_and_menu_button_gating(self):
+        for role in self.ROLE_PAGES:
+            with self.subTest(role=role):
+                response = self._render(role)
+                items = response.context["navbar_items"]
+                html = response.content.decode()
+                bottom = self._bottom_bar(html)
+
+                primaries = [i["url"] for i in items if i["mobile_primary"]]
+                self.assertEqual(sorted(self._bottom_links(bottom)), sorted(primaries))
+
+                has_secondary = any(not i["mobile_primary"] for i in items)
+                self.assertEqual('id="drawerOpen"' in bottom, has_secondary)
+                self.assertEqual('id="navDrawer"' in html, has_secondary)
+
+        # Explicit form of the same rule, per the spec table.
+        self.assertNotIn(
+            'id="drawerOpen"',
+            self._render("participant").content.decode(),
+        )
+
+    # 4. The active page is highlighted inside the sidebar.
+    def test_active_item_marked_in_sidebar(self):
+        response = self._render(
+            "general_supervisor", reverse("participants:points_ledger")
+        )
+        html = response.content.decode()
+        active = [i for i in response.context["navbar_items"] if i["active"]]
+        self.assertEqual([i["key"] for i in active], ["points_ledger"])
+        self.assertIn(
+            f'<a href="{active[0]["url"]}" class="side-link is-active"',
+            self._sidebar(html),
+        )
+
+    # 5. A badge on a non-primary item surfaces as a dot on "القائمة".
+    def test_secondary_badge_shows_dot_on_menu_button(self):
+        with mock.patch(
+            "participants.views.get_notification_counts",
+            return_value={"points_ledger": 3},
+        ):
+            html = self._render("group_supervisor").content.decode()
+
+        menu_button = self._region(html, 'id="drawerOpen"', "</button>")
+        self.assertIn('class="app-nav__dot"', menu_button)
+        toggle = self._region(html, 'id="sidebarToggle"', "</button>")
+        self.assertIn('class="app-nav__dot"', toggle)
+
+        # A badge on a *primary* item is already visible in the bottom bar,
+        # so it must NOT dot "القائمة" — only the sidebar toggle.
+        with mock.patch(
+            "participants.views.get_notification_counts",
+            return_value={"quran": 2},
+        ):
+            html = self._render("group_supervisor").content.decode()
+        self.assertNotIn(
+            'class="app-nav__dot"', self._region(html, 'id="drawerOpen"', "</button>")
+        )
+        self.assertIn(
+            'class="app-nav__dot"',
+            self._region(html, 'id="sidebarToggle"', "</button>"),
+        )
+
+        # No badges anywhere -> no dots anywhere.
+        with mock.patch("participants.views.get_notification_counts", return_value={}):
+            clean = self._render("group_supervisor").content.decode()
+        self.assertNotIn('class="app-nav__dot"', clean)
+
+    # 6. Every logout control is still a POST form carrying a CSRF token.
+    def test_logout_is_always_a_post_form(self):
+        logout_url = reverse("accounts:logout")
+        for role in self.ROLE_PAGES:
+            with self.subTest(role=role):
+                html = self._render(role).content.decode()
+                forms = re.findall(
+                    r'<form[^>]*method="post"[^>]*action="%s"[^>]*>(.*?)</form>'
+                    % re.escape(logout_url),
+                    html,
+                    re.S,
+                )
+                # sidebar + (drawer | bottom bar)
+                self.assertEqual(len(forms), 2)
+                for body in forms:
+                    self.assertIn("csrfmiddlewaretoken", body)
+                self.assertNotIn(f'<a href="{logout_url}"', html)
+
+    # 7. No page-level .wrap override may be sized against the viewport:
+    #    with the sidebar open that overflows the content area.
+    def test_no_viewport_relative_wrap_override(self):
+        template_dir = (
+            pathlib.Path(__file__).resolve().parent / "templates" / "participants"
+        )
+        offenders = []
+        for path in template_dir.glob("*.html"):
+            source = path.read_text(encoding="utf-8")
+            if 'extends "participants/app_base.html"' not in source:
+                continue
+            for rule in re.findall(r"\.wrap\s*\{([^}]*)\}", source):
+                if "vw" in rule or "vmin" in rule or "vmax" in rule:
+                    offenders.append(f"{path.name}: .wrap{{{rule}}}")
+        self.assertEqual(offenders, [])

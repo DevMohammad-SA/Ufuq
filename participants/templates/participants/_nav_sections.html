@@ -1,0 +1,35 @@
+{% comment %}
+  The single source of truth for the navigation link list. Included twice —
+  once into the desktop sidebar, once into the mobile drawer — so the two can
+  never drift apart.
+
+  Sections are built purely from the `group`/`group_label` fields that
+  build_navbar() puts on every entry. There is deliberately NO matching on
+  item.label anywhere: label matching is what silently dropped "فعالية
+  الأسبوع" and emptied the "المهام" menu in production before. A new entry
+  added to build_navbar() shows up here automatically.
+
+  {% regroup %} only merges *consecutive* runs, which is why build_navbar()
+  guarantees same-group entries stay adjacent.
+{% endcomment %}
+{% regroup navbar_items by group_label as nav_sections %}
+{% for section in nav_sections %}
+  <div class="side-section">
+    {% comment %}"main" carries an empty group_label, so it renders with no heading.{% endcomment %}
+    {% if section.grouper %}<div class="side-section__title">{{ section.grouper }}</div>{% endif %}
+    {% for item in section.list %}
+      <a href="{{ item.url }}" class="side-link{% if item.active %} is-active{% endif %}">
+        <span class="app-nav__icon">{{ item.icon|safe }}</span>
+        <span class="side-link__label">{{ item.label }}</span>
+        {% if item.badge_count > 0 %}<span class="app-nav__badge">{{ item.badge_count }}</span>{% endif %}
+      </a>
+    {% endfor %}
+  </div>
+{% endfor %}
+<form class="side-logout" method="post" action="{% url 'accounts:logout' %}">
+  {% csrf_token %}
+  <button type="submit" class="side-link side-link--logout">
+    <span class="app-nav__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M14 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8"/><path d="M18 8l4 4-4 4"/><path d="M22 12H10"/></svg></span>
+    <span class="side-link__label">خروج</span>
+  </button>
+</form>
