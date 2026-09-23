@@ -405,21 +405,27 @@ class TaskSubmission(models.Model):
 
     def get_submitted_format(self):
         """
-        Which single format this submission actually is: "text" for a text
-        submission, else the format value whose extensions
+        Which format the *file* preview button should render for this
+        submission: the format value whose extensions
         (SUBMISSION_FORMAT_EXTENSIONS) match the uploaded file's name, or ""
-        if the file's extension doesn't match anything recognized. Used by
-        templates to pick a preview widget per-submission now that a task
-        can allow more than one format.
+        if the file's extension doesn't match anything recognized. Falls
+        back to "text" only when there is no file at all. Used by templates
+        to pick a preview widget per-submission.
+
+        File is checked before text_content (not the reverse) because a
+        require_all_formats task combining a file format with "text" (e.g.
+        "image,text") stores both on the same row — the preview button is
+        tied to the file, so text_content being present must never shadow
+        the file's own format.
         """
+        if self.file:
+            name = self.file.name.lower()
+            for fmt, extensions in SUBMISSION_FORMAT_EXTENSIONS.items():
+                if name.endswith(extensions):
+                    return fmt
+            return ""
         if self.text_content:
             return "text"
-        if not self.file:
-            return ""
-        name = self.file.name.lower()
-        for fmt, extensions in SUBMISSION_FORMAT_EXTENSIONS.items():
-            if name.endswith(extensions):
-                return fmt
         return ""
 
 
