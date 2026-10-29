@@ -6,8 +6,11 @@
 .wrap{max-width:100%;min-width:0}
 .detail-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .detail-heading .page-sub{margin:0}
+.detail-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .detail-back{display:inline-flex;align-items:center;min-height:40px;padding:7px 14px;border:1px solid var(--line);border-radius:99px;background:#fff;color:var(--asphalt);font:600 13px var(--font-ui);text-decoration:none}
 .detail-back:hover{border-color:var(--gold);color:var(--gold-ink)}
+.detail-edit{border-color:var(--gold);background:#fff9ec;color:var(--gold-ink)}
+.detail-edit:hover{background:var(--gold-soft)}
 .detail-filter{display:flex;gap:14px;flex-wrap:wrap;align-items:end}
 .detail-field{flex:1 1 190px;min-width:0}
 .detail-field label{display:block;margin-bottom:6px;font:600 13px var(--font-ui)}
@@ -53,7 +56,10 @@
     <h1 class="page-title">تفاصيل الطالب</h1>
     <p class="page-sub">سجل الطالب الكامل ضمن نطاق صلاحياتك. جميع السجلات أدناه للعرض فقط.</p>
   </div>
-  <a class="detail-back" href="{% url 'participants:student_report' %}">العودة إلى تقرير الطلاب</a>
+  <div class="detail-actions">
+    {% if can_manage_accounts %}<a class="detail-back detail-edit" href="{% url 'participants:participant_edit' pk=participant.pk %}">تعديل بيانات المشارك</a>{% endif %}
+    <a class="detail-back" href="{% url 'participants:student_report' %}">العودة إلى تقرير الطلاب</a>
+  </div>
 </div>
 
 <section class="card" aria-labelledby="student-title">

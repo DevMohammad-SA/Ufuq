@@ -429,6 +429,10 @@ def build_navbar(user, active_key):
                 False,
             ),
             (
+                "supervisors", "إدارة المشرفين", "participants:supervisor_list",
+                ICON_DATA, "account", False,
+            ),
+            (
                 "change_password",
                 "تغيير كلمة المرور",
                 "accounts:change_password",
@@ -1766,6 +1770,8 @@ class ParticipantsDataView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
             {p.group.name for p in context["participants"] if p.group}
         )
         context["navbar_items"] = build_navbar(self.request.user, "data")
+        from .management_views import can_manage_accounts
+        context["can_manage_accounts"] = can_manage_accounts(self.request.user)
         return context
 
 

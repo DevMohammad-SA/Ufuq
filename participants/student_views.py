@@ -249,6 +249,8 @@ class StudentDetailView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         participant = self.get_participant()
+        from .management_views import can_manage_accounts
+        context["can_manage_accounts"] = can_manage_accounts(self.request.user)
         form = StudentDetailFilterForm(self.request.GET, user=self.request.user)
         filters_valid = form.is_valid()
         include_notes = can_view_meeting_notes(self.request.user)

@@ -107,6 +107,47 @@
 - نفس نمط إنشاء الحساب المستخدَم في الاستيراد: كلمة المرور الأولية = رقم
   الهوية، مع `must_set_password=True`.
 
+## إدارة بيانات المشاركين وحسابات المشرفين (29 أكتوبر 2026)
+
+هذه صفحات مخصصة داخل واجهة رحّال، وليست امتدادًا لصلاحيات `/admin/` في Django.
+لا يصل إليها إلا المشرف العام ومشرف النظام النشطان؛ مشرف البيئة والمشارك لا
+يملكانها، حتى بطلب مباشر.
+
+- **تعديل مشارك:** `ParticipantEditView` — المسار
+  `participants:participant_edit` (`students/<pk>/edit/`) والقالب
+  `participants/participant_edit.html`. يتاح من رابط واضح في جدول بيانات
+  المشاركين وملف الطالب، ويحرّر فقط: الاسم، رقم الهوية/الإقامة، البيئة، المرحلة
+  الدراسية، جوال المشارك، وجوال ولي الأمر. رقم الهوية عشرة أرقام ولا يجوز أن
+  يكرّر هوية أو اسم دخول لحساب آخر؛ البيئة اختيارية لكن لا تُقبل قيمة غير
+  موجودة. لا يغيّر هذا المسار كلمة المرور أو الدور أو الأرصدة أو السجلات، ويُحفظ
+  المستخدم وبيانات المشارك معًا داخل معاملة مقفلة.
+- **قائمة المشرفين:** `SupervisorListView` — المسار
+  `participants:supervisor_list` (`supervisors/`) والقالب
+  `participants/supervisor_list.html`. تدعم البحث بالاسم أو اسم الدخول، وحالة
+  الحساب (نشط/معطّل/الكل)، وفلتر الدور، والترقيم. تعرض فقط مشرفي البيئة والمشرفين
+  العامين الذين ليسوا حسابات أدمن Django ولا حسابات مرتبطة بمشارك.
+- **إضافة/تعديل مشرف:** `SupervisorFormView` — المساران
+  `participants:supervisor_add` (`supervisors/add/`) و
+  `participants:supervisor_edit` (`supervisors/<pk>/edit/`) والقالب
+  `participants/supervisor_form.html`. الدور محصور في مشرف بيئة أو مشرف عام؛
+  يستطيع مشرف البيئة حمل إسناد متعدد البيئات، أما المشرف العام فلا تُسند إليه
+  بيئات. كلمة المرور إلزامية وقوية ومتطابقة عند الإنشاء، واختيارية عند التعديل
+  (الحقلان الفارغان يبقيانها كما هي). لا يمكن من الصفحة منح `is_staff` أو
+  `is_superuser` أو دور مشرف النظام.
+- **تعطيل مشرف:** `SupervisorDeleteView` — المسار
+  `participants:supervisor_delete` (`supervisors/<pk>/delete/`) والقالب
+  `participants/supervisor_delete_confirm.html`. يعرض `GET` تأكيدًا فقط؛ لا يتم
+  التغيير إلا بطلب `POST` مع `confirm=yes`. النتيجة تعطيل ناعم للحساب، لا حذفه:
+  تبقى إسنادات البيئات والمرجعيات والملاحظات والمراجعات، ويمكن إعادة تفعيل
+  الحساب من شاشة تعديله ضمن الحسابات غير النشطة.
+- لا يجوز للمشرف العام تعطيل حسابه أو خفض دوره أو حذفه. وإذا غيّر كلمة مروره
+  الذاتية من نموذج الإدارة، يلزم إدخال كلمة المرور الحالية وتُحدّث الجلسة كي لا
+  يخرج منها. عند تعطيل الحساب أو تغيير الدور أو البيئات يُلغى تفويض تصحيح
+  المهام؛ إعادة التفعيل أو إعادة الدور لا تمنحه من جديد تلقائيًا.
+- تحفظ عمليات الإضافة والتعديل والتعطيل سجلًا في `django.contrib.admin.LogEntry`
+  باسم الحدث/الحقول، من دون كلمة مرور. تُجرى التعديلات الحساسة داخل معاملات مع
+  أقفال مرتبة على صفوف المستخدمين.
+
 ## نقاط إضافية / خصم يدوي (جديد منذ 1.1.0)
 
 - **View:** `ExtraPointsView` (`participants/views.py`) — المسار
@@ -165,7 +206,9 @@
 - **View:** `ParticipantsDataView` (`participants/views.py`) — المسار
   `participants:participants_data`.
 - **القالب:** `participants/participants_data.html`.
-- جدول للقراءة فقط، متاح للأدوار الإدارية الثلاثة. مشرف البيئة يرى بيئته فقط.
+- عرض الجدول نفسه للقراءة فقط، متاح للأدوار الإدارية الثلاثة. مشرف البيئة يرى
+  بيئته فقط؛ المشرف العام ومشرف النظام يريان فوقه رابط تعديل بيانات المشارك
+  المنفصل، لا نموذج تعديل داخل الجدول.
 - بحث نصي + فلتر بيئات متعدد (checkboxes) + فرز أعمدة — **كله جافاسكربت في
   المتصفح** على بيانات محمّلة مسبقًا (لا طلبات خادم).
 - عمودا الحضور التراكمي محسوبان بـ `annotate(Count(..., distinct=True))` —
@@ -199,6 +242,8 @@
   `students/<pk>/`) والقالب `participants/student_detail.html`.
 - كلاهما للمشرفين الثلاثة وللقراءة فقط. مشرف البيئة يرى جميع الطلاب في
   بيئاته المسندة، لا «أول بيئة» فقط؛ ويُقيَّد ملف الطالب بالنطاق قبل جلبه.
+  يظهر للمشرف العام/النظام في الملف رابط التعديل إلى صفحة مستقلة
+  (`participants:participant_edit`)؛ لا توجد عملية `POST` في صفحة الملف نفسها.
 - تقرير الفترة يفلتر بالتاريخ والبيئة والاسم/الهوية، ويعرض عدادات منفصلة
   للحضور والمهام وحركات النقاط. أما ملف الطالب فيرقّم كل جدول تاريخي مستقلًا
   (20 سجلًا في الصفحة). لا يعيد أي منهما سجل محاولات التسليم المحذوفة أو طلبات
@@ -366,6 +411,7 @@
 | `supervisor/dashboard/` | `participants:supervisor_dashboard` |
 | `student-report/` **(غير موسوم بعد)** | `participants:student_report` |
 | `students/<int:pk>/` **(غير موسوم بعد)** | `participants:student_detail` |
+| `students/<int:pk>/edit/` | `participants:participant_edit` |
 | `quran-circle/` | `participants:quran_circle_attendance` |
 | `weekly-activity/` **(جديد)** | `participants:weekly_activity_attendance` |
 | `import/` | `participants:import_participants` |
@@ -376,6 +422,10 @@
 | `points-ledger/` **(جديد)** | `participants:points_ledger` |
 | `data/` | `participants:participants_data` |
 | `data/export-pdf/` | `participants:participants_data_pdf` |
+| `supervisors/` | `participants:supervisor_list` |
+| `supervisors/add/` | `participants:supervisor_add` |
+| `supervisors/<int:pk>/edit/` | `participants:supervisor_edit` |
+| `supervisors/<int:pk>/delete/` | `participants:supervisor_delete` |
 | `tasks/review/` | `participants:weekly_task_review` |
 | `tasks/review-permissions/` **(غير موسوم بعد)** | `participants:task_review_permissions` |
 | `tasks/archive/` | `participants:tasks_archive` |

@@ -63,8 +63,8 @@ Defined in `accounts/models.py` (`Role`):
 | --- | --- | --- |
 | `participant` | مشارك | Logs in with **national ID + password**. Personal dashboard (with an embedded points ledger and the elite‑trip indicator), submission page listing **every open weekly task**, store. |
 | `group_supervisor` | مشرف بيئة | Records attendance and views data, reports, task submissions, and store orders for **all assigned environments**. Task review is view-only unless a general supervisor delegates it. |
-| `general_supervisor` | مشرف عام | Program‑wide: Excel import, single‑participant add form, weekly-task management, store management, manual extra‑points grants, points reset, full points ledger, all environments, and task-review delegation. |
-| `superadmin` | مشرف النظام | Program-wide management plus Django admin (`is_staff`/`is_superuser`). It does not manage group-supervisor task-review delegation or view private meeting notes. |
+| `general_supervisor` | مشرف عام | Program‑wide: Excel import, single‑participant add form, weekly-task management, store management, manual extra‑points grants, points reset, full points ledger, all environments, task-review delegation, and Rahhal-front-end management of participant data and supervisor accounts. |
+| `superadmin` | مشرف النظام | Program-wide management plus Django admin (`is_staff`/`is_superuser`) and access to the front-end account-management screens. It does not manage group-supervisor task-review delegation or view private meeting notes. |
 
 Full permission matrix: [`docs/roles-and-permissions.md`](docs/roles-and-permissions.md).
 
@@ -106,6 +106,12 @@ Every item below maps to a real view and URL — see
 - **Accounts**: Excel import or a single‑participant form; first password is
   the national ID, and `must_set_password` forces a real one on first login;
   a forgotten password is reset by general‑supervisor approval.
+- **Participant and supervisor management**: general supervisors and
+  superadmins can edit a participant's basic data on a separate page and
+  manage group/general-supervisor accounts (add, edit, confirmed soft-disable)
+  through the Rahhal front end, without granting a general supervisor Django
+  admin privileges. See [`docs/features.md`](docs/features.md) and
+  [`docs/roles-and-permissions.md`](docs/roles-and-permissions.md).
 - **Navigation**: a collapsible sidebar on desktop (state persisted in
   `localStorage`) and a fixed bottom bar + slide‑in drawer on mobile, with
   live notification badges — [`docs/navigation.md`](docs/navigation.md).

@@ -1,0 +1,53 @@
+{% extends "participants/app_base.html" %}
+
+{% block title %}حذف المشرف (إيقاف الحساب) — رحّال{% endblock %}
+
+{% block extra_style %}
+.wrap{max-width:100%;min-width:0}
+.confirm-card{max-width:720px;border-color:#ead9ae}
+.supervisor-summary{margin:0 0 var(--s2);padding:14px;border:1px solid var(--line);border-radius:var(--r-sm);background:#fcfbf8}
+.supervisor-summary strong{display:block;color:var(--asphalt);font:800 17px var(--font-display)}
+.supervisor-summary span{display:block;margin-top:3px;color:var(--slate);font:13px var(--font-ui);overflow-wrap:anywhere}
+.warning-note{margin:0 0 var(--s2);padding:12px 14px;border:1px solid #ead9ae;border-radius:var(--r-sm);background:#fff9ec;color:var(--gold-ink);font:13px var(--font-ui)}
+.confirm-check{display:flex;align-items:flex-start;gap:9px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r-sm);background:#fff;font:14px var(--font-ui);cursor:pointer}
+.confirm-check input{width:18px;height:18px;margin:3px 0 0;accent-color:var(--alert);flex:none}
+.confirm-check span{color:var(--asphalt)}
+.form-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:var(--s3)}
+.delete-button,.cancel-button{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:9px 18px;border:1px solid var(--alert);border-radius:99px;background:var(--alert);color:#fff;font:700 14px var(--font-display);text-decoration:none;cursor:pointer}
+.delete-button:hover{background:#963e29;border-color:#963e29}
+.cancel-button{border-color:var(--line);background:#fff;color:var(--asphalt)}
+.cancel-button:hover{background:var(--sand);border-color:var(--asphalt)}
+@media(max-width:720px){.wrap{padding:16px}.card{padding:16px}.delete-button,.cancel-button{flex:1}}
+{% endblock %}
+
+{% block content %}
+  <h1 class="page-title">حذف المشرف (إيقاف الحساب)</h1>
+  <p class="page-sub">هذا الإجراء يعطّل الحساب فقط، ولا يحذف بيانات الطلاب أو سجلات الحضور أو النقاط أو المراجعات المرتبطة به.</p>
+  {% if messages %}
+    {% for message in messages %}<p class="warning-note" role="alert">{{ message }}</p>{% endfor %}
+  {% endif %}
+
+  <section class="card confirm-card" aria-labelledby="delete-supervisor-title">
+    <h2 id="delete-supervisor-title">تأكيد إيقاف الحساب</h2>
+    <div class="supervisor-summary">
+      <strong>{{ supervisor.full_name|default:supervisor.username|default:"مشرف بدون اسم" }}</strong>
+      <span>اسم الدخول: {{ supervisor.username|default:"—" }}</span>
+      <span>الدور: {{ supervisor.get_role_display }}</span>
+    </div>
+
+    <p class="warning-note">سيبقى التاريخ والسجلات محفوظة باسم هذا المشرف، ويمكن للمشرف العام إعادة تفعيل الحساب لاحقًا من صفحة التعديل.</p>
+
+    <form method="post">
+      {% csrf_token %}
+      <label class="confirm-check" for="confirm-supervisor-delete">
+        <input id="confirm-supervisor-delete" type="checkbox" name="confirm" value="yes" required>
+        <span>أفهم أن هذا الإجراء سيوقف حساب المشرف ولن يحذف سجلاته التاريخية.</span>
+      </label>
+
+      <div class="form-actions">
+        <button type="submit" class="delete-button">حذف المشرف</button>
+        <a class="cancel-button" href="{% url 'participants:supervisor_list' %}">إلغاء</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

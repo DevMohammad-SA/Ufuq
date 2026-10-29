@@ -1,0 +1,93 @@
+{% extends "participants/app_base.html" %}
+
+{% block title %}تعديل بيانات المشارك — رحّال{% endblock %}
+
+{% block extra_style %}
+.wrap{max-width:100%;min-width:0}
+.edit-form{max-width:880px}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s2)}
+.form-field{min-width:0}
+.form-field--wide{grid-column:1 / -1}
+.form-field label{display:block;margin-bottom:6px;color:var(--asphalt);font:600 13px var(--font-ui)}
+.form-field input:not([type="checkbox"]):not([type="hidden"]),
+.form-field select{width:100%;min-height:44px;padding:9px 11px;border:1.5px solid var(--line);border-radius:var(--r-sm);background:#fff;color:var(--asphalt);font:14px var(--font-ui)}
+.form-field select,.form-field select option{direction:rtl;text-align:right;unicode-bidi:plaintext}
+.form-field input:focus,.form-field select:focus{outline:2px solid var(--gold-soft);border-color:var(--gold-ink)}
+.field-help,.field-errors,.form-errors{margin:5px 0 0;font:12px var(--font-ui)}
+.field-help{color:var(--slate)}
+.field-errors,.form-errors{color:var(--alert)}
+.field-errors ul,.form-errors ul{margin:0;padding-inline-start:20px}
+.form-errors{margin-bottom:var(--s2);padding:10px 12px;border:1px solid var(--alert);border-radius:var(--r-sm);background:#FBEEEA}
+.form-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:var(--s3)}
+.form-button{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:9px 18px;border:1px solid var(--gold);border-radius:99px;background:var(--gold);color:var(--asphalt);font:700 14px var(--font-display);text-decoration:none;cursor:pointer}
+.form-button:hover{background:#b88b32;border-color:#b88b32}
+.form-button--plain{background:#fff;border-color:var(--line)}
+.form-button--plain:hover{background:var(--sand);border-color:var(--asphalt)}
+@media(max-width:720px){.wrap{padding:16px}.card{padding:16px}.form-grid{grid-template-columns:1fr}.form-field--wide{grid-column:auto}.form-button{flex:1}}
+{% endblock %}
+
+{% block content %}
+  <h1 class="page-title">تعديل بيانات المشارك</h1>
+  <p class="page-sub">حدّث بيانات التواصل والدراسة والبيئة فقط. لن تتغير كلمة المرور أو الأرصدة أو سجلات المشارك.</p>
+
+  <section class="card edit-form" aria-labelledby="participant-edit-title">
+    <h2 id="participant-edit-title">{{ participant.user.full_name|default:"بيانات المشارك" }}</h2>
+    <p>تحقق من البيانات قبل الحفظ، خاصة رقم الهوية والبيئة المسندة للمشارك.</p>
+
+    {% if form.non_field_errors %}
+      <div class="form-errors" role="alert">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+      <div class="form-grid">
+        <div class="form-field form-field--wide">
+          <label for="{{ form.full_name.id_for_label }}">{{ form.full_name.label }}</label>
+          {{ form.full_name }}
+          {% if form.full_name.help_text %}<p class="field-help">{{ form.full_name.help_text }}</p>{% endif %}
+          {% if form.full_name.errors %}<div class="field-errors" role="alert">{{ form.full_name.errors }}</div>{% endif %}
+        </div>
+
+        <div class="form-field">
+          <label for="{{ form.national_id.id_for_label }}">{{ form.national_id.label }}</label>
+          {{ form.national_id }}
+          {% if form.national_id.help_text %}<p class="field-help">{{ form.national_id.help_text }}</p>{% endif %}
+          {% if form.national_id.errors %}<div class="field-errors" role="alert">{{ form.national_id.errors }}</div>{% endif %}
+        </div>
+
+        <div class="form-field">
+          <label for="{{ form.group.id_for_label }}">{{ form.group.label }}</label>
+          {{ form.group }}
+          {% if form.group.help_text %}<p class="field-help">{{ form.group.help_text }}</p>{% endif %}
+          {% if form.group.errors %}<div class="field-errors" role="alert">{{ form.group.errors }}</div>{% endif %}
+        </div>
+
+        <div class="form-field">
+          <label for="{{ form.academic_stage.id_for_label }}">{{ form.academic_stage.label }}</label>
+          {{ form.academic_stage }}
+          {% if form.academic_stage.help_text %}<p class="field-help">{{ form.academic_stage.help_text }}</p>{% endif %}
+          {% if form.academic_stage.errors %}<div class="field-errors" role="alert">{{ form.academic_stage.errors }}</div>{% endif %}
+        </div>
+
+        <div class="form-field">
+          <label for="{{ form.phone.id_for_label }}">{{ form.phone.label }}</label>
+          {{ form.phone }}
+          {% if form.phone.help_text %}<p class="field-help">{{ form.phone.help_text }}</p>{% endif %}
+          {% if form.phone.errors %}<div class="field-errors" role="alert">{{ form.phone.errors }}</div>{% endif %}
+        </div>
+
+        <div class="form-field form-field--wide">
+          <label for="{{ form.guardian_phone.id_for_label }}">{{ form.guardian_phone.label }}</label>
+          {{ form.guardian_phone }}
+          {% if form.guardian_phone.help_text %}<p class="field-help">{{ form.guardian_phone.help_text }}</p>{% endif %}
+          {% if form.guardian_phone.errors %}<div class="field-errors" role="alert">{{ form.guardian_phone.errors }}</div>{% endif %}
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="form-button">حفظ التعديلات</button>
+        <a class="form-button form-button--plain" href="{% url 'participants:student_detail' pk=participant.pk %}">إلغاء</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

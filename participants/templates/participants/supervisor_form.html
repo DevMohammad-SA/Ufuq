@@ -1,0 +1,140 @@
+{% extends "participants/app_base.html" %}
+
+{% block title %}{% if is_create %}إضافة مشرف{% else %}تعديل بيانات المشرف{% endif %} — رحّال{% endblock %}
+
+{% block extra_style %}
+.wrap{max-width:100%;min-width:0}
+.supervisor-form{max-width:940px}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s2)}
+.form-field{min-width:0}
+.form-field--wide{grid-column:1 / -1}
+.form-field label,.environment-field legend{display:block;margin-bottom:6px;color:var(--asphalt);font:600 13px var(--font-ui)}
+.form-field input:not([type="checkbox"]):not([type="hidden"]),
+.form-field select{width:100%;min-height:44px;padding:9px 11px;border:1.5px solid var(--line);border-radius:var(--r-sm);background:#fff;color:var(--asphalt);font:14px var(--font-ui)}
+.form-field select,.form-field select option{direction:rtl;text-align:right;unicode-bidi:plaintext}
+.form-field input:focus,.form-field select:focus{outline:2px solid var(--gold-soft);border-color:var(--gold-ink)}
+.field-help,.field-errors,.form-errors{margin:5px 0 0;font:12px var(--font-ui)}
+.field-help{color:var(--slate)}
+.field-errors,.form-errors{color:var(--alert)}
+.field-errors ul,.form-errors ul{margin:0;padding-inline-start:20px}
+.form-errors{margin-bottom:var(--s2);padding:10px 12px;border:1px solid var(--alert);border-radius:var(--r-sm);background:#FBEEEA}
+.environment-field{margin:0;padding:0;border:0}
+.environment-options{padding:12px;border:1px solid var(--line);border-radius:var(--r-sm);background:#fcfbf8}
+.environment-options>div,.environment-options ul{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:0;padding:0;list-style:none}
+.environment-options label{display:flex;align-items:center;gap:8px;margin:0;padding:7px 9px;border:1px solid var(--line);border-radius:var(--r-sm);background:#fff;color:var(--asphalt);font:13px var(--font-ui);cursor:pointer}
+.environment-options input[type="checkbox"],.checkbox-control input[type="checkbox"]{width:17px;height:17px;margin:0;accent-color:var(--gold-ink);flex:none}
+.checkbox-control{display:flex;align-items:center;gap:8px;min-height:44px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-sm);background:#fcfbf8}
+.checkbox-control label{margin:0;cursor:pointer}
+.password-note{margin:var(--s2) 0 0;padding:10px 12px;border:1px solid #ead9ae;border-radius:var(--r-sm);background:#fff9ec;color:var(--gold-ink);font:13px var(--font-ui)}
+.form-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:var(--s3)}
+.form-button{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:9px 18px;border:1px solid var(--gold);border-radius:99px;background:var(--gold);color:var(--asphalt);font:700 14px var(--font-display);text-decoration:none;cursor:pointer}
+.form-button:hover{background:#b88b32;border-color:#b88b32}
+.form-button--plain{background:#fff;border-color:var(--line)}
+.form-button--plain:hover{background:var(--sand);border-color:var(--asphalt)}
+@media(max-width:720px){.wrap{padding:16px}.card{padding:16px}.form-grid{grid-template-columns:1fr}.form-field--wide{grid-column:auto}.environment-options>div,.environment-options ul{grid-template-columns:1fr}.form-button{flex:1}}
+{% endblock %}
+
+{% block content %}
+  <h1 class="page-title">{% if is_create %}إضافة مشرف{% else %}تعديل بيانات المشرف{% endif %}</h1>
+  <p class="page-sub">
+    {% if is_create %}
+      أنشئ حسابًا لمشرف بيئة أو مشرف عام، وحدد البيئات وكلمة مرور قوية للحساب الجديد.
+    {% else %}
+      حدّث بيانات المشرف وبيئاته وحالة حسابه. اترك حقلي كلمة المرور فارغين للإبقاء على كلمة المرور الحالية.
+    {% endif %}
+  </p>
+
+  <section class="card supervisor-form" aria-labelledby="supervisor-form-title">
+    <h2 id="supervisor-form-title">{% if is_create %}بيانات المشرف الجديد{% else %}{{ supervisor.full_name|default:supervisor.username|default:"بيانات المشرف" }}{% endif %}</h2>
+    {% if not is_create %}<p>لا تتاح هنا حسابات مشرف النظام أو حسابات Django الإدارية.</p>{% endif %}
+
+    {% if form.non_field_errors %}
+      <div class="form-errors" role="alert">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+      <div class="form-grid">
+        <div class="form-field form-field--wide">
+          <label for="{{ form.full_name.id_for_label }}">{{ form.full_name.label }}</label>
+          {{ form.full_name }}
+          {% if form.full_name.help_text %}<p class="field-help">{{ form.full_name.help_text }}</p>{% endif %}
+          {% if form.full_name.errors %}<div class="field-errors" role="alert">{{ form.full_name.errors }}</div>{% endif %}
+        </div>
+
+        <div class="form-field">
+          <label for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
+          {{ form.username }}
+          {% if form.username.help_text %}<p class="field-help">{{ form.username.help_text }}</p>{% endif %}
+          {% if form.username.errors %}<div class="field-errors" role="alert">{{ form.username.errors }}</div>{% endif %}
+        </div>
+
+        <div class="form-field">
+          <label for="{{ form.national_id.id_for_label }}">{{ form.national_id.label }}</label>
+          {{ form.national_id }}
+          {% if form.national_id.help_text %}<p class="field-help">{{ form.national_id.help_text }}</p>{% endif %}
+          {% if form.national_id.errors %}<div class="field-errors" role="alert">{{ form.national_id.errors }}</div>{% endif %}
+        </div>
+
+        <div class="form-field">
+          <label for="{{ form.role.id_for_label }}">{{ form.role.label }}</label>
+          {{ form.role }}
+          {% if form.role.help_text %}<p class="field-help">{{ form.role.help_text }}</p>{% endif %}
+          {% if form.role.errors %}<div class="field-errors" role="alert">{{ form.role.errors }}</div>{% endif %}
+        </div>
+
+        <div class="form-field">
+          <div class="checkbox-control">
+            {{ form.is_active }}
+            <label for="{{ form.is_active.id_for_label }}">{{ form.is_active.label }}</label>
+          </div>
+          {% if form.is_active.help_text %}<p class="field-help">{{ form.is_active.help_text }}</p>{% endif %}
+          {% if form.is_active.errors %}<div class="field-errors" role="alert">{{ form.is_active.errors }}</div>{% endif %}
+        </div>
+
+        <fieldset class="form-field form-field--wide environment-field">
+          <legend>{{ form.environments.label }}</legend>
+          <div class="environment-options">
+            {{ form.environments }}
+          </div>
+          {% if form.environments.help_text %}<p class="field-help">{{ form.environments.help_text }}</p>{% endif %}
+          {% if form.environments.errors %}<div class="field-errors" role="alert">{{ form.environments.errors }}</div>{% endif %}
+        </fieldset>
+
+        {% if not is_create and request.user.pk == supervisor.pk and form.current_password %}
+          <div class="form-field form-field--wide">
+            <label for="{{ form.current_password.id_for_label }}">{{ form.current_password.label }}</label>
+            {{ form.current_password }}
+            <p class="field-help">أدخل كلمة المرور الحالية عند تغيير كلمة مرور حسابك.</p>
+            {% if form.current_password.help_text %}<p class="field-help">{{ form.current_password.help_text }}</p>{% endif %}
+            {% if form.current_password.errors %}<div class="field-errors" role="alert">{{ form.current_password.errors }}</div>{% endif %}
+          </div>
+        {% endif %}
+
+        <div class="form-field">
+          <label for="{{ form.password1.id_for_label }}">{{ form.password1.label }}</label>
+          {{ form.password1 }}
+          {% if form.password1.help_text %}<p class="field-help">{{ form.password1.help_text }}</p>{% endif %}
+          {% if form.password1.errors %}<div class="field-errors" role="alert">{{ form.password1.errors }}</div>{% endif %}
+        </div>
+
+        <div class="form-field">
+          <label for="{{ form.password2.id_for_label }}">{{ form.password2.label }}</label>
+          {{ form.password2 }}
+          {% if form.password2.help_text %}<p class="field-help">{{ form.password2.help_text }}</p>{% endif %}
+          {% if form.password2.errors %}<div class="field-errors" role="alert">{{ form.password2.errors }}</div>{% endif %}
+        </div>
+      </div>
+
+      {% if not is_create %}
+        <p class="password-note">اترك حقلي كلمة المرور فارغين إذا لم ترغب في تغييرها. عند تعديل حسابك أنت، تتطلب كلمة المرور الجديدة إدخال كلمة المرور الحالية.</p>
+        <p class="password-note">تغيير الدور أو البيئات المسندة أو إيقاف الحساب يلغي تفويض تصحيح المهام. إعادة التفعيل لا تعيد التفويض تلقائيًا؛ يفعّله المشرف العام من صفحة صلاحيات التصحيح.</p>
+      {% endif %}
+
+      <div class="form-actions">
+        <button type="submit" class="form-button">{% if is_create %}إضافة المشرف{% else %}حفظ التعديلات{% endif %}</button>
+        <a class="form-button form-button--plain" href="{% url 'participants:supervisor_list' %}">إلغاء</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

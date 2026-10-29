@@ -1,0 +1,154 @@
+{% extends "participants/app_base.html" %}
+
+{% block title %}إدارة المشرفين — رحّال{% endblock %}
+
+{% block extra_style %}
+.wrap{max-width:100%;min-width:0}
+.supervisor-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s2);flex-wrap:wrap}
+.supervisor-heading .page-sub{margin-bottom:0}
+.add-button,.action-button,.page-link{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:8px 14px;border:1px solid var(--gold);border-radius:99px;background:var(--gold);color:var(--asphalt);font:700 13px var(--font-ui);text-decoration:none;white-space:nowrap}
+.add-button:hover,.action-button:hover,.page-link:hover{background:#b88b32;border-color:#b88b32}
+.filter-form{display:grid;grid-template-columns:minmax(220px,2fr) minmax(150px,1fr) minmax(170px,1fr) auto auto;gap:10px;align-items:end}
+.filter-field{min-width:0}
+.filter-field label{display:block;margin-bottom:5px;font:600 12px var(--font-ui);color:var(--slate)}
+.filter-field input,.filter-field select{width:100%;min-height:40px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r-sm);background:#fff;color:var(--asphalt);font:13px var(--font-ui)}
+.filter-field select,.filter-field select option{direction:rtl;text-align:right}
+.filter-submit,.filter-reset{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:8px 14px;border:1px solid var(--line);border-radius:var(--r-sm);background:#fff;color:var(--asphalt);font:600 13px var(--font-ui);text-decoration:none;cursor:pointer;white-space:nowrap}
+.filter-submit{border-color:var(--asphalt);background:var(--asphalt);color:#fff}
+.filter-submit:hover{background:#1f2225}
+.filter-reset:hover{background:var(--sand)}
+.table-scroll{max-width:100%;overflow-x:auto;overscroll-behavior-x:contain}
+.supervisor-table{width:100%;min-width:850px;border-collapse:collapse;font:14px var(--font-ui)}
+.supervisor-table th,.supervisor-table td{padding:12px 10px;border-bottom:1px solid var(--line);text-align:right;vertical-align:top}
+.supervisor-table th{color:var(--slate);font-size:12px;font-weight:600;white-space:nowrap}
+.supervisor-table tbody tr:hover{background:#fffcf5}
+.supervisor-table tbody tr:last-child td{border-bottom:0}
+.person-name{display:block;font-weight:700;color:var(--asphalt)}
+.person-meta{display:block;margin-top:2px;color:var(--slate);font-size:12px;overflow-wrap:anywhere}
+.group-list{line-height:1.9}
+.status-pill,.self-pill{display:inline-block;padding:4px 10px;border-radius:99px;font-size:12px;font-weight:700;white-space:nowrap}
+.status-pill--active{background:#E4EFE5;color:var(--done)}
+.status-pill--inactive{background:#FBEEEA;color:var(--alert)}
+.self-pill{margin-top:5px;background:var(--gold-soft);color:var(--gold-ink)}
+.table-actions{display:flex;gap:7px;align-items:center;flex-wrap:wrap;white-space:nowrap}
+.action-button{min-height:34px;padding:6px 11px;border-color:var(--line);background:#fff;font-size:12px}
+.action-button:hover{background:var(--sand);border-color:var(--asphalt)}
+.action-button--danger{border-color:var(--alert);color:var(--alert)}
+.action-button--danger:hover{background:#FBEEEA;border-color:var(--alert)}
+.pager{display:flex;align-items:center;justify-content:space-between;gap:var(--s2);flex-wrap:wrap;margin-top:var(--s2);color:var(--slate);font:12px var(--font-ui)}
+.pager-links{display:flex;gap:8px;flex-wrap:wrap}
+.page-link{min-height:36px;padding:6px 12px;border-color:var(--line);background:#fff;font-weight:600}
+.page-link:hover{background:var(--sand);border-color:var(--asphalt)}
+.page-message{margin:0 0 var(--s2);padding:10px 13px;border:1px solid #c7ddca;border-radius:var(--r-sm);background:#E4EFE5;color:var(--done);font:13px var(--font-ui)}
+@media(max-width:840px){.filter-form{grid-template-columns:repeat(2,minmax(0,1fr))}.filter-submit,.filter-reset{width:100%}}
+@media(max-width:720px){.wrap{padding:16px}.card{padding:16px}.filter-form{grid-template-columns:1fr}.filter-submit,.filter-reset{width:100%}.add-button{width:100%}}
+{% endblock %}
+
+{% block content %}
+  <div class="supervisor-heading">
+    <div>
+      <h1 class="page-title">إدارة المشرفين</h1>
+      <p class="page-sub">أضف حسابات المشرفين أو حدّث أدوارهم وبيئاتهم وحالة تفعيلهم. لا تظهر حسابات النظام أو حسابات Django الإدارية هنا.</p>
+    </div>
+    <a class="add-button" href="{% url 'participants:supervisor_add' %}">إضافة مشرف</a>
+  </div>
+
+  {% if messages %}
+    {% for message in messages %}<div class="page-message" role="status">{{ message }}</div>{% endfor %}
+  {% endif %}
+
+  <section class="card" aria-labelledby="supervisor-filter-title">
+    <h2 id="supervisor-filter-title">البحث والتصفية</h2>
+    <form method="get" class="filter-form">
+      <div class="filter-field">
+        <label for="supervisor-query">البحث</label>
+        <input id="supervisor-query" type="search" name="q" value="{{ q }}" placeholder="الاسم أو اسم الدخول أو رقم الهوية">
+      </div>
+      <div class="filter-field">
+        <label for="supervisor-status">حالة الحساب</label>
+        <select id="supervisor-status" name="status">
+          <option value="all"{% if not status or status == "all" %} selected{% endif %}>كل الحالات</option>
+          <option value="active"{% if status == "active" %} selected{% endif %}>نشط</option>
+          <option value="inactive"{% if status == "inactive" %} selected{% endif %}>غير نشط</option>
+        </select>
+      </div>
+      <div class="filter-field">
+        <label for="supervisor-role">الدور</label>
+        <select id="supervisor-role" name="role">
+          <option value="all"{% if not role or role == "all" %} selected{% endif %}>كل الأدوار</option>
+          <option value="group_supervisor"{% if role == "group_supervisor" %} selected{% endif %}>مشرف بيئة</option>
+          <option value="general_supervisor"{% if role == "general_supervisor" %} selected{% endif %}>مشرف عام</option>
+        </select>
+      </div>
+      <button type="submit" class="filter-submit">تطبيق</button>
+      <a class="filter-reset" href="{% url 'participants:supervisor_list' %}">إعادة ضبط</a>
+    </form>
+  </section>
+
+  <section class="card" aria-labelledby="supervisors-title">
+    <h2 id="supervisors-title">المشرفون</h2>
+    {% if supervisors %}
+      <div class="table-scroll" tabindex="0" role="region" aria-label="جدول المشرفين، قابل للتمرير أفقيًا">
+        <table class="supervisor-table">
+          <thead>
+            <tr>
+              <th scope="col">المشرف</th>
+              <th scope="col">رقم الهوية</th>
+              <th scope="col">الدور</th>
+              <th scope="col">البيئات المسندة</th>
+              <th scope="col">الحالة</th>
+              <th scope="col">إجراءات</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for supervisor in supervisors %}
+              <tr>
+                <td>
+                  <span class="person-name">{{ supervisor.full_name|default:supervisor.username|default:"—" }}</span>
+                  <span class="person-meta">اسم الدخول: {{ supervisor.username|default:"—" }}</span>
+                  {% if request.user.pk == supervisor.pk %}<span class="self-pill">حسابك</span>{% endif %}
+                </td>
+                <td>{{ supervisor.national_id|default:"—" }}</td>
+                <td>{{ supervisor.get_role_display }}</td>
+                <td class="group-list">
+                  {% for group in supervisor.group_set.all %}
+                    {{ group.name }}{% if not forloop.last %}، {% endif %}
+                  {% empty %}
+                    <span class="person-meta">لا توجد بيئات مسندة</span>
+                  {% endfor %}
+                </td>
+                <td>
+                  {% if supervisor.is_active %}
+                    <span class="status-pill status-pill--active">نشط</span>
+                  {% else %}
+                    <span class="status-pill status-pill--inactive">غير نشط</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <div class="table-actions">
+                    <a class="action-button" href="{% url 'participants:supervisor_edit' pk=supervisor.pk %}">تعديل</a>
+                    {% if request.user.pk != supervisor.pk %}
+                      <a class="action-button action-button--danger" href="{% url 'participants:supervisor_delete' pk=supervisor.pk %}">حذف</a>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if page_obj.has_other_pages %}
+        <nav class="pager" aria-label="صفحات المشرفين">
+          <span>عرض {{ page_obj.start_index }}–{{ page_obj.end_index }} من {{ page_obj.paginator.count }} مشرفين · الصفحة {{ page_obj.number }} من {{ page_obj.paginator.num_pages }}</span>
+          <span class="pager-links">
+            {% if page_obj.has_previous %}<a class="page-link" href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page_obj.previous_page_number }}">السابق</a>{% endif %}
+            {% if page_obj.has_next %}<a class="page-link" href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page_obj.next_page_number }}">التالي</a>{% endif %}
+          </span>
+        </nav>
+      {% endif %}
+    {% else %}
+      <p class="empty-note">لا يوجد مشرفون يطابقون معايير البحث الحالية.</p>
+    {% endif %}
+  </section>
+{% endblock %}

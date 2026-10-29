@@ -37,6 +37,8 @@ class NationalIDOrUsernameBackend(BaseBackend):
 
     def get_user(self, user_id):
         try:
-            return User.objects.get(pk=user_id)
+            user = User.objects.get(pk=user_id)
         except User.DoesNotExist:
             return None
+        # Existing sessions must stop authenticating a deactivated account too.
+        return user if user.is_active else None

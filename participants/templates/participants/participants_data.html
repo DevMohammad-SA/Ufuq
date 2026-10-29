@@ -30,6 +30,8 @@ table.roster td.num-cell{text-align:center; font-variant-numeric:tabular-nums}
 table.roster th.num-col{text-align:center}
 .roster-student-link{color:var(--asphalt);font-weight:600;text-decoration:none}
 .roster-student-link:hover{color:var(--gold-ink);text-decoration:underline}
+.roster-edit-link{display:inline-flex;align-items:center;justify-content:center;padding:5px 11px;border:1px solid var(--line);border-radius:99px;background:#fff;color:var(--asphalt);font:600 12px var(--font-ui);text-decoration:none}
+.roster-edit-link:hover{border-color:var(--gold);background:#fff9ec;color:var(--gold-ink)}
 
 .roster-search{
   width:100%;
@@ -184,6 +186,7 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
               <th class="sortable num-col" data-sort="number" data-col="9">مرات حضور اللقاء<span class="sort-arrow"></span></th>
               <th>رقم جوال المشارك</th>
               <th>رقم جوال ولي الأمر</th>
+              {% if can_manage_accounts %}<th>إجراء</th>{% endif %}
             </tr>
           </thead>
           <tbody id="roster-body">
@@ -201,6 +204,9 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
                 <td class="num-cell">{{ participant.meetings_attended }}</td>
                 <td>{{ participant.phone|default:"—" }}</td>
                 <td>{{ participant.guardian_phone|default:"—" }}</td>
+                {% if can_manage_accounts %}
+                  <td><a class="roster-edit-link" href="{% url 'participants:participant_edit' pk=participant.pk %}">تعديل</a></td>
+                {% endif %}
               </tr>
             {% endfor %}
           </tbody>
