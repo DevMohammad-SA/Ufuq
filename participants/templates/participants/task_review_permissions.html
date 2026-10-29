@@ -1,0 +1,23 @@
+{% extends "participants/app_base.html" %}
+{% block title %}صلاحيات تصحيح المهام — رحّال{% endblock %}
+{% block extra_style %}
+.permission-scroll{overflow-x:auto}.permission-table{width:100%;border-collapse:collapse;font:14px var(--font-ui)}.permission-table th,.permission-table td{padding:14px 10px;text-align:right;border-bottom:1px solid var(--line)}.permission-table th{font-size:12px;color:var(--slate)}.permission-table th:last-child,.permission-table td:last-child{white-space:nowrap}.permission-badge{display:inline-block;border-radius:99px;padding:5px 12px;font-size:12px;background:var(--gold-soft);color:var(--gold-ink)}.permission-badge--enabled{background:#E4EFE5;color:var(--done)}.permission-button{border:1px solid var(--line);background:#fff;padding:8px 15px;border-radius:10px;color:var(--asphalt);font:600 12px var(--font-ui);cursor:pointer}.permission-button:hover{background:var(--sand)}.permission-info{font:12px var(--font-ui);color:var(--slate);display:block;margin-top:5px}.permission-feedback{background:#E4EFE5;color:var(--done);padding:12px 16px;border-radius:12px;font:13px var(--font-ui)}
+{% endblock %}
+{% block content %}
+<h1 class="page-title">صلاحيات تصحيح المهام</h1>
+<p class="page-sub">فعّل التصحيح أو ألغِه لكل مشرف بيئة. مشاهدة تسليمات طلابه متاحة دائمًا، والتصحيح مغلق افتراضيًا.</p>
+{% for message in messages %}<p class="permission-feedback" role="status">{{ message }}</p>{% endfor %}
+<section class="card">
+<h2>مشرفو البيئات</h2>
+<p>التفعيل يسمح بالقبول والرفض لمهام طلاب البيئات المسندة للمشرف فقط، ولا يسمح بإنشاء المهام أو تفعيلها أو فتح التسليم مجددًا. يسري إلغاء الصلاحية على الطلب التالي حتى لو بقيت صفحة المراجعة مفتوحة.</p>
+{% if supervisors %}
+<div class="permission-scroll"><table class="permission-table"><thead><tr><th>المشرف</th><th>البيئات المسندة</th><th>صلاحية التصحيح</th><th>الإجراء</th></tr></thead><tbody>
+{% for entry in supervisors %}<tr>
+<td>{{ entry.user.full_name|default:entry.user.username }}{% if entry.permission %}<small class="permission-info">آخر تحديث: {{ entry.permission.updated_at|date:"Y/m/d H:i" }}{% if entry.permission.granted_by %} · {{ entry.permission.granted_by.full_name|default:entry.permission.granted_by.username }}{% endif %}</small>{% endif %}</td>
+<td>{% for group in entry.groups %}{{ group.name }}{% if not forloop.last %}، {% endif %}{% empty %}بدون بيئة{% endfor %}</td>
+<td>{% if entry.permission.enabled %}<span class="permission-badge permission-badge--enabled">التصحيح مفعّل</span>{% else %}<span class="permission-badge">الاطلاع فقط</span>{% endif %}</td>
+<td><form method="post">{% csrf_token %}<input type="hidden" name="action" value="set_permission"><input type="hidden" name="supervisor_id" value="{{ entry.user.pk }}"><input type="hidden" name="enabled" value="{% if entry.permission.enabled %}0{% else %}1{% endif %}"><button type="submit" class="permission-button">{% if entry.permission.enabled %}إلغاء التصحيح{% else %}تفعيل التصحيح{% endif %}</button></form></td>
+</tr>{% endfor %}</tbody></table></div>
+{% else %}<p class="empty-note">لا يوجد مشرفو بيئات بعد.</p>{% endif %}
+</section>
+{% endblock %}

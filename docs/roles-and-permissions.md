@@ -11,13 +11,14 @@
 | القيمة المخزنة | التسمية العربية | الوصف |
 |----------------|-----------------|-------|
 | `participant` | مشارك | الناشئ/الشاب المشارك في البرنامج. له صف `Participant` مرتبط، ويدخل برقم الهوية + كلمة مرور. |
-| `group_supervisor` | مشرف بيئة | مسؤول عن بيئة واحدة أو أكثر (`Group`، منذ تحويل `Group.supervisor` إلى `ManyToManyField` — راجع [`models.md`](models.md)). يسجّل حضور اللقاء الأسبوعي وحضور/إنجاز الحلقة القرآنية وفعالية الأسبوع لمشاركي بيئته، ويستعرض سجل نقاط بيئته. |
-| `general_supervisor` | مشرف عام | مسؤول على مستوى البرنامج كامله: المهام الأسبوعية، المتجر، الاستيراد، إضافة مشارك مفرد، النقاط الإضافية، تصفير النقاط، سجل النقاط الكامل، كل البيئات. |
-| `superadmin` | مشرف النظام | نفس صلاحيات المشرف العام في كل الـ Views (كل `test_func` يعامل `GENERAL_SUPERVISOR` و`SUPERADMIN` معاملة واحدة)، بالإضافة إلى أن `createsuperuser` يعيّن هذا الدور تلقائيًا مع `is_staff=is_superuser=True` (`UserManager.create_superuser`). |
+| `group_supervisor` | مشرف بيئة | مسؤول عن بيئة واحدة أو أكثر (`Group`، منذ تحويل `Group.supervisor` إلى `ManyToManyField` — راجع [`models.md`](models.md)). يسجّل الحضور لبيئاته، ويرى بياناتها وتقاريرها وطلبات متجرها. يراجع تسليمات طلابها بعد تفويض صريح من المشرف العام فقط؛ الافتراضي اطلاع فقط. |
+| `general_supervisor` | مشرف عام | مسؤول على مستوى البرنامج كامله: المهام الأسبوعية، المتجر، الاستيراد، إضافة مشارك مفرد، النقاط الإضافية، تصفير النقاط، سجل النقاط الكامل، كل البيئات، ومنح/سحب تفويض مشرف البيئة لمراجعة المهام. |
+| `superadmin` | مشرف النظام | يدير البرنامج والمهام والمتجر ويصل إلى أدمن Django (`is_staff`/`is_superuser`). لا يدير تفويض مراجعة المهام ولا يرى ملاحظات اللقاء الخاصة؛ هاتان الصلاحيتان مقصورتان عمدًا على المشرف العام (والملاحظات يراها مشرف البيئة أيضًا). |
 
-> **ملاحظة:** لا يوجد في الكود أي `test_func` يميّز `SUPERADMIN` عن
-> `GENERAL_SUPERVISOR`. الفرق الوحيد عمليًا هو أعلام `is_staff`/`is_superuser`
-> (الوصول لواجهة أدمن Django) التي يضبطها `createsuperuser` أو الأدمن يدويًا.
+> **ملاحظة:** تشترك أدوار المشرفين في كثير من `test_func()`، لكنها ليست متطابقة
+> في كل فعل: `TaskReviewPermissionsView` للمشرف العام فقط، وملاحظات اللقاء
+> الخاصة تستبعد مشرف النظام، ومشرف البيئة لا يملك قبول/رفض تسليم إلا بتفويض
+> مفعل يُعاد التحقق منه في كل POST.
 
 ## كيف يسجّل كل دور دخوله
 
@@ -45,7 +46,9 @@
 |------|------------------|------------------------------|
 | `HomeView` | `home` (في `config/urls.py`) | **عام** — `TemplateView` بلا أي mixin؛ صفحة الهبوط لا تتطلب دخولًا |
 | `ParticipantDashboardView` | `dashboard` | `LoginRequiredMixin` فقط (بدون `test_func`) — أي مستخدم مسجّل، لكن الصفحة تصل لـ `request.user.participant` فورًا فتتعطّل بـ `RelatedObjectDoesNotExist` لغير المشاركين |
-| `SupervisorDashboardView` | `supervisor_dashboard` | `role == GROUP_SUPERVISOR` |
+| `SupervisorDashboardView` | `supervisor_dashboard` | `role in (GROUP_SUPERVISOR, GENERAL_SUPERVISOR, SUPERADMIN)`؛ مشرف البيئة مقيد ببيئاته المسندة والبقية يختارون أي بيئة |
+| `StudentReportView` **(غير موسوم بعد)** | `student_report` | `role in (GROUP_SUPERVISOR, GENERAL_SUPERVISOR, SUPERADMIN)` — تقرير قراءة فقط؛ مشرف البيئة يرى كل بيئاته المسندة |
+| `StudentDetailView` **(غير موسوم بعد)** | `student_detail` | `role in (GROUP_SUPERVISOR, GENERAL_SUPERVISOR, SUPERADMIN)` — يجري التقييد قبل جلب الطالب بالمعرّف |
 | `QuranCircleAttendanceView` | `quran_circle_attendance` | `role in (GROUP_SUPERVISOR, GENERAL_SUPERVISOR, SUPERADMIN)` |
 | `WeeklyActivityAttendanceView` **(جديد)** | `weekly_activity_attendance` | `role in (GROUP_SUPERVISOR, GENERAL_SUPERVISOR, SUPERADMIN)` |
 | `ParticipantImportView` | `import_participants` | `role in (GENERAL_SUPERVISOR, SUPERADMIN)` |
@@ -56,11 +59,12 @@
 | `PointsLedgerView` **(جديد)** | `points_ledger` | `role in (GROUP_SUPERVISOR, GENERAL_SUPERVISOR, SUPERADMIN)` |
 | `ParticipantsDataView` | `participants_data` | `role in (GROUP_SUPERVISOR, GENERAL_SUPERVISOR, SUPERADMIN)` |
 | `ParticipantsDataPDFExportView` | `participants_data_pdf` | `role in (GROUP_SUPERVISOR, GENERAL_SUPERVISOR, SUPERADMIN)` |
-| `WeeklyTaskReviewView` | `weekly_task_review` | `role in (GENERAL_SUPERVISOR, SUPERADMIN)` |
+| `WeeklyTaskReviewView` | `weekly_task_review` | `role in (GROUP_SUPERVISOR, GENERAL_SUPERVISOR, SUPERADMIN)`؛ مشرف البيئة يرى تسليمات طلاب بيئاته فقط، وقبول/رفضها مشروط بتفويض فعّال |
+| `TaskReviewPermissionsView` **(غير موسوم بعد)** | `task_review_permissions` | `role == GENERAL_SUPERVISOR` فقط — يمنح أو يسحب تفويض مشرف البيئة |
 | `TaskSubmissionView` | `task_submission` | `role == PARTICIPANT` — ولا يقبل POST إلا لمهمة ضمن `get_active_tasks()`، راجع [`weekly-tasks.md`](weekly-tasks.md) |
 | `TasksArchiveView` | `tasks_archive` | `role in (GENERAL_SUPERVISOR, SUPERADMIN)` |
 | `StoreView` | `store` | `role == PARTICIPANT` |
-| `StoreManagementView` | `store_management` | `role in (GENERAL_SUPERVISOR, SUPERADMIN)` |
+| `StoreManagementView` | `store_management` | `role in (GROUP_SUPERVISOR, GENERAL_SUPERVISOR, SUPERADMIN)`؛ مشرف البيئة يطالع طلبات بيئاته فقط، وكل POST منه 403؛ الإدارة/الإكمال/الاسترجاع للمشرف العام أو النظام |
 
 > **⚠️ ملاحظة على `AddParticipantView`:** الدالة الداخلية `get_locked_group()`
 > فيها لا تزال تتحقق من `role == GROUP_SUPERVISOR` وتُرجع بيئته المقفلة في
@@ -96,13 +100,24 @@
 
 ## نطاق البيانات حسب الدور
 
-- **مشرف البيئة**: كل Views الحضور والبيانات وسجل النقاط تقصره على بيئته/بيئاته
-  عبر `request.user.group_set.first()` — منذ تحويل `Group.supervisor` إلى
-  `ManyToManyField`، هذا يُرجع **بيئة واحدة فقط من عدة محتملة** إن أُسند
-  المستخدم لأكثر من بيئة (أول نتيجة بلا ترتيب صريح مضمون). **أي قيمة `?group=`
-  في الطلب تُتجاهل تمامًا** لمشرف البيئة (انظر
-  `QuranCircleAttendanceView.get_selected_group`،
-  `WeeklyActivityAttendanceView.get_selected_group`، و
-  `ParticipantsDataPDFExportView._get_participants`).
-- **المشرف العام / النظام**: يرى كل البيئات، ويختار البيئة بحرية عبر `?group=`
-  حيثما توفّر، ويرى سجل النقاط والاستيراد ولوحة العام كاملة.
+- **مشرف البيئة**: تستخدم صفحات التقرير وملف الطالب ومراجعة المهام وإدارة
+  المتجر `allowed_groups()`/`scoped_participants()`، فتشمل **كل بيئاته المسندة**
+  ولا تقبل نطاقًا خارجها. وكذلك تستخدم واجهات كشف اللقاء وفعالية الأسبوع
+  وسجل النقاط وبيانات المشاركين وتصدير PDF النطاق نفسه؛ يتجاهل PDF أسماء
+  البيئات الممررة من مشرف البيئة بدل أن توسّع النطاق، ثم يعرض كل بيئاته
+  المسندة.
+- **المشرف العام / النظام**: يريان كل البيئات ويختاران البيئة بحرية حيثما
+  توفّر. الاستثناءات المقصودة: إدارة تفويض التصحيح للمشرف العام فقط، وملاحظات
+  اللقاء لمشرف البيئة/العام فقط، لا لمشرف النظام.
+
+## تفويض مراجعة المهام
+
+- لا ينشأ لمشرف البيئة تفويض افتراضي. يظل قادرًا على معاينة مهام وتسليمات
+  طلاب بيئاته المسندة، بلا إنشاء/تفعيل/إعادة فتح.
+- المشرف العام وحده يفعّل أو يلغي صف `TaskReviewPermission` لمشرف بيئة؛
+  التفويض لا يوسّع نطاق الطلاب بل يسمح فقط بالقبول والرفض ضمن النطاق الموجود.
+- يعيد `WeeklyTaskReviewView.post()` قفل وفحص `enabled=True` داخل معاملة عند
+  كل قبول أو رفض. لذلك يسري الإلغاء على الطلب اللاحق حتى لو بقيت صفحة المراجع
+  مفتوحة.
+- لا يمكن لمشرف البيئة المفوّض قبول تسليم تاريخي `points_awarded=NULL`؛ يحتاج
+  المشرف العام أو النظام إلى قرار صريح من حقل `historical_award` قبل القبول.

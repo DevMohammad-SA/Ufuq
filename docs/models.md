@@ -59,7 +59,7 @@
 | الحقل | النوع | ملاحظات |
 |-------|------|---------|
 | `name` | `CharField(max_length=50, unique=True)` | اسم البيئة. المطابقة في الاستيراد تتم بالاسم الدقيق. |
-| `supervisor` | `ManyToManyField(AUTH_USER_MODEL, blank=True, limit_choices_to={"role": GROUP_SUPERVISOR})` | **⚠️ تغيّر مؤخرًا من `ForeignKey` إلى `ManyToManyField`** — بيئة واحدة يمكن أن يكون لها **أكثر من مشرف بيئة**. بدون `related_name` → العلاقة العكسية من `User` لا تزال `group_set` (نفس اسم العلاقة العكسية الافتراضي لكل من `ForeignKey` و`ManyToManyField` غير المسمّاة)، لذا كود مثل `request.user.group_set.first()` يستمر بالعمل دون تعديل، لكنه الآن يُرجع **بيئة واحدة عشوائية من عدة محتملة** إن كان للمستخدم أكثر من بيئة، وليس بالضرورة "بيئته الوحيدة". أدمن Django يعرض هذا الحقل بأداة `filter_horizontal` (قائمة مزدوجة لاختيار عدة مشرفين). **هجرة `0010` التي نفّذت هذا التحويل لا تنقل بيانات العلاقة القديمة** إلى جدول الربط الجديد — راجع [`deployment.md`](deployment.md#5-فحص-توافق-البيانات-قبل-الترقية). |
+| `supervisor` | `ManyToManyField(AUTH_USER_MODEL, blank=True, limit_choices_to={"role": GROUP_SUPERVISOR})` | **⚠️ تغيّر مؤخرًا من `ForeignKey` إلى `ManyToManyField`** — بيئة واحدة يمكن أن يكون لها **أكثر من مشرف بيئة**، وقد يسند مشرف إلى أكثر من بيئة. بدون `related_name` تكون العلاقة العكسية من `User` هي `group_set`. الواجهات المقيدة لمشرف البيئة تجمع `allowed_groups()` وتعمل على كل بيئاته المسندة، لا على أول عنصر في العلاقة. أدمن Django يعرض الحقل بأداة `filter_horizontal`. **هجرة `0010` التي نفّذت التحويل لا تنقل بيانات العلاقة القديمة** إلى جدول الربط الجديد — راجع [`deployment.md`](deployment.md#5-فحص-توافق-البيانات-قبل-الترقية). |
 
 ### `Participant` (مشارك) — `participants/models.py`, كلاس `Participant`
 
@@ -122,6 +122,39 @@
 
 `Meta.constraints`: `UniqueConstraint(fields=["participant", "date"], name="unique_weekly_activity_per_day")`.
 
+### `TaskReviewPermission` (تفويض تصحيح المهام) — `participants/models.py`
+
+أنشأته الهجرة `0018_student_notes_and_review_permission`. هو تفويض مستقل
+وقابل للسحب؛ لا يمنح إنشاء المهام أو تفعيلها أو توسيع نطاق الطلاب.
+
+| الحقل | النوع | ملاحظات |
+|-------|------|---------|
+| `supervisor` | `OneToOneField(AUTH_USER_MODEL, on_delete=CASCADE, related_name="task_review_permission", limit_choices_to={"role": GROUP_SUPERVISOR})` | صف واحد لكل مشرف بيئة. غياب الصف يعادل عدم التفويض. |
+| `enabled` | `BooleanField(default=False)` | يفتح قبول/رفض تسليمات طلاب البيئات المسندة فقط. |
+| `granted_by` | `FK(AUTH_USER_MODEL, on_delete=SET_NULL, null=True, related_name="task_review_permissions_granted")` | من آخر من غيّر التفويض. |
+| `updated_at` | `DateTimeField(auto_now=True)` | وقت آخر تعديل. |
+
+واجهة تغيير هذا النموذج للمشرف العام فقط. يعيد مسار القبول/الرفض فحص الصف
+وقفله في كل POST، فلا يكفي أن كان مفعّلًا وقت فتح الصفحة.
+
+### `MeetingNote` (ملاحظة لقاء خاصة) — `participants/models.py`
+
+أنشأته الهجرة `0018_student_notes_and_review_permission`. ليس سجل حضور ولا
+سجل نقاط، بل ملاحظة مستقلة يكتبها مشرف البيئة أو المشرف العام فقط.
+
+| الحقل | النوع | ملاحظات |
+|-------|------|---------|
+| `participant` | `FK(Participant, on_delete=CASCADE, related_name="meeting_notes")` | الطالب صاحب الملاحظة. |
+| `meeting_date` | `DateField` | تاريخ اللقاء الذي تخصه الملاحظة. |
+| `text` | `TextField(max_length=2000)` | النص، بحد خادمي وواجهاتي قدره 2000 حرف. |
+| `created_by` / `updated_by` | `FK(AUTH_USER_MODEL, on_delete=SET_NULL, null=True)` | منشئ الملاحظة وآخر من حدّثها. |
+| `created_at` / `updated_at` | `DateTimeField(auto_now_add=True)` / `DateTimeField(auto_now=True)` | الطابعان الزمنيان. |
+
+`Meta.ordering = ["-meeting_date", "-updated_at"]` و
+`UniqueConstraint(fields=["participant", "meeting_date"],
+name="unique_student_meeting_note")`: ملاحظة واحدة لكل طالب في كل تاريخ لقاء.
+النص الفارغ في عملية الحفظ يحذف تلك الملاحظة؛ لا يغير أي رصيد أو حضور.
+
 ### صيغ تسليم المهام — `SUBMISSION_FORMAT_EXTENSIONS` (`participants/models.py`)
 
 قاموس على مستوى الوحدة يربط **قيمة صيغة ملف** (من `WeeklyTask.FORMAT_CHOICES`)
@@ -183,6 +216,7 @@ SUBMISSION_FORMAT_EXTENSIONS = {
 | `text_content` | `TextField(blank=True)` | **جديد**. يُستخدم فقط عند اختيار صيغة "نص مباشر". |
 | `status` | `CharField(choices=Status.choices, default=PENDING)` | `pending` / `accepted` / `rejected`. |
 | `is_featured` | `BooleanField(default=False)` | **جديد**. تُفعَّل عند القبول فقط عبر خانة اختيار "مميزة" في `WeeklyTaskReviewView` — تمنح نقطتين إضافيتين (12 بدل 10). راجع [`points-system.md`](points-system.md). |
+| `points_awarded` | `BooleanField(null=True, default=False)` | علامة المنحة الدائمة: `True` = صُرفت النقاط، `False` = لم تُصرف (الافتراضي للتسليم الجديد)، و`NULL` = حالة تاريخية غير مؤكدة تحتاج قرار `historical_award` صريحًا من المشرف العام/النظام عند القبول. تمنع المنح المتكرر بعد إعادة التسليم. أضافتها الهجرة `0019`. |
 | `rejection_reason` | `TextField(blank=True)` | **جديد**. يُملأ عند الرفض، ويظهر للمشارك ليفهم سبب الرفض. |
 | `reopened_for_resubmission` | `BooleanField(default=False)` | يتيح تسليمًا ثانيًا لمشارك واحد. |
 | `submitted_at` | `DateTimeField(auto_now_add=True)` | — |

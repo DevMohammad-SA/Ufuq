@@ -38,19 +38,25 @@
   `participant.points_ledger_entries` تُعرض مدمجة في هذه الصفحة. راجع
   قسم "سجل النقاط" أدناه و[`points-system.md`](points-system.md).
 
-## تحضير اللقاء الأسبوعي (مشرف البيئة)
+## تحضير اللقاء الأسبوعي والملاحظات الخاصة (المشرفون)
 
 > الصفحة تعرض ترحيبًا باسم المشرف أعلاها منذ 1.2.0 (تغيير قالب فقط).
 
 - **View:** `SupervisorDashboardView` (`participants/views.py`) — المسار
   `participants:supervisor_dashboard`.
 - **القالب:** `participants/supervisor_dashboard.html`.
-- كشف كامل لمشاركي بيئة المشرف، عمودا "حضور مبكر" و"حضور اللقاء"، منتقي تاريخ.
+- كشف كامل لمشاركي البيئة المختارة، عمودا "حضور مبكر" و"حضور اللقاء"، ومنتقي
+  تاريخ. مشرف البيئة يختار من بيئاته المسندة فقط، بينما المشرف العام/النظام
+  يختار أي بيئة.
 - الحفظ POST واحد يُنشئ/يحدّث `MeetingAttendance` لكل مشارك ويطبّق دلتا النقاط
   عبر `apply_points_delta` (مصدر `MEETING_ATTENDANCE` في سجل النقاط).
 - الموديل: `MeetingAttendance`. النقاط: 8 للحضور، و2 للحضور المبكر
   **مستقلة عنه** (فمجموع الاثنين 10، والحضور المبكر وحده 2). راجع
   [`points-system.md`](points-system.md).
+- **ملاحظات اللقاء الخاصة:** تظهر لمشرف البيئة والمشرف العام فقط، لا لمشرف
+  النظام. تُحفظ ملاحظة الطالب/تاريخ اللقاء مستقلة عن حفظ الحضور، بحد 2000 حرف؛
+  لا تغيّر نقاطًا ولا حضورًا. التفاصيل والقيود في
+  [`student-reporting.md`](student-reporting.md).
 
 ## الحلقة القرآنية — حضور وإنجاز (يدوي، مؤقت)
 
@@ -185,6 +191,21 @@
   > جهاز تطوير محلي بعينه (خاصية بيئة، لا نقصًا في المستودع) — راجع
   > [`known-limitations.md`](known-limitations.md).
 
+## تقرير الطلاب وملف الطالب التفصيلي
+
+- **التقرير:** `StudentReportView` (`participants:student_report`،
+  `student-report/`) والقالب `participants/student_report.html`.
+- **الملف:** `StudentDetailView` (`participants:student_detail`،
+  `students/<pk>/`) والقالب `participants/student_detail.html`.
+- كلاهما للمشرفين الثلاثة وللقراءة فقط. مشرف البيئة يرى جميع الطلاب في
+  بيئاته المسندة، لا «أول بيئة» فقط؛ ويُقيَّد ملف الطالب بالنطاق قبل جلبه.
+- تقرير الفترة يفلتر بالتاريخ والبيئة والاسم/الهوية، ويعرض عدادات منفصلة
+  للحضور والمهام وحركات النقاط. أما ملف الطالب فيرقّم كل جدول تاريخي مستقلًا
+  (20 سجلًا في الصفحة). لا يعيد أي منهما سجل محاولات التسليم المحذوفة أو طلبات
+  المتجر التي حُذفت مع المنتج.
+- الحسابات وحدود مصدر البيانات والملاحظات الخاصة موثقة في
+  [`student-reporting.md`](student-reporting.md).
+
 ## المهام الأسبوعية
 
 > **التفاصيل الكاملة في ملف مستقل: [`weekly-tasks.md`](weekly-tasks.md)**
@@ -195,7 +216,7 @@
   المهمة تُنشأ بـ`is_active=False` ولا تظهر لأحد حتى يفعّلها المشرف
   (`action=toggle_active`)، وتظهر بعدها ما دام `due_date >= اليوم`، ثم تختفي
   وحدها. المصدر الوحيد لذلك `WeeklyTask.get_active_tasks()`.
-- **إنشاء ومراجعة (مشرف عام):** `WeeklyTaskReviewView`
+- **إنشاء وإدارة المهام (المشرف العام/النظام):** `WeeklyTaskReviewView`
   (`participants/views.py`) — المسار `participants:weekly_task_review`،
   القالب `participants/weekly_task_review.html`.
   - إنشاء مهمة جديدة عبر `WeeklyTaskForm`: عنوان، وصف، موعد تسليم، **خانات
@@ -203,11 +224,22 @@
     **"تتطلب كل الصيغ معًا (AND)"** التي تقرر هل على الطالب تقديمها كلها
     مجتمعة أم يكفيه واحدة يختارها، وخانة "مهمة نشطة".
   - قائمة كل المهام (`all_tasks`) مع زر تفعيل/إيقاف لكل واحدة.
-  - مراجعة التسليمات: قبول أو رفض — لكل المهام النشطة من نفس الصفحة.
-    - **القبول**: خانة اختيار إضافية "مميزة ⭐" تمنح **12 نقطة** بدل **10**
-      عند تفعيلها (`TaskSubmission.is_featured`) — **جديد منذ 1.1.0**.
-    - **الرفض**: حقل "سبب الرفض" (`TaskSubmission.rejection_reason`) إلزامي
-      الإدخال في الواجهة، يظهر لاحقًا للمشارك — **جديد منذ 1.1.0**.
+- **عرض ومراجعة تسليمات مشرف البيئة:** يرى مشرف البيئة كل المهام وتسليمات
+  طلاب **كل بيئاته المسندة**، ويبدأ بصلاحية اطلاع فقط. يستطيع المشرف العام
+  وحده منح أو سحب تفويض القبول/الرفض من
+  `TaskReviewPermissionsView` (`participants:task_review_permissions`)؛ مشرف
+  النظام لا يدير هذا التفويض. يُعاد فحصه داخل كل POST، لذا لا تتجاوز الصفحة
+  المفتوحة إلغاء الصلاحية.
+- **المراجعة والنقاط:**
+  - **القبول**: خانة اختيار إضافية "مميزة ⭐" تمنح **12 نقطة** بدل **10**
+    عند تفعيلها (`TaskSubmission.is_featured`). تمنع العلامة الدائمة
+    `points_awarded` منح نقاط المهمة مرة أخرى بعد إعادة التسليم.
+  - التسليمات التاريخية المعلّقة ذات `points_awarded=NULL` تحتاج من المشرف
+    العام أو النظام اختيار `historical_award` صراحة قبل القبول؛ لا يستطيع
+    مشرف البيئة المفوّض حسمها.
+  - **الرفض**: حقل "سبب الرفض" (`TaskSubmission.rejection_reason`) اختياري
+    في الواجهة ويظهر لاحقًا للمشارك؛ يمكن أن يبقي علامة المنحة التاريخية غير
+    المؤكدة كما هي.
 - **أرشيف كل المهام (مشرف عام):** `TasksArchiveView`
   (`participants/views.py`) — المسار `participants:tasks_archive`،
   القالب `participants/tasks_archive.html`. لكل مهمة: من سلّم ومن لم يسلّم،
@@ -238,9 +270,14 @@
   الشرائية. التحقق من المخزون والرصيد **خادميًا** داخل `transaction.atomic()`
   مع `select_for_update` (حماية من السباق). ينشئ `StoreOrder` بـ
   `price_at_order` كلقطة سعر.
-- **إدارة المتجر (مشرف عام):** `StoreManagementView` (`participants/views.py`)
+- **إدارة المتجر / الاطلاع على الطلبات:** `StoreManagementView`
+  (`participants/views.py`)
   — المسار `participants:store_management`، القالب
   `participants/store_management.html`.
+  - مشرف البيئة يرى طلبات طلاب بيئاته المسندة **للقراءة فقط**؛ لا تُحمَّل له
+    نماذج المنتجات أو أوضاع التعديل، وأي POST مُلفّق يُرفض بـ403 قبل قراءة
+    الإجراء أو المعرّف.
+  - المشرف العام/النظام فقط يديران المنتجات ويكملان/يسترجعان الطلبات.
   - إضافة/تعديل/حذف منتج (`StoreProductForm`).
   - **حذف منتج (محدَّث)**: منتج له طلب **قيد التنفيذ أو مكتمل** يُرفض حذفه
     (`ProtectedError` → رسالة عربية، لا صفحة 500) — كما كان سابقًا. لكن منتج
@@ -327,6 +364,8 @@
 |--------|------|
 | `dashboard/` | `participants:dashboard` |
 | `supervisor/dashboard/` | `participants:supervisor_dashboard` |
+| `student-report/` **(غير موسوم بعد)** | `participants:student_report` |
+| `students/<int:pk>/` **(غير موسوم بعد)** | `participants:student_detail` |
 | `quran-circle/` | `participants:quran_circle_attendance` |
 | `weekly-activity/` **(جديد)** | `participants:weekly_activity_attendance` |
 | `import/` | `participants:import_participants` |
@@ -338,6 +377,7 @@
 | `data/` | `participants:participants_data` |
 | `data/export-pdf/` | `participants:participants_data_pdf` |
 | `tasks/review/` | `participants:weekly_task_review` |
+| `tasks/review-permissions/` **(غير موسوم بعد)** | `participants:task_review_permissions` |
 | `tasks/archive/` | `participants:tasks_archive` |
 | `tasks/submit/` | `participants:task_submission` |
 | `store/` | `participants:store` |

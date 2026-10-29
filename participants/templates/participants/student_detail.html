@@ -1,0 +1,157 @@
+{% extends "participants/app_base.html" %}
+
+{% block title %}تفاصيل الطالب — رحّال{% endblock %}
+
+{% block extra_style %}
+.wrap{max-width:100%;min-width:0}
+.detail-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.detail-heading .page-sub{margin:0}
+.detail-back{display:inline-flex;align-items:center;min-height:40px;padding:7px 14px;border:1px solid var(--line);border-radius:99px;background:#fff;color:var(--asphalt);font:600 13px var(--font-ui);text-decoration:none}
+.detail-back:hover{border-color:var(--gold);color:var(--gold-ink)}
+.detail-filter{display:flex;gap:14px;flex-wrap:wrap;align-items:end}
+.detail-field{flex:1 1 190px;min-width:0}
+.detail-field label{display:block;margin-bottom:6px;font:600 13px var(--font-ui)}
+.detail-field input{width:100%;min-height:42px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r-sm);background:#fff;color:var(--asphalt);font:14px var(--font-ui)}
+.detail-field input:focus{outline:2px solid var(--gold-soft);border-color:var(--gold-ink)}
+.detail-button{display:inline-flex;justify-content:center;align-items:center;min-height:42px;padding:8px 18px;border:1px solid var(--gold);border-radius:var(--r-sm);background:var(--gold);color:var(--asphalt);font:600 13px var(--font-ui);cursor:pointer;text-decoration:none}
+.detail-button--plain{background:#fff;border-color:var(--line)}
+.detail-errors{margin:7px 0;color:var(--alert);font:13px var(--font-ui)}
+.detail-errors ul{margin:0;padding-inline-start:20px}
+.detail-period{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);color:var(--slate);font:13px var(--font-ui)}
+.student-card{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:22px}
+.student-name{font-size:23px;font-weight:800;margin:0 0 4px}
+.student-group{margin:0;color:var(--gold-ink);font:600 14px var(--font-ui)}
+.student-info{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0}
+.student-info div{padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-sm);background:#fff}
+.student-info dt{color:var(--slate);font:12px var(--font-ui)}
+.student-info dd{margin:3px 0 0;font:600 14px var(--font-ui);overflow-wrap:anywhere}
+.balance-cards{display:grid;grid-template-columns:repeat(4,minmax(130px,1fr));gap:12px;margin-top:20px}
+.balance-card{padding:15px;border:1px solid var(--line);border-radius:var(--r-md);background:#fff}
+.balance-card--gold{background:#fff9ec;border-color:#ead9ae}
+.balance-card span{display:block;color:var(--slate);font:12px var(--font-ui)}
+.balance-card strong{display:block;margin-top:3px;font-size:24px;font-variant-numeric:tabular-nums}
+.detail-index{display:flex;flex-wrap:wrap;gap:8px;padding:0;margin:0;list-style:none}
+.detail-index a{display:block;padding:6px 11px;border:1px solid var(--line);border-radius:99px;background:#fff;color:var(--gold-ink);font:600 12px var(--font-ui);text-decoration:none}
+.detail-index a:hover{border-color:var(--gold)}
+.detail-table-scroll{max-width:100%;overflow-x:auto;overscroll-behavior-x:contain}
+.detail-table{width:100%;min-width:720px;border-collapse:collapse;font:13px var(--font-ui)}
+.detail-table th,.detail-table td{padding:11px 10px;border-bottom:1px solid var(--line);text-align:right;vertical-align:top}
+.detail-table th{background:#faf8f3;color:var(--slate);font-size:11px;font-weight:600;white-space:nowrap}
+.detail-table td{white-space:pre-wrap;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.detail-table tbody tr:hover{background:#fffcf5}
+.detail-table tbody tr:last-child td{border-bottom:0}
+.detail-table a{color:var(--gold-ink);font-weight:600}
+.detail-pagination{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:15px;font:12px var(--font-ui);color:var(--slate)}
+.detail-pagination-links{display:flex;gap:8px}
+.detail-note{margin-top:12px;color:var(--slate);font:12px var(--font-ui)}
+@media(max-width:720px){.wrap{padding:16px}.card{padding:16px}.student-card{grid-template-columns:1fr}.student-info{grid-template-columns:1fr}.balance-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.detail-field{flex-basis:calc(50% - 10px)}.detail-button{flex:1}.detail-heading .page-title{font-size:23px}}
+{% endblock %}
+
+{% block content %}
+<div class="detail-heading">
+  <div>
+    <h1 class="page-title">تفاصيل الطالب</h1>
+    <p class="page-sub">سجل الطالب الكامل ضمن نطاق صلاحياتك. جميع السجلات أدناه للعرض فقط.</p>
+  </div>
+  <a class="detail-back" href="{% url 'participants:student_report' %}">العودة إلى تقرير الطلاب</a>
+</div>
+
+<section class="card" aria-labelledby="student-title">
+  <div class="student-card">
+    <div>
+      <h2 class="student-name" id="student-title">{{ participant.user.full_name|default:"طالب بدون اسم" }}</h2>
+      <p class="student-group">{{ participant.group.name|default:"بدون بيئة" }}</p>
+    </div>
+    <dl class="student-info">
+      <div><dt>رقم الهوية</dt><dd>{{ participant.user.national_id|default:"—" }}</dd></div>
+      <div><dt>المرحلة الدراسية</dt><dd>{{ participant.get_academic_stage_display|default:"—" }}</dd></div>
+      <div><dt>جوال الطالب</dt><dd>{{ participant.phone|default:"—" }}</dd></div>
+      <div><dt>جوال ولي الأمر</dt><dd>{{ participant.guardian_phone|default:"—" }}</dd></div>
+      <div><dt>تاريخ انضمام الحساب</dt><dd>{{ participant.user.date_joined|date:"Y/m/d H:i" }}</dd></div>
+      <div><dt>آخر تسجيل دخول</dt><dd>{% if participant.user.last_login %}{{ participant.user.last_login|date:"Y/m/d H:i" }}{% else %}—{% endif %}</dd></div>
+    </dl>
+  </div>
+  <div class="balance-cards" aria-label="الأرصدة الحالية">
+    <div class="balance-card balance-card--gold"><span>النقاط الحالية</span><strong>{{ participant.points }}</strong></div>
+    <div class="balance-card"><span>الأميال الحالية</span><strong>{{ participant.miles }}</strong></div>
+    <div class="balance-card"><span>النقاط الشرائية</span><strong>{{ participant.purchase_points }}</strong></div>
+    <div class="balance-card"><span>البيئة</span><strong>{{ participant.group.name|default:"—" }}</strong></div>
+  </div>
+</section>
+
+<section class="card" aria-labelledby="detail-filter-title">
+  <h2 id="detail-filter-title">تصفية السجل بالتاريخ</h2>
+  <form method="get" class="detail-filter">
+    {% for field in filter_form %}
+      <div class="detail-field">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.errors %}<div class="detail-errors" role="alert">{{ field.errors }}</div>{% endif %}
+      </div>
+    {% endfor %}
+    <button type="submit" class="detail-button">عرض السجل</button>
+    <a href="." class="detail-button detail-button--plain">إلغاء الفلتر</a>
+  </form>
+  {% if filter_form.non_field_errors %}<div class="detail-errors" role="alert">{{ filter_form.non_field_errors }}</div>{% endif %}
+  {% if filters_valid %}
+    <p class="detail-period">
+      {% if start_date or end_date %}
+        الفترة: {% if start_date %}من {{ start_date|date:"Y/m/d" }}{% else %}من بداية السجل{% endif %}
+        {% if end_date %}إلى {{ end_date|date:"Y/m/d" }}{% else %}إلى آخر السجل{% endif %} — تشمل يومي البداية والنهاية.
+      {% else %}الفترة: جميع السجلات المتاحة.{% endif %}
+    </p>
+  {% endif %}
+</section>
+
+{% if filters_valid %}
+<section class="balance-cards" aria-label="ملخص الفترة">
+  <div class="balance-card"><span>أيام حضور الحلقة</span><strong>{{ summary.attended }}</strong></div>
+  <div class="balance-card"><span>أيام إنجاز الحلقة</span><strong>{{ summary.achieved }}</strong></div>
+  <div class="balance-card"><span>المهام المسلّمة</span><strong>{{ summary.submitted }}</strong></div>
+  <div class="balance-card"><span>المهام المقبولة</span><strong>{{ summary.accepted }}</strong></div>
+  <div class="balance-card"><span>قيد المراجعة</span><strong>{{ summary.pending }}</strong></div>
+  <div class="balance-card"><span>المهام المرفوضة</span><strong>{{ summary.rejected }}</strong></div>
+  <div class="balance-card balance-card--gold"><span>صافي حركات نقاط الفترة</span><strong>{{ summary.ledger_total }}</strong></div>
+  <div class="balance-card"><span>الرصيد الحالي الثابت</span><strong>{{ summary.current_balance }}</strong></div>
+</section>
+
+<nav class="card" aria-label="أقسام تفاصيل الطالب">
+  <h2>انتقل إلى سجل محدد</h2>
+  <ul class="detail-index">
+    {% for table in tables %}<li><a href="#{{ table.anchor }}">{{ table.title }}</a></li>{% endfor %}
+  </ul>
+</nav>
+
+{% for table in tables %}
+<section class="card" id="{{ table.anchor }}" aria-labelledby="{{ table.anchor }}-title">
+  <h2 id="{{ table.anchor }}-title">{{ table.title }}</h2>
+  {% if table.rows %}
+    <div class="detail-table-scroll" tabindex="0" role="region" aria-label="جدول {{ table.title }}، قابل للتمرير أفقيًا">
+      <table class="detail-table">
+        <thead><tr>{% for column in table.columns %}<th scope="col">{{ column }}</th>{% endfor %}</tr></thead>
+        <tbody>
+          {% for row in table.rows %}
+            <tr>{% for cell in row %}<td>{% if cell.url %}<a href="{{ cell.url }}" target="_blank" rel="noopener">{{ cell.value }}</a>{% else %}{{ cell }}{% endif %}</td>{% endfor %}</tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if table.page.has_other_pages %}
+      <div class="detail-pagination">
+        <span>السجلات {{ table.page.start_index }}–{{ table.page.end_index }} من {{ table.page.paginator.count }} · الصفحة {{ table.page.number }} من {{ table.page.paginator.num_pages }}</span>
+        <span class="detail-pagination-links">
+          {% if table.page.has_previous %}<a class="detail-button detail-button--plain" href="?{{ table.query }}{{ table.parameter }}={{ table.page.previous_page_number }}#{{ table.anchor }}">السابق</a>{% endif %}
+          {% if table.page.has_next %}<a class="detail-button detail-button--plain" href="?{{ table.query }}{{ table.parameter }}={{ table.page.next_page_number }}#{{ table.anchor }}">التالي</a>{% endif %}
+        </span>
+      </div>
+    {% endif %}
+  {% else %}
+    <p class="empty-note">لا توجد سجلات ضمن الفترة المحددة.</p>
+  {% endif %}
+  {% if table.anchor == "notes" %}<p class="detail-note">هذه الملاحظات خاصة بالمشرفين المخوّلين وتُعرض للقراءة فقط في هذه الصفحة.</p>{% endif %}
+</section>
+{% endfor %}
+{% else %}
+<section class="card"><p class="empty-note">صحح التاريخين بالأعلى ثم اضغط «عرض السجل». لم تُعرض أي سجلات بفترة غير صالحة.</p></section>
+{% endif %}
+{% endblock %}

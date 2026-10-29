@@ -54,8 +54,17 @@ table.roster tr:last-child td{border-bottom:none}
 
 {% block content %}
   <h1 class="page-title">طلبات المتجر</h1>
-  <p class="page-sub">حوّل الطلبات المعلّقة إلى مكتملة بعد التسليم الفعلي، واسترجع الطلبات عند الحاجة.</p>
+  {% if can_manage_store %}
+    <p class="page-sub">حوّل الطلبات المعلّقة إلى مكتملة بعد التسليم الفعلي، واسترجع الطلبات عند الحاجة.</p>
+  {% else %}
+    <p class="page-sub">طلبات طلاب البيئات المسندة إليك فقط — للقراءة دون أي إجراءات.</p>
+    <section class="card" aria-label="صلاحيات الاطلاع على الطلبات">
+      <h2>الاطلاع فقط</h2>
+      <p style="margin-bottom:0">يمكنك متابعة أسماء الطلاب وطلباتهم وحالاتها. إكمال الطلبات واسترجاعها وإدارة المنتجات متاحة للمشرف العام ومشرف النظام فقط.</p>
+    </section>
+  {% endif %}
 
+  {% if can_manage_store %}
   <section class="card">
     <h2 class="subtable-title" style="margin-top:0">
       {% if editing_product %}تعديل منتج{% else %}إضافة منتج جديد{% endif %}
@@ -132,6 +141,7 @@ table.roster tr:last-child td{border-bottom:none}
       <p class="empty-note">لا توجد منتجات بعد.</p>
     {% endif %}
   </section>
+  {% endif %}
 
   <section class="card">
     <h2 class="subtable-title" style="margin-top:0">طلبات قيد التنفيذ ({{ pending_orders|length }})</h2>
@@ -144,7 +154,7 @@ table.roster tr:last-child td{border-bottom:none}
               <th>المنتج</th>
               <th>السعر وقت الطلب</th>
               <th>تاريخ الطلب</th>
-              <th>إجراء</th>
+              {% if can_manage_store %}<th>إجراء</th>{% endif %}
             </tr>
           </thead>
           <tbody>
@@ -157,6 +167,7 @@ table.roster tr:last-child td{border-bottom:none}
                 <td>{{ order.product.name }}</td>
                 <td>{{ order.price_at_order }}</td>
                 <td>{{ order.ordered_at|date:"Y-m-d H:i" }}</td>
+                {% if can_manage_store %}
                 <td>
                   <form class="inline-form" method="post">
                     {% csrf_token %}
@@ -165,6 +176,7 @@ table.roster tr:last-child td{border-bottom:none}
                     <button type="submit" class="btn-inline">تحويل إلى مكتمل</button>
                   </form>
                 </td>
+                {% endif %}
               </tr>
             {% endfor %}
           </tbody>
@@ -187,7 +199,7 @@ table.roster tr:last-child td{border-bottom:none}
               <th>السعر وقت الطلب</th>
               <th>تاريخ الطلب</th>
               <th>الحالة</th>
-              <th>استرجاع</th>
+              {% if can_manage_store %}<th>استرجاع</th>{% endif %}
             </tr>
           </thead>
           <tbody>
@@ -209,6 +221,7 @@ table.roster tr:last-child td{border-bottom:none}
                     <span class="status-pill status-refunded">مسترجَع</span>
                   {% endif %}
                 </td>
+                {% if can_manage_store %}
                 <td>
                   {% if order.status == "refunded" %}
                     <span class="muted">تم الاسترجاع</span>
@@ -222,6 +235,7 @@ table.roster tr:last-child td{border-bottom:none}
                     </form>
                   {% endif %}
                 </td>
+                {% endif %}
               </tr>
             {% endfor %}
           </tbody>

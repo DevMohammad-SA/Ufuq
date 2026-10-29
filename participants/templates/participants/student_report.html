@@ -1,0 +1,188 @@
+{% extends "participants/app_base.html" %}
+
+{% block title %}تقرير الطلاب التفصيلي — رحّال{% endblock %}
+
+{% block extra_style %}
+.wrap{max-width:100%;min-width:0}
+.report-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.report-heading .page-sub{margin:0}
+.report-scope{background:#fff;border:1px solid var(--line);padding:6px 14px;border-radius:99px;color:var(--gold-ink);font:600 12px var(--font-ui)}
+.report-filter{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
+.report-field{flex:1 1 165px;min-width:0}
+.report-field label{display:block;font:600 13px var(--font-ui);margin-bottom:6px}
+.report-field input,.report-field select{width:100%;min-height:43px;border:1px solid var(--line);border-radius:var(--r-sm);padding:9px 11px;background:#fff;color:var(--asphalt);font:14px var(--font-ui)}
+.report-field input:focus,.report-field select:focus{outline:2px solid var(--gold-soft);border-color:var(--gold-ink)}
+.report-actions{display:flex;gap:10px;align-items:center}
+.report-button{display:inline-flex;align-items:center;justify-content:center;min-height:43px;padding:9px 20px;border-radius:var(--r-sm);font:600 13px var(--font-ui);text-decoration:none;cursor:pointer;border:1px solid var(--gold);background:var(--gold);color:var(--asphalt)}
+.report-button--plain{background:#fff;border-color:var(--line)}
+.report-errors{color:var(--alert);font:13px var(--font-ui);margin:8px 0}
+.report-errors ul{margin:0;padding-inline-start:20px}
+.report-period{font:13px var(--font-ui);color:var(--slate);margin-top:16px;padding-top:12px;border-top:1px solid var(--line)}
+.report-stats{display:flex;gap:12px;flex-wrap:wrap;margin-top:24px}
+.report-stat{flex:1 1 135px;min-width:0;background:#fff;border:1px solid var(--line);border-radius:var(--r-md);padding:18px}
+.report-stat span{display:block;font:12px var(--font-ui);color:var(--slate)}
+.report-stat strong{display:block;font-size:30px;line-height:1.4;margin-bottom:4px;font-variant-numeric:tabular-nums}
+.report-stat--gold{background:#FFF9EC;border-color:#EAD9AE}
+.report-top-list{display:flex;flex-wrap:wrap;gap:10px;list-style:none;padding:0;margin:0}
+.report-top-list li{display:flex;align-items:center;gap:10px;flex:1 1 230px;min-width:0;background:#FFFCF5;border:1px solid #EFE2C8;border-radius:var(--r-sm);padding:12px}
+.report-rank{width:30px;height:30px;display:flex;align-items:center;justify-content:center;background:var(--gold-soft);border-radius:50%;font:600 12px var(--font-ui);flex-shrink:0}
+.report-top-person{flex:1;min-width:0}
+.report-top-person b{display:block;font-size:14px;overflow-wrap:anywhere}
+.report-top-person a{color:var(--asphalt);text-decoration:none}
+.report-top-person a:hover{color:var(--gold-ink);text-decoration:underline}
+.report-top-person small{display:block;color:var(--slate);font:11px var(--font-ui)}
+.report-top-points{color:var(--gold-ink);font:600 14px var(--font-ui);white-space:nowrap}
+.report-table-scroll{max-width:100%;overflow-x:auto;overscroll-behavior-x:contain}
+.report-table{width:100%;min-width:1160px;border-collapse:collapse;font:13px var(--font-ui)}
+.report-table th,.report-table td{padding:12px 10px;border-bottom:1px solid var(--line);text-align:center;vertical-align:middle}
+.report-table th{background:#FAF8F3;color:var(--slate);font-size:11px;font-weight:600;white-space:nowrap}
+.report-table th:first-child,.report-table td:first-child{text-align:right;min-width:195px}
+.report-table td{font-variant-numeric:tabular-nums}
+.report-table tbody tr:hover{background:#FFFCF5}
+.report-table tbody tr:last-child td{border-bottom:0}
+.report-student-name{display:block;font-weight:600;color:var(--asphalt);text-decoration:none}
+.report-student-name:hover{color:var(--gold-ink);text-decoration:underline}
+.report-student-meta{display:block;color:var(--slate);font-size:11px;margin-top:4px}
+.report-num{font-size:17px;font-weight:600}
+.report-net{color:var(--gold-ink);background:#FFFCF5;font-weight:700}
+.report-negative{color:var(--alert)}
+.report-statuses{display:flex;flex-direction:column;gap:4px;text-align:start;font-size:11px;white-space:nowrap}
+.report-status-accepted{color:var(--done)}
+.report-status-pending{color:var(--gold-ink)}
+.report-status-rejected{color:var(--alert)}
+.report-breakdown{text-align:start;min-width:170px}
+.report-breakdown summary{color:var(--gold-ink);cursor:pointer;font-size:12px}
+.report-breakdown dl{margin:8px 0 0;font-size:11px}
+.report-breakdown dl div{display:flex;justify-content:space-between;gap:12px}
+.report-breakdown dt,.report-breakdown dd{margin:0}
+.report-explanation{margin-top:20px;padding:14px 16px;border-inline-start:3px solid var(--gold);background:#FAF8F3;border-radius:var(--r-sm);font:12px/1.9 var(--font-ui);color:var(--slate)}
+.report-explanation p{font-size:12px;margin-bottom:6px}
+.report-explanation p:last-child{margin-bottom:0}
+.report-pagination{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:20px;font:12px var(--font-ui)}
+.report-pagination-links{display:flex;gap:8px}
+.report-table-caption{text-align:right;font-size:12px;color:var(--slate);padding:0 0 12px}
+@media(max-width:720px){.wrap{padding:16px}.card{padding:16px}.report-stat{flex-basis:130px}.report-stat strong{font-size:26px}.report-field{flex-basis:calc(50% - 14px)}.report-actions{width:100%}.report-actions .report-button{flex:1}.report-top-list li{flex-basis:100%}.report-heading .page-title{font-size:23px}}
+{% endblock %}
+
+{% block content %}
+<div class="report-heading">
+  <div>
+    <h1 class="page-title">تقرير الطلاب التفصيلي</h1>
+    <p class="page-sub">الحضور، والإنجاز، وتسليم المهام، وحركات النقاط — في الفترة التي تختارها.</p>
+  </div>
+  <span class="report-scope">{% if is_scoped_to_group %}طلاب بيئاتك فقط{% else %}جميع طلاب البرنامج{% endif %}</span>
+</div>
+
+<section class="card" aria-labelledby="report-filter-title">
+  <h2 id="report-filter-title">حدد الفترة والطلاب</h2>
+  <form method="get" action="{% url 'participants:student_report' %}" class="report-filter">
+    {% for field in filter_form %}
+      <div class="report-field">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.errors %}<div class="report-errors" role="alert">{{ field.errors }}</div>{% endif %}
+      </div>
+    {% endfor %}
+    <div class="report-actions">
+      <button type="submit" class="report-button">عرض التقرير</button>
+      <a href="{% url 'participants:student_report' %}" class="report-button report-button--plain">إلغاء الفلاتر</a>
+    </div>
+  </form>
+  {% if filter_form.non_field_errors %}<div class="report-errors" role="alert">{{ filter_form.non_field_errors }}</div>{% endif %}
+  {% if filters_valid %}
+    <div class="report-period">
+      {% if start_date or end_date %}
+        الفترة: {% if start_date %}من {{ start_date|date:"Y/m/d" }}{% else %}من بداية السجلات{% endif %}
+        {% if end_date %}إلى {{ end_date|date:"Y/m/d" }}{% else %}إلى آخر السجلات{% endif %} — تشمل يومي البداية والنهاية.
+      {% else %}الفترة: جميع السجلات. اختر تاريخ البداية والنهاية لعرض فترة محددة.{% endif %}
+    </div>
+  {% endif %}
+</section>
+
+{% if filters_valid %}
+<div class="report-stats" aria-label="ملخص نتائج التقرير">
+  <div class="report-stat"><strong>{{ totals.students }}</strong><span>طالب ضمن النتائج</span></div>
+  <div class="report-stat"><strong>{{ totals.attended }}</strong><span>إجمالي أيام حضور الطلاب</span></div>
+  <div class="report-stat"><strong>{{ totals.achieved }}</strong><span>إجمالي أيام إنجاز الطلاب</span></div>
+  <div class="report-stat"><strong>{{ totals.submitted }}</strong><span>مهمة مسلّمة</span></div>
+  <div class="report-stat report-stat--gold"><strong{% if totals.net_points < 0 %} class="report-negative"{% endif %}>{{ totals.net_points }}</strong><span>صافي حركات نقاط الفترة</span></div>
+</div>
+
+{% if top_students %}
+<section class="card" aria-labelledby="report-top-title">
+  <h2 id="report-top-title">أبرز 15 طالبًا في نقاط الفترة</h2>
+  <p>أعلى صافي حركات نقاط موجب، حسب الفلاتر المحددة. القائمة التفصيلية لجميع الطلاب بالأسفل.</p>
+  <ol class="report-top-list">
+    {% for row in top_students %}
+      <li>
+        <span class="report-rank">{{ forloop.counter }}</span>
+        <span class="report-top-person"><b><a href="{% url 'participants:student_detail' pk=row.participant.pk %}">{{ row.participant.user.full_name|default:"طالب بدون اسم" }}</a></b><small>{{ row.participant.group.name|default:"بدون بيئة" }}</small></span>
+        <span class="report-top-points">{{ row.net_points }} نقطة</span>
+      </li>
+    {% endfor %}
+  </ol>
+</section>
+{% endif %}
+
+<section class="card" aria-labelledby="report-table-title">
+  <h2 id="report-table-title">تفاصيل الطلاب</h2>
+  {% if page_obj.object_list %}
+    <div class="report-table-scroll" tabindex="0" role="region" aria-label="جدول التقرير التفصيلي، قابل للتمرير أفقيًا">
+      <table class="report-table">
+        <caption class="report-table-caption">مرتّب حسب صافي نقاط الفترة. اضغط «تفاصيل أخرى» لعرض نقاط اللقاءات والفعاليات والإضافات.</caption>
+        <thead><tr>
+          <th scope="col">الطالب / البيئة</th>
+          <th scope="col">أيام حضور الحلقة</th>
+          <th scope="col">أيام إنجاز الحلقة</th>
+          <th scope="col">المهام المسلّمة</th>
+          <th scope="col">حالات المهام</th>
+          <th scope="col">نقاط الحلقة</th>
+          <th scope="col">نقاط المهام</th>
+          <th scope="col">تفصيل نقاط أخرى</th>
+          <th scope="col">صافي نقاط الفترة</th>
+          <th scope="col">الرصيد الحالي</th>
+        </tr></thead>
+        <tbody>
+          {% for row in page_obj %}
+            <tr data-student-id="{{ row.participant.pk }}">
+              <td><a class="report-student-name" href="{% url 'participants:student_detail' pk=row.participant.pk %}">{{ row.rank }}. {{ row.participant.user.full_name|default:"طالب بدون اسم" }}</a><span class="report-student-meta">{{ row.participant.group.name|default:"بدون بيئة" }}</span></td>
+              <td class="report-num">{{ row.circle_attended }}</td>
+              <td class="report-num">{{ row.circle_achieved }}</td>
+              <td class="report-num">{{ row.tasks_submitted }}</td>
+              <td><div class="report-statuses"><span class="report-status-accepted">مقبولة: {{ row.tasks_accepted }}</span><span class="report-status-pending">قيد المراجعة: {{ row.tasks_pending }}</span><span class="report-status-rejected">مرفوضة: {{ row.tasks_rejected }}</span></div></td>
+              <td{% if row.points_circle < 0 %} class="report-negative"{% endif %}>{{ row.points_circle }}</td>
+              <td{% if row.points_tasks < 0 %} class="report-negative"{% endif %}>{{ row.points_tasks }}</td>
+              <td><details class="report-breakdown"><summary>تفاصيل أخرى</summary><dl>
+                <div><dt>نقاط اللقاءات</dt><dd>{{ row.points_meetings }}</dd></div>
+                <div><dt>نقاط الفعاليات</dt><dd>{{ row.points_activities }}</dd></div>
+                <div><dt>إضافات / خصومات</dt><dd>{{ row.points_extra }}</dd></div>
+                <div><dt>مرات حضور اللقاء</dt><dd>{{ row.meetings_attended }}</dd></div>
+                <div><dt>مرات حضور الفعالية</dt><dd>{{ row.activities_attended }}</dd></div>
+              </dl></details></td>
+              <td class="report-net{% if row.net_points < 0 %} report-negative{% endif %}">{{ row.net_points }}</td>
+              <td>{{ row.participant.points }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="report-pagination">
+      <span>الطلاب {{ page_obj.start_index }}–{{ page_obj.end_index }} من {{ totals.students }} · الصفحة {{ page_obj.number }} من {{ page_obj.paginator.num_pages }}</span>
+      <div class="report-pagination-links">
+        {% if page_obj.has_previous %}<a class="report-button report-button--plain" href="?{{ pagination_query }}page={{ page_obj.previous_page_number }}">السابق</a>{% endif %}
+        {% if page_obj.has_next %}<a class="report-button report-button--plain" href="?{{ pagination_query }}page={{ page_obj.next_page_number }}">التالي</a>{% endif %}
+      </div>
+    </div>
+  {% else %}
+    <p class="empty-note">لا يوجد طلاب مطابقون للفلاتر ضمن نطاق صلاحياتك.</p>
+  {% endif %}
+  <div class="report-explanation">
+    <p><strong>كيف تُحسب النتائج؟</strong> حضور الحلقة وإنجازها يُحسبان مستقلين حسب يوم الحلقة. المهام تُحسب مرة واحدة لكل مهمة حسب أول تاريخ تسليم محفوظ، وتظهر حالة المراجعة الحالية؛ لا يتضمن المصدر سجلًا لمحاولات إعادة التسليم.</p>
+    <p>نقاط الفترة هي مجموع المنح والخصومات في سجل النقاط حسب تاريخ تسجيلها، وليس تاريخ النشاط. لذلك قد يُسجّل حضور أو تسليم في يوم، ثم تُمنح نقاطه في يوم آخر.</p>
+    <p><strong>صافي الفترة ليس الرصيد الحالي:</strong> الرصيد الحالي مستقل عن الفلتر، وقد يختلف بسبب التصفير وحد الصفر أو وجود أرصدة قديمة بلا سجل. عرض التقرير لا يغيّر نقاط أي طالب.</p>
+  </div>
+</section>
+{% else %}
+<section class="card"><p class="empty-note">صحح الفلاتر بالأعلى ثم اضغط «عرض التقرير». لم تُعرض نتائج بفترة غير صحيحة.</p></section>
+{% endif %}
+{% endblock %}

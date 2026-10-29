@@ -7,6 +7,7 @@ import datetime
 import openpyxl
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError, transaction
 from django.db.models import Avg, Count, Max, Min, ProtectedError, Q
 from django.db.models.functions import TruncSecond
@@ -15,6 +16,7 @@ from django.shortcuts import redirect
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.cache import patch_cache_control
 from django.views import View
 from django.views.generic import FormView, TemplateView
 
@@ -154,6 +156,15 @@ ICON_ADD_PARTICIPANT = (
 )
 
 
+def store_orders_for_user(user):
+    """Scope both order tables and badges without trusting request filters."""
+    if user.role in (Role.GENERAL_SUPERVISOR, Role.SUPERADMIN):
+        return StoreOrder.objects.all()
+    if user.role == Role.GROUP_SUPERVISOR:
+        return StoreOrder.objects.filter(participant__group__in=user.group_set.all())
+    return StoreOrder.objects.none()
+
+
 def get_notification_counts(user):
     """
     Badge counts for navbar items, keyed by the same entry `key` used in
@@ -170,6 +181,11 @@ def get_notification_counts(user):
             status=TaskSubmission.Status.PENDING,
         ).count()
         counts["store_management"] = StoreOrder.objects.filter(
+            status=StoreOrder.Status.PENDING
+        ).count()
+
+    elif user.role == Role.GROUP_SUPERVISOR:
+        counts["store_management"] = store_orders_for_user(user).filter(
             status=StoreOrder.Status.PENDING
         ).count()
 
@@ -262,6 +278,18 @@ def build_navbar(user, active_key):
                 True,
             ),
             (
+                "tasks", "مهام طلاب البيئة", "participants:weekly_task_review",
+                ICON_TASKS, "tasks", False,
+            ),
+            (
+                "store_management",
+                "طلبات المتجر",
+                "participants:store_management",
+                ICON_CART,
+                "store",
+                False,
+            ),
+            (
                 "quran",
                 "الحلقة القرآنية",
                 "participants:quran_circle_attendance",
@@ -328,6 +356,10 @@ def build_navbar(user, active_key):
                 "tasks",
                 False,
             ),
+            *([(
+                "task_review_permissions", "صلاحيات تصحيح المهام",
+                "participants:task_review_permissions", ICON_LOCK, "tasks", False,
+            )] if user.role == Role.GENERAL_SUPERVISOR else []),
             (
                 "store_management",
                 "طلبات المتجر",
@@ -351,6 +383,10 @@ def build_navbar(user, active_key):
                 ICON_ADD_PARTICIPANT,
                 "students",
                 False,
+            ),
+            (
+                "attendance", "تحضير اللقاءات", "participants:supervisor_dashboard",
+                ICON_ATTENDANCE, "students", False,
             ),
             (
                 "quran",
@@ -401,6 +437,15 @@ def build_navbar(user, active_key):
                 False,
             ),
         ]
+
+    # Keep the report within the adjacent students section for all
+    # supervisor roles, without changing the participant's navigation.
+    if user.role in (Role.GROUP_SUPERVISOR, Role.GENERAL_SUPERVISOR, Role.SUPERADMIN):
+        data_index = next(index for index, entry in enumerate(entries) if entry[0] == "data")
+        entries.insert(data_index + 1, (
+            "student_report", "تقرير الطلاب التفصيلي", "participants:student_report",
+            ICON_LEDGER, "students", False,
+        ))
 
     return [
         {
@@ -634,13 +679,13 @@ class SupervisorDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateV
     login_url = "accounts:login_supervisor"
 
     def test_func(self):
-        return self.request.user.role == Role.GROUP_SUPERVISOR
+        return self.request.user.role in (
+            Role.GROUP_SUPERVISOR, Role.GENERAL_SUPERVISOR, Role.SUPERADMIN,
+        )
 
     def get_group(self):
-        # A GROUP_SUPERVISOR is linked to their Group via Group.supervisor.
-        # Group.supervisor is an unnamed ForeignKey, so the reverse accessor
-        # from User is Django's default "group_set".
-        return self.request.user.group_set.first()
+        from .access import attendance_group
+        return attendance_group(self.request)
 
     def get_selected_date(self):
         # Defaults to today. The date travels as ?date=YYYY-MM-DD on a GET
@@ -664,6 +709,14 @@ class SupervisorDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateV
         context["group"] = group
         context["selected_date"] = selected_date
 
+        from .access import allowed_groups, can_view_meeting_notes
+        context["all_groups"] = allowed_groups(self.request.user)
+        context["show_group_selector"] = (
+            self.request.user.role != Role.GROUP_SUPERVISOR
+            or context["all_groups"].count() > 1
+        )
+        context["can_view_notes"] = can_view_meeting_notes(self.request.user)
+
         if group:
             participants = Participant.objects.filter(group=group).select_related(
                 "user"
@@ -675,6 +728,12 @@ class SupervisorDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateV
                     week_start_date=selected_date,
                 )
             }
+            notes = {}
+            if context["can_view_notes"]:
+                from .models import MeetingNote
+                notes = dict(MeetingNote.objects.filter(
+                    participant__group=group, meeting_date=selected_date,
+                ).values_list("participant_id", "text"))
             roster = []
             for participant in participants:
                 record = existing_records.get(participant.id)
@@ -685,12 +744,33 @@ class SupervisorDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateV
                         "is_early": record.is_early if record else False,
                     }
                 )
+                if context["can_view_notes"]:
+                    roster[-1]["note"] = notes.get(participant.id, "")
             context["roster"] = roster
         else:
             context["roster"] = []
 
         context["navbar_items"] = build_navbar(self.request.user, "attendance")
         return context
+
+    def render_to_response(self, context, **response_kwargs):
+        response = super().render_to_response(context, **response_kwargs)
+        patch_cache_control(response, private=True, no_store=True)
+        return response
+
+    def save_note(self, participant, selected_date, text):
+        from .models import MeetingNote
+        if not text:
+            MeetingNote.objects.filter(participant=participant, meeting_date=selected_date).delete()
+            return
+        note, created = MeetingNote.objects.get_or_create(
+            participant=participant, meeting_date=selected_date,
+            defaults={"text": text, "created_by": self.request.user, "updated_by": self.request.user},
+        )
+        if not created and note.text != text:
+            note.text = text
+            note.updated_by = self.request.user
+            note.save(update_fields=["text", "updated_by", "updated_at"])
 
     def post(self, request, *args, **kwargs):
         group = self.get_group()
@@ -708,6 +788,38 @@ class SupervisorDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateV
         participant_ids = set(
             Participant.objects.filter(group=group).values_list("id", flat=True)
         )
+        from .access import can_view_meeting_notes
+        may_note = can_view_meeting_notes(request.user)
+        if request.POST.get("action") == "save_note":
+            if not may_note:
+                raise PermissionDenied("الملاحظات متاحة لمشرفي البيئة والمشرف العام فقط.")
+            raw_id = request.POST.get("participant_id", "")
+            if not raw_id.isdecimal() or int(raw_id) not in participant_ids:
+                from django.http import Http404
+                raise Http404("طالب غير متاح")
+            text = request.POST.get("note_text", "").strip()
+            if len(text) > 2000:
+                return self.render_to_response(self.get_context_data(
+                    note_error="الملاحظة لا يمكن أن تتجاوز 2000 حرف.",
+                ), status=400)
+            with transaction.atomic():
+                participant = Participant.objects.select_for_update().get(pk=raw_id)
+                self.save_note(participant, selected_date, text)
+            return redirect(f"{reverse('participants:supervisor_dashboard')}?date={selected_date.isoformat()}&group={group.pk}")
+
+        # Validate before attendance writes. Omitted fields in old clients
+        # preserve notes; SUPERADMIN's private note fields are ignored.
+        note_values = {}
+        if may_note:
+            for participant_id in participant_ids:
+                key = f"note_{participant_id}"
+                if key in request.POST:
+                    text = request.POST[key].strip()
+                    if len(text) > 2000:
+                        return self.render_to_response(self.get_context_data(
+                            note_error="الملاحظة لا يمكن أن تتجاوز 2000 حرف.",
+                        ), status=400)
+                    note_values[participant_id] = text
 
         for participant_id in participant_ids:
             attended = request.POST.get(f"attended_{participant_id}") == "on"
@@ -759,10 +871,12 @@ class SupervisorDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateV
                     description=description,
                     granted_by=request.user,
                 )
+            if participant_id in note_values:
+                self.save_note(participant, selected_date, note_values[participant_id])
 
         return redirect(
             f"{reverse('participants:supervisor_dashboard')}"
-            f"?date={selected_date.isoformat()}"
+            f"?date={selected_date.isoformat()}&group={group.pk}"
         )
 
 
@@ -805,17 +919,8 @@ class QuranCircleAttendanceView(LoginRequiredMixin, UserPassesTestMixin, Templat
         return datetime.date.today()
 
     def get_selected_group(self):
-        # A GROUP_SUPERVISOR is locked to their own group — any `group` value
-        # in the request is ignored entirely for them. The general
-        # supervisor/superadmin picks any group via ?group=<id> (no selection
-        # means "no group chosen yet").
-        if self.request.user.role == Role.GROUP_SUPERVISOR:
-            return self.request.user.group_set.first()
-
-        group_id = self.request.POST.get("group") or self.request.GET.get("group")
-        if group_id:
-            return Group.objects.filter(id=group_id).first()
-        return None
+        from .access import attendance_group
+        return attendance_group(self.request)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -825,8 +930,10 @@ class QuranCircleAttendanceView(LoginRequiredMixin, UserPassesTestMixin, Templat
         context["selected_date"] = selected_date
         context["group"] = group
         context["is_group_locked"] = self.request.user.role == Role.GROUP_SUPERVISOR
-        context["all_groups"] = (
-            Group.objects.all() if not context["is_group_locked"] else None
+        from .access import allowed_groups
+        context["all_groups"] = allowed_groups(self.request.user)
+        context["show_group_selector"] = (
+            not context["is_group_locked"] or context["all_groups"].count() > 1
         )
         context["navbar_items"] = build_navbar(self.request.user, "quran")
 
@@ -958,17 +1065,8 @@ class WeeklyActivityAttendanceView(LoginRequiredMixin, UserPassesTestMixin, Temp
         return datetime.date.today()
 
     def get_selected_group(self):
-        # A GROUP_SUPERVISOR is locked to their own group — any `group` value
-        # in the request is ignored entirely for them. The general
-        # supervisor/superadmin picks any group via ?group=<id> (no selection
-        # means "no group chosen yet").
-        if self.request.user.role == Role.GROUP_SUPERVISOR:
-            return self.request.user.group_set.first()
-
-        group_id = self.request.POST.get("group") or self.request.GET.get("group")
-        if group_id:
-            return Group.objects.filter(id=group_id).first()
-        return None
+        from .access import attendance_group
+        return attendance_group(self.request)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -977,9 +1075,11 @@ class WeeklyActivityAttendanceView(LoginRequiredMixin, UserPassesTestMixin, Temp
 
         context["selected_date"] = selected_date
         context["group"] = group
-        context["is_group_locked"] = self.request.user.role == Role.GROUP_SUPERVISOR
-        context["all_groups"] = (
-            Group.objects.all() if not context["is_group_locked"] else None
+        from .access import allowed_groups
+        context["all_groups"] = allowed_groups(self.request.user)
+        context["is_group_locked"] = (
+            self.request.user.role == Role.GROUP_SUPERVISOR
+            and context["all_groups"].count() <= 1
         )
         context["navbar_items"] = build_navbar(self.request.user, "weekly_activity")
 
@@ -1584,11 +1684,9 @@ class PointsLedgerView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
         context = super().get_context_data(**kwargs)
 
         if self.request.user.role == Role.GROUP_SUPERVISOR:
-            group = self.request.user.group_set.first()
-            entries = (
-                PointsLedgerEntry.objects.filter(participant__group=group)
-                if group
-                else PointsLedgerEntry.objects.none()
+            from .access import allowed_groups
+            entries = PointsLedgerEntry.objects.filter(
+                participant__group__in=allowed_groups(self.request.user),
             )
         else:
             entries = PointsLedgerEntry.objects.all()
@@ -1633,15 +1731,10 @@ class ParticipantsDataView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
         )
 
     def get_queryset(self):
-        # GROUP_SUPERVISOR is linked to their Group via Group.supervisor, an
-        # unnamed ForeignKey, so the reverse accessor from User is Django's
-        # default "group_set" — same pattern as SupervisorDashboardView.get_group().
         if self.request.user.role == Role.GROUP_SUPERVISOR:
-            group = self.request.user.group_set.first()
-            base_queryset = (
-                Participant.objects.filter(group=group)
-                if group
-                else Participant.objects.none()
+            from .access import allowed_groups
+            base_queryset = Participant.objects.filter(
+                group__in=allowed_groups(self.request.user),
             )
         else:
             base_queryset = Participant.objects.all()
@@ -1703,14 +1796,10 @@ class ParticipantsDataPDFExportView(LoginRequiredMixin, UserPassesTestMixin, Vie
 
     def _get_participants(self, request):
         if request.user.role == Role.GROUP_SUPERVISOR:
-            # Locked to their own group — any ?group= in the request is
-            # ignored entirely (same guard as QuranCircleAttendanceView).
-            group = request.user.group_set.first()
-            queryset = (
-                Participant.objects.filter(group=group)
-                if group
-                else Participant.objects.none()
-            )
+            # Keep the original untrusted-name-filter behavior, but include
+            # every assigned environment rather than just the first one.
+            from .access import allowed_groups
+            queryset = Participant.objects.filter(group__in=allowed_groups(request.user))
         else:
             queryset = Participant.objects.all()
             selected_group_names = request.GET.getlist("group")
@@ -1759,16 +1848,37 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
     login_url = "accounts:login_supervisor"
 
     def test_func(self):
-        return self.request.user.role in (Role.GENERAL_SUPERVISOR, Role.SUPERADMIN)
+        return self.request.user.role in (
+            Role.GROUP_SUPERVISOR, Role.GENERAL_SUPERVISOR, Role.SUPERADMIN,
+        )
+
+    def render_to_response(self, context, **response_kwargs):
+        response = super().render_to_response(context, **response_kwargs)
+        patch_cache_control(response, private=True, no_store=True)
+        return response
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context.setdefault("create_form", WeeklyTaskForm())
+        from .access import can_manage_tasks, can_review_task_submissions, scoped_submissions
+        context["can_manage_tasks"] = can_manage_tasks(self.request.user)
+        context["can_review_submissions"] = can_review_task_submissions(self.request.user)
+        if context["can_manage_tasks"]:
+            context.setdefault("create_form", WeeklyTaskForm())
+        tasks = (
+            WeeklyTask.get_active_tasks() if context["can_manage_tasks"]
+            else WeeklyTask.objects.all().order_by("-created_at")
+        )
+        raw_task = self.request.GET.get("task")
+        if raw_task:
+            if not raw_task.isdecimal():
+                from django.http import Http404
+                raise Http404("مهمة غير متاحة")
+            tasks = WeeklyTask.objects.filter(pk=raw_task)
 
         tasks_with_submissions = []
         all_group_names = set()
-        for task in WeeklyTask.get_active_tasks():
-            submissions = task.submissions.select_related(
+        for task in tasks:
+            submissions = scoped_submissions(self.request.user).filter(task=task).select_related(
                 "participant__user", "participant__group"
             ).order_by("-submitted_at")
             group_names = sorted(
@@ -1785,6 +1895,10 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
 
     def post(self, request, *args, **kwargs):
         action = request.POST.get("action")
+        from .access import can_manage_tasks, scoped_submissions
+        may_manage = can_manage_tasks(request.user)
+        if not may_manage and action not in ("accept", "reject"):
+            raise PermissionDenied("لا يمكنك إنشاء المهام أو تفعيلها أو إعادة فتح التسليمات.")
 
         if action == "create_task":
             form = WeeklyTaskForm(request.POST)
@@ -1803,12 +1917,32 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
                 task.save(update_fields=["is_active"])
 
         elif action in ("accept", "reject"):
-            submission_id = request.POST.get("submission_id")
-            # Looked up directly by id — not scoped to any particular task,
-            # since a supervisor now reviews submissions across every active
-            # task from the same page.
-            submission = TaskSubmission.objects.filter(id=submission_id).first()
-            if submission and submission.status == TaskSubmission.Status.PENDING:
+            # Recheck and lock delegation on every POST; an already-open page
+            # cannot bypass revocation, and concurrent reviews cannot re-award.
+            from .models import TaskReviewPermission
+            from django.shortcuts import get_object_or_404
+            from django.http import Http404
+            with transaction.atomic():
+                if not may_manage and not TaskReviewPermission.objects.select_for_update().filter(
+                    supervisor=request.user, enabled=True,
+                ).first():
+                    raise PermissionDenied("التصحيح غير مفعّل لك من المشرف العام.")
+                submission_id = request.POST.get("submission_id", "")
+                if not submission_id.isdecimal():
+                    raise Http404("تسليم غير متاح")
+                submission = get_object_or_404(
+                    scoped_submissions(request.user).select_for_update(), pk=submission_id,
+                )
+                if submission.status != TaskSubmission.Status.PENDING:
+                    return redirect("participants:weekly_task_review")
+                if action == "accept" and submission.points_awarded is None:
+                    if not may_manage:
+                        raise PermissionDenied("هذا التسليم قديم ويحتاج تحقق المشرف العام من نقاطه قبل القبول.")
+                    historical_award = request.POST.get("historical_award")
+                    if historical_award not in ("already_awarded", "not_awarded"):
+                        messages.error(request, "تحقق أولًا هل صُرفت نقاط هذا التسليم القديم، ثم حدد القرار قبل القبول.")
+                        return redirect("participants:weekly_task_review")
+                    submission.points_awarded = historical_award == "already_awarded"
                 submission.status = (
                     TaskSubmission.Status.ACCEPTED
                     if action == "accept"
@@ -1818,24 +1952,29 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
                     submission.rejection_reason = request.POST.get(
                         "rejection_reason", ""
                     ).strip()
+                else:
+                    submission.rejection_reason = ""
                 is_featured = action == "accept" and request.POST.get("is_featured") == "on"
                 submission.is_featured = is_featured
                 submission.reviewed_by = request.user
                 submission.reviewed_at = timezone.now()
                 submission.save()
 
-                if action == "accept":
+                if action == "accept" and not submission.points_awarded:
+                    participant = Participant.objects.select_for_update().get(pk=submission.participant_id)
                     points = 12 if is_featured else 10
                     description = f'قبول مهمة "{submission.task.title}"'
                     if is_featured:
                         description += " (مميزة ⭐)"
                     apply_points_delta(
-                        submission.participant,
+                        participant,
                         points,
                         source=PointsLedgerEntry.Source.WEEKLY_TASK,
                         description=description,
                         granted_by=request.user,
                     )
+                    submission.points_awarded = True
+                    submission.save(update_fields=["points_awarded"])
 
         return redirect("participants:weekly_task_review")
 
@@ -2103,16 +2242,33 @@ class StoreManagementView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
     login_url = "accounts:login_supervisor"
 
     def test_func(self):
+        return self.request.user.role in (
+            Role.GROUP_SUPERVISOR, Role.GENERAL_SUPERVISOR, Role.SUPERADMIN,
+        )
+
+    def can_manage_store(self):
         return self.request.user.role in (Role.GENERAL_SUPERVISOR, Role.SUPERADMIN)
+
+    def render_to_response(self, context, **response_kwargs):
+        response = super().render_to_response(context, **response_kwargs)
+        patch_cache_control(response, private=True, no_store=True)
+        return response
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["pending_orders"] = StoreOrder.objects.filter(
-            status=StoreOrder.Status.PENDING
-        ).select_related("participant__user", "participant__group", "product")
-        context["all_orders"] = StoreOrder.objects.all().select_related(
+        orders = store_orders_for_user(self.request.user).select_related(
             "participant__user", "participant__group", "product"
         )
+        context["pending_orders"] = orders.filter(
+            status=StoreOrder.Status.PENDING
+        )
+        context["all_orders"] = orders
+        context["can_manage_store"] = self.can_manage_store()
+        context["navbar_items"] = build_navbar(self.request.user, "store_management")
+        # Group supervisors never load administrative product forms or honor
+        # ?edit=, even if an edit URL is supplied directly.
+        if not context["can_manage_store"]:
+            return context
 
         # Product management section (added on top of the orders view). The
         # setdefault calls mirror SupervisorDashboardView: post() can hand an
@@ -2133,10 +2289,13 @@ class StoreManagementView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
                 context["editing_product"] = editing_product
                 context["product_form"] = StoreProductForm(instance=editing_product)
 
-        context["navbar_items"] = build_navbar(self.request.user, "store_management")
         return context
 
     def post(self, request, *args, **kwargs):
+        # Hiding buttons is not authorization: reject every write before any
+        # action/ID lookup so forged requests cannot mutate orders or stock.
+        if not self.can_manage_store():
+            raise PermissionDenied("الاطلاع فقط؛ معالجة الطلبات متاحة للمشرف العام ومشرف النظام.")
         action = request.POST.get("action")
 
         # --- Product management actions (add / edit / delete) ---------------

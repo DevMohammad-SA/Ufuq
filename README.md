@@ -16,11 +16,12 @@ right‑to‑left). This file is in English for GitHub; **[`README.ar.md`](READM
 Arabic version.** Detailed technical docs are in [`docs/`](docs/), and
 [`CHANGELOG.md`](CHANGELOG.md) tracks released versions.
 
-**Current version: 1.2.0** (see [`CHANGELOG.md`](CHANGELOG.md)). Its headline
-changes: several weekly tasks can be open in parallel with free AND/OR
-submission formats ([`docs/weekly-tasks.md`](docs/weekly-tasks.md)), and the
-horizontal navbar was replaced by a collapsible sidebar plus a mobile drawer
-([`docs/navigation.md`](docs/navigation.md)).
+**Current tagged version: 1.2** (see [`CHANGELOG.md`](CHANGELOG.md)). It
+includes parallel weekly tasks with free AND/OR submission formats
+([`docs/weekly-tasks.md`](docs/weekly-tasks.md)) and the sidebar/mobile-drawer
+navigation ([`docs/navigation.md`](docs/navigation.md)). The repository also
+contains **untagged post-1.2 updates** recorded under `Unreleased`; no new
+version number is implied by those updates.
 
 ## Overview
 
@@ -61,9 +62,9 @@ Defined in `accounts/models.py` (`Role`):
 | Role | Arabic | Summary |
 | --- | --- | --- |
 | `participant` | مشارك | Logs in with **national ID + password**. Personal dashboard (with an embedded points ledger and the elite‑trip indicator), submission page listing **every open weekly task**, store. |
-| `group_supervisor` | مشرف بيئة | Records weekly‑gathering, Quran‑circle, and weekly‑activity attendance for **their own environment(s) only**; views their group's participant data and points ledger. |
-| `general_supervisor` | مشرف عام | Program‑wide: Excel import, single‑participant add form, weekly tasks (create, activate/deactivate, review, archive, reopen), store management, manual extra‑points grants, points reset, full points ledger, all environments. |
-| `superadmin` | مشرف النظام | Same permissions as general supervisor in every view, plus Django admin (`is_staff`/`is_superuser`). |
+| `group_supervisor` | مشرف بيئة | Records attendance and views data, reports, task submissions, and store orders for **all assigned environments**. Task review is view-only unless a general supervisor delegates it. |
+| `general_supervisor` | مشرف عام | Program‑wide: Excel import, single‑participant add form, weekly-task management, store management, manual extra‑points grants, points reset, full points ledger, all environments, and task-review delegation. |
+| `superadmin` | مشرف النظام | Program-wide management plus Django admin (`is_staff`/`is_superuser`). It does not manage group-supervisor task-review delegation or view private meeting notes. |
 
 Full permission matrix: [`docs/roles-and-permissions.md`](docs/roles-and-permissions.md).
 
@@ -95,6 +96,13 @@ Every item below maps to a real view and URL — see
   transaction; past reset events are browsable.
 - **Participant roster**: a filterable/sortable data table, plus a **PDF
   export** on the official letterhead (WeasyPrint, embedded Tajawal font).
+- **Detailed student report and private student file**: supervisor-only,
+  read-only, date-filtered aggregates and independently paginated histories,
+  scoped to every environment assigned to a group supervisor. They do not
+  reconstruct deleted store requests or replaced/deleted task attempts.
+- **Delegated task review**: a general supervisor can explicitly enable or
+  revoke a group supervisor's accept/reject capability without extending the
+  supervisor's student scope; the server re-checks the delegation on POST.
 - **Accounts**: Excel import or a single‑participant form; first password is
   the national ID, and `must_set_password` forces a real one on first login;
   a forgotten password is reset by general‑supervisor approval.
@@ -170,14 +178,17 @@ production setup (`.env.docker`, see [Deployment](#deployment)).
 uv run python manage.py makemigrations
 uv run python manage.py migrate
 uv run python manage.py check
-uv run python manage.py test                 # full suite
-uv run python manage.py test participants     # one app
+# Fast, isolated SQLite suite (in-memory DB and in-memory media)
+SECRET_KEY='<local-only>' USE_POSTGRES=False uv run python manage.py test --settings=config.test_settings --noinput
+# PostgreSQL parity suite — after preparing a disposable local Unix-socket database
+SECRET_KEY='<local-only>' uv run python manage.py test --settings=config.test_postgres_settings --noinput
 ```
 
-`accounts/tests.py` and `participants/tests.py` contain real test coverage
-(participant password flow, Quran circle point deltas, points‑reset
-snapshot history, store management branches, PDF export role scoping, and the
-navigation shell). As of 1.2.0 the suite is **37 tests, all passing**.
+`config.test_settings` uses SQLite in memory, `InMemoryStorage`, and MD5 password
+hashing for fast isolated tests. `config.test_postgres_settings` accepts only the
+local `/var/run/postgresql` Unix socket (optionally `UFUQ_TEST_DB_NAME` and
+`UFUQ_TEST_DB_USER`); never point it at a remote or production database. Run the
+commands above to obtain a result for the revision being tested.
 
 > **WeasyPrint note:** the PDF export endpoint (`/participants/data/export-pdf/`)
 > needs the system libraries WeasyPrint depends on (Pango, Cairo, GObject).
@@ -224,6 +235,11 @@ Notes:
 - Guides referenced as `دليل_رفع_الاستضافة.md` and `دليل_تحديث_الموقع.md`
   are still **not tracked in this repository**; if the project owner has
   them elsewhere, add them to `docs/` to make them an actual reference.
+- **CI/CD:** `.github/workflows/deploy-production.yml` runs on pushes to
+  `master` and on manual dispatch, then invokes
+  `/home/mohammad/scripts/deploy-ufuq.sh` through SSH. That server-side script
+  is not in this repository; an observed deployment log showed database and
+  media backups, but this does not guarantee its unseen behavior.
 
 Full technical breakdown: [`docs/architecture.md`](docs/architecture.md#النشر-الإنتاجي-docker).
 
@@ -256,6 +272,7 @@ All docs are in Arabic, under [`docs/`](docs/):
 | [`docs/models.md`](docs/models.md) | Every model field by field, constraints, `related_name`s, admin registration. |
 | [`docs/authentication.md`](docs/authentication.md) | Auth backend, forced password setup, supervisor‑approved reset. |
 | [`docs/features.md`](docs/features.md) | Every feature mapped to its view + template, and the full URL table. |
+| [`docs/student-reporting.md`](docs/student-reporting.md) | Detailed student report and student file: scope, filters, pagination, read-only boundaries, and private meeting notes. |
 | [`docs/weekly-tasks.md`](docs/weekly-tasks.md) | **New in 1.2.0.** Task lifecycle, `get_active_tasks()`, AND/OR submission formats with examples, validation rules, and what was retired. |
 | [`docs/navigation.md`](docs/navigation.md) | **New in 1.2.0.** Sidebar/drawer structure, per‑role menus, badge logic, and how to add a new page to the navigation. |
 | [`docs/deployment.md`](docs/deployment.md) | **New in 1.2.0.** Deploy/update runbook: Docker, SSL, **backup before every `migrate`**, and data‑compatibility checks before sensitive migrations. |

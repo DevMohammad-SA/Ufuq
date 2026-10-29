@@ -288,9 +288,19 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
 
 {% block content %}
   <h1 class="page-title">المهام الأسبوعية</h1>
-  <p class="page-sub">إنشاء مهام الأسبوع، تفعيلها، ومراجعة تسليمات المشاركين.</p>
+  {% if can_manage_tasks %}
+    <p class="page-sub">إنشاء مهام الأسبوع، تفعيلها، ومراجعة تسليمات المشاركين.</p>
+  {% else %}
+    <p class="page-sub">مهام وتسليمات طلاب البيئات المسندة إليك فقط، بما فيها المهام السابقة.</p>
+    <section class="card">
+      {% if can_review_submissions %}<h2>التصحيح مفعّل</h2><p>يمكنك قبول أو رفض تسليمات طلاب بيئاتك. لا يمكنك إنشاء المهام أو تفعيلها أو إعادة فتحها.</p>
+      {% else %}<h2>الاطلاع فقط</h2><p>يمكنك معاينة ملفات ونصوص طلابك وحالات التسليم. التصحيح متاح بعد تفعيله لك من المشرف العام.</p>{% endif %}
+    </section>
+  {% endif %}
 
+  {% if can_manage_tasks %}
   <p><a href="{% url 'participants:tasks_archive' %}" class="btn-inline">عرض أرشيف المهام السابقة</a></p>
+  {% if request.user.role == 'general_supervisor' %}<p><a href="{% url 'participants:task_review_permissions' %}" class="btn-inline">صلاحيات تصحيح المهام</a></p>{% endif %}
 
   <section class="card">
     <h2>إنشاء مهمة جديدة</h2>
@@ -336,6 +346,7 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
       <button type="submit" class="btn btn-block">إنشاء المهمة</button>
     </form>
   </section>
+  {% endif %}
 
   {% for entry in tasks_with_submissions %}
     <section class="card">
@@ -348,12 +359,14 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
           </div>
           <p class="current-task-desc">{{ entry.task.description }}</p>
         </div>
+        {% if can_manage_tasks %}
         <form method="post" class="task-toggle-form">
           {% csrf_token %}
           <input type="hidden" name="action" value="toggle_active">
           <input type="hidden" name="task_id" value="{{ entry.task.id }}">
           <button type="submit" class="btn-inline">تعطيل هذه المهمة</button>
         </form>
+        {% endif %}
       </div>
 
       <h3>التسليمات</h3>
@@ -383,13 +396,13 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
                 <th>تاريخ الرفع</th>
                 <th>الملف</th>
                 <th>الحالة</th>
-                <th>إجراء</th>
+                {% if can_review_submissions %}<th>إجراء</th>{% endif %}
               </tr>
             </thead>
             <tbody class="submissions-body" data-task="{{ entry.task.id }}">
               {% for submission in entry.submissions %}
                 <tr data-group="{{ submission.participant.group.name|default:'' }}">
-                  <td>{{ submission.participant.user.full_name }}</td>
+                  <td><a class="file-link" href="{% url 'participants:student_detail' submission.participant.pk %}">{{ submission.participant.user.full_name }}</a></td>
                   <td>{{ submission.participant.group.name|default:"—" }}</td>
                   <td>{{ submission.submitted_at }}</td>
                   <td>
@@ -421,19 +434,34 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
                       {% endif %}
                     {% endif %}
                   </td>
+                  {% if can_review_submissions %}
                   <td>
                     {% if submission.status == "pending" %}
                       <div class="review-actions">
+                        {% if submission.points_awarded is None and not can_manage_tasks %}
+                          <span class="rejection-note">تسليم قديم: يلزم تحقق المشرف العام من صرف النقاط قبل القبول.</span>
+                        {% else %}
                         <form method="post">
                           {% csrf_token %}
                           <input type="hidden" name="action" value="accept">
                           <input type="hidden" name="submission_id" value="{{ submission.id }}">
+                          {% if submission.points_awarded is None %}
+                            <label class="field" for="historical-award-{{ submission.id }}">
+                              تحقق من سجل النقاط القديم قبل الاختيار
+                              <select id="historical-award-{{ submission.id }}" name="historical_award" required>
+                                <option value="">هل صُرفت نقاط هذا التسليم سابقًا؟</option>
+                                <option value="already_awarded">نعم، صُرفت سابقًا — قبول دون نقاط إضافية</option>
+                                <option value="not_awarded">لا، تحققت أنها لم تُصرف — منح النقاط عند القبول</option>
+                              </select>
+                            </label>
+                          {% endif %}
                           <label class="featured-checkbox-label">
                             <input type="checkbox" name="is_featured">
                             مميزة ⭐
                           </label>
                           <button type="submit" class="btn btn-accept btn-sm">قبول</button>
                         </form>
+                        {% endif %}
                         <form method="post" class="reject-form">
                           {% csrf_token %}
                           <input type="hidden" name="action" value="reject">
@@ -446,6 +474,7 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
                       —
                     {% endif %}
                   </td>
+                  {% endif %}
                 </tr>
               {% endfor %}
             </tbody>
@@ -461,6 +490,7 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
     </section>
   {% endfor %}
 
+  {% if can_manage_tasks %}
   <section class="card">
     <h2>كل المهام</h2>
     {% if all_tasks %}
@@ -507,6 +537,7 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
       <p class="empty-note">لا توجد مهام بعد.</p>
     {% endif %}
   </section>
+  {% endif %}
 
   <div id="preview-modal" class="modal-overlay" hidden>
     <div class="modal-box">

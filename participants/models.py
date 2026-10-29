@@ -349,6 +349,10 @@ class TaskSubmission(models.Model):
         verbose_name="الحالة",
     )
     is_featured = models.BooleanField(default=False, verbose_name="مميزة")
+    points_awarded = models.BooleanField(
+        default=False, null=True, verbose_name="احتُسبت نقاط هذه المهمة",
+        help_text="علامة دائمة تمنع تكرار المنح؛ القيمة غير المحددة تتطلب تحققًا إداريًا للسجل القديم.",
+    )
     rejection_reason = models.TextField(
         blank=True,
         verbose_name="سبب الرفض",
@@ -641,3 +645,51 @@ class WeeklyActivityAttendance(models.Model):
 
     def __str__(self):
         return f"{self.participant.user.full_name} - {self.date}"
+
+
+class TaskReviewPermission(models.Model):
+    """Explicit, revocable delegation; never grants task-management access."""
+    supervisor = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="task_review_permission",
+        limit_choices_to={"role": Role.GROUP_SUPERVISOR},
+        verbose_name="مشرف البيئة",
+    )
+    enabled = models.BooleanField(default=False, verbose_name="يمكنه تصحيح مهام طلابه")
+    granted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+        related_name="task_review_permissions_granted", verbose_name="حدّث الإذن",
+    )
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="آخر تحديث")
+
+    class Meta:
+        verbose_name = "إذن تصحيح مهام"
+        verbose_name_plural = "أذونات تصحيح المهام"
+
+
+class MeetingNote(models.Model):
+    """Private staff note independent of attendance and points calculations."""
+    participant = models.ForeignKey(
+        Participant, on_delete=models.CASCADE, related_name="meeting_notes",
+        verbose_name="الطالب",
+    )
+    meeting_date = models.DateField(verbose_name="تاريخ اللقاء")
+    text = models.TextField(max_length=2000, verbose_name="الملاحظة")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+        related_name="meeting_notes_created", verbose_name="أضافها",
+    )
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+        related_name="meeting_notes_updated", verbose_name="حدّثها",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-meeting_date", "-updated_at"]
+        constraints = [models.UniqueConstraint(
+            fields=["participant", "meeting_date"], name="unique_student_meeting_note",
+        )]
+        verbose_name = "ملاحظة لقاء خاصة"
+        verbose_name_plural = "ملاحظات اللقاء الخاصة"

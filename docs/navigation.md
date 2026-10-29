@@ -69,14 +69,21 @@
 | `key` | التسمية | المسار | القسم | أساسي بالجوال؟ |
 |-------|---------|--------|-------|-----------------|
 | `attendance` | التحضير | `participants:supervisor_dashboard` | `main` | نعم |
+| `tasks` | مهام طلاب البيئة | `participants:weekly_task_review` | `tasks` | لا |
+| `store_management` | طلبات المتجر | `participants:store_management` | `store` | لا |
 | `quran` | الحلقة القرآنية | `participants:quran_circle_attendance` | `students` | نعم |
 | `weekly_activity` | فعالية الأسبوع | `participants:weekly_activity_attendance` | `students` | نعم |
 | `data` | بيانات المشاركين | `participants:participants_data` | `students` | لا |
+| `student_report` | تقرير الطلاب التفصيلي | `participants:student_report` | `students` | لا |
 | `points_ledger` | سجل النقاط | `participants:points_ledger` | `points` | لا |
 | `change_password` | تغيير كلمة المرور | `accounts:change_password` | `account` | لا |
 
 > مشرف البيئة ليس له لوحة منفصلة عن كشف التحضير، فـ"الرئيسية" و"التحضير"
 > كانتا ستشيران لنفس الرابط — لذلك هو مُدخَل واحد اسمه "التحضير".
+>
+> «مهام طلاب البيئة» تعرض تسليمات طلاب بيئاته المسندة فقط؛ القبول والرفض
+> يتطلبان تفويضًا صريحًا من المشرف العام. «طلبات المتجر» عرض فقط لمشرف البيئة،
+> وأي POST مُلفّق منها يُرفض بـ403، فلا تعتمد على غياب الأزرار كحماية.
 
 **مشرف عام / مشرف النظام:**
 
@@ -85,15 +92,21 @@
 | `home` | الرئيسية | `participants:general_supervisor_dashboard` | `main` | نعم |
 | `tasks` | المهام | `participants:weekly_task_review` | `tasks` | نعم |
 | `tasks_archive` | أرشيف المهام | `participants:tasks_archive` | `tasks` | لا |
+| `task_review_permissions` | صلاحيات تصحيح المهام | `participants:task_review_permissions` | `tasks` | لا — **للمشرف العام فقط** |
 | `store_management` | طلبات المتجر | `participants:store_management` | `store` | نعم |
 | `import` | الاستيراد | `participants:import_participants` | `students` | لا |
 | `add_participant` | إضافة طالب | `participants:add_participant` | `students` | لا |
+| `attendance` | تحضير اللقاءات | `participants:supervisor_dashboard` | `students` | لا |
 | `quran` | الحلقة القرآنية | `participants:quran_circle_attendance` | `students` | لا |
 | `weekly_activity` | فعالية الأسبوع | `participants:weekly_activity_attendance` | `students` | لا |
 | `data` | بيانات المشاركين | `participants:participants_data` | `students` | لا |
+| `student_report` | تقرير الطلاب التفصيلي | `participants:student_report` | `students` | لا |
 | `extra_points` | نقاط إضافية | `participants:extra_points` | `points` | لا |
 | `points_ledger` | سجل النقاط | `participants:points_ledger` | `points` | لا |
 | `change_password` | تغيير كلمة المرور | `accounts:change_password` | `account` | لا |
+
+> صف «صلاحيات تصحيح المهام» لا يبنى أصلًا لمشرف النظام؛ صفحة التفويض ومسارها
+> للمشرف العام فقط. أما رابط التقرير فيظهر للأدوار الإشرافية الثلاثة.
 
 ## 3. القالب: قائمة روابط واحدة، تُدرَج مرتين
 

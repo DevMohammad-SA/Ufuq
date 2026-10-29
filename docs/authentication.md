@@ -126,8 +126,8 @@ AUTHENTICATION_BACKENDS = [
 
 `accounts/tests.py` يحتوي حاليًا اختبارات فعلية (وليست ملفًا فارغًا) تغطي:
 تدفق كلمة مرور المشارك الأول (`ParticipantPasswordFlowTests`)، ورفض تسجيل
-دخول المشرف بكلمة مرور خاطئة (`SupervisorLoginUnaffectedTests`). المجموعة
-الكاملة (‏`accounts` + `participants`) **37 اختبارًا، كلها ناجحة** في إصدار
-1.2.0. راجع
+دخول المشرف بكلمة مرور خاطئة (`SupervisorLoginUnaffectedTests`). الرقم 37 كان
+خط أساس موثقًا للإصدار الموسوم 1.2.0 قبل التحديثات غير الموسومة؛ ليس نتيجة
+للكود الحالي. راجع
 [`docs/README.md`](README.md) والقسم المخصص للاختبارات في `README.md` بجذر
 المشروع.

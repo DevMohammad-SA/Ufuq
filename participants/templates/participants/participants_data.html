@@ -28,6 +28,8 @@ table.roster tr:last-child td{border-bottom:none}
 table.roster td{white-space:nowrap}
 table.roster td.num-cell{text-align:center; font-variant-numeric:tabular-nums}
 table.roster th.num-col{text-align:center}
+.roster-student-link{color:var(--asphalt);font-weight:600;text-decoration:none}
+.roster-student-link:hover{color:var(--gold-ink);text-decoration:underline}
 
 .roster-search{
   width:100%;
@@ -188,7 +190,7 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
             {% for participant in participants %}
               <tr data-search="{{ participant.user.full_name|default:''|lower }} {{ participant.user.national_id|default:''|lower }}" data-group="{{ participant.group.name|default:'' }}">
                 <td class="num-cell row-number"></td>
-                <td>{{ participant.user.full_name|default:"—" }}</td>
+                <td><a class="roster-student-link" href="{% url 'participants:student_detail' pk=participant.pk %}">{{ participant.user.full_name|default:"—" }}</a></td>
                 <td>{{ participant.user.national_id|default:"—" }}</td>
                 <td>{{ participant.group.name|default:"—" }}</td>
                 <td>{{ participant.get_academic_stage_display|default:"—" }}</td>

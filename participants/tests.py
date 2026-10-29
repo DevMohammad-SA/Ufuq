@@ -651,7 +651,7 @@ class NavigationShellTests(TestCase):
     def test_section_titles_match_groups(self):
         expected = {
             "participant": [],
-            "group_supervisor": ["الطلاب", "النقاط", "الحساب"],
+            "group_supervisor": ["المهام", "المتجر", "الطلاب", "النقاط", "الحساب"],
             "general_supervisor": [
                 "المهام",
                 "المتجر",

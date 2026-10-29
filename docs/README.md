@@ -19,6 +19,7 @@
 | [`models.md`](models.md) | كل الموديلات حقلًا حقلًا، القيود (`UniqueConstraint`)، العلاقات (`related_name`)، وما هو مسجَّل في الأدمن. |
 | [`authentication.md`](authentication.md) | `NationalIDOrUsernameBackend`، كلمة مرور المشارك (`must_set_password` + `ForcePasswordSetupMiddleware`)، واسترجاع كلمة المرور بموافقة المشرف العام. |
 | [`features.md`](features.md) | كل ميزة وظيفية مع الـ View والقالب المسؤولين (بما فيها فعالية الأسبوع، سجل النقاط، النقاط الإضافية، إضافة مشارك مفرد، التسليم المميز، تعدد صيغ المهام)، وجدول المسارات الكامل. |
+| [`student-reporting.md`](student-reporting.md) | تقرير الطلاب وملف الطالب: نطاق البيئات، فلاتر التاريخ والعدادات، الترقيم المستقل، القراءة فقط، والملاحظات الخاصة للقاء. |
 | [`weekly-tasks.md`](weekly-tasks.md) | **جديد.** نظام المهام الأسبوعية كاملًا: `is_active` وعدة مهام نشطة بالتوازي، منطق AND/OR لصيغ التسليم بأمثلة، قواعد التحقق والحدود، وما أُلغي من التصاميم الثلاثة السابقة. |
 | [`navigation.md`](navigation.md) | **جديد.** بنية القائمة الجانبية ودرج الجوال، قائمة كل دور وأقسامها، منطق الشارات والنقطة الحمراء، وكيف تُضاف صفحة جديدة للتنقل دون لمس القالب. |
 | [`deployment.md`](deployment.md) | **جديد.** إجراءات النشر والتحديث: Docker، الشهادات وSSL، **النسخ الاحتياطي قبل كل `migrate`**، وفحوص توافق البيانات قبل الهجرات الحساسة. |
@@ -31,6 +32,8 @@
 - **كيف تُحسب النقاط:** [`points-system.md`](points-system.md).
 - **ما الذي لا يجب أن أفترض وجوده، وما الذي تغيّر مؤخرًا:**
   [`known-limitations.md`](known-limitations.md).
+- **كيف يعمل التقرير وملف الطالب وما حدودهما:**
+  [`student-reporting.md`](student-reporting.md).
 - **كيف تعمل المهام الأسبوعية وصيغ التسليم:** [`weekly-tasks.md`](weekly-tasks.md).
 - **كيف أضيف صفحة جديدة للتنقل:** [`navigation.md`](navigation.md).
 - **كيف أرفع تحديثًا للإنتاج بأمان:** [`deployment.md`](deployment.md).

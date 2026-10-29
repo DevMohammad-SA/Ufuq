@@ -1,0 +1,411 @@
+/* جداول التحضير والحلقة: عناصر مشتركة ومحكومة بالنطاق .attendance-roster فقط. */
+.attendance-roster{
+  --roster-surface:#fffefa;
+  --roster-soft:#fbf8f0;
+  --roster-focus:rgba(199,154,59,.26);
+}
+
+.attendance-roster .roster-card{
+  background:var(--roster-surface);
+  border-color:#e6ddca;
+  box-shadow:0 10px 28px -24px rgba(43,47,51,.45);
+}
+
+.attendance-roster .roster-nav-link{
+  display:inline-flex;
+  text-decoration:none;
+}
+
+.attendance-roster .date-bar{
+  display:flex;
+  align-items:flex-end;
+  gap:var(--s2);
+  flex-wrap:wrap;
+  margin-bottom:var(--s3);
+}
+
+.attendance-roster .date-bar .field{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+
+.attendance-roster .date-bar label{
+  color:var(--slate);
+  font-family:var(--font-ui);
+  font-size:13px;
+}
+
+.attendance-roster .date-bar input[type="date"],
+.attendance-roster .date-bar select{
+  min-height:42px;
+  padding:8px 12px;
+  color:var(--asphalt);
+  background:#fff;
+  border:1.5px solid var(--line);
+  border-radius:var(--r-sm);
+  font-family:var(--font-ui);
+  font-size:14px;
+}
+
+.attendance-roster .btn-inline,
+.attendance-roster .roster-data-toggle{
+  min-height:42px;
+  border:1.5px solid var(--line);
+  background:#fff;
+  color:var(--asphalt);
+  border-radius:999px;
+  padding:8px 17px;
+  font-family:var(--font-ui);
+  font-size:13px;
+  font-weight:700;
+  cursor:pointer;
+  transition:border-color .16s ease, background-color .16s ease, color .16s ease;
+}
+
+.attendance-roster .btn-inline:hover,
+.attendance-roster .roster-data-toggle:hover{
+  border-color:var(--gold-ink);
+  background:var(--gold-soft);
+  color:var(--gold-ink);
+}
+
+.attendance-roster .btn-inline:focus-visible,
+.attendance-roster .roster-data-toggle:focus-visible,
+.attendance-roster .roster-search:focus-visible,
+.attendance-roster .attendance-note summary:focus-visible,
+.attendance-roster .student-name-link:focus-visible,
+.attendance-roster .select-all:focus-visible{
+  outline:3px solid var(--roster-focus);
+  outline-offset:2px;
+}
+
+.attendance-roster .roster-alert{
+  margin:0 0 var(--s2);
+  padding:10px 13px;
+  border:1px solid #dfad9e;
+  border-radius:var(--r-sm);
+  background:#fff4f1;
+  color:#8d3f2e;
+  font-family:var(--font-ui);
+  font-size:13px;
+  font-weight:600;
+}
+
+.attendance-roster .roster-tools{
+  display:flex;
+  align-items:center;
+  gap:var(--s1);
+  margin-bottom:var(--s2);
+}
+
+.attendance-roster .roster-search{
+  flex:1 1 280px;
+  min-width:0;
+  min-height:42px;
+  padding:9px 12px;
+  color:var(--asphalt);
+  background:#fff;
+  border:1.5px solid var(--line);
+  border-radius:var(--r-sm);
+  font-family:var(--font-ui);
+  font-size:14px;
+}
+
+.attendance-roster .roster-data-toggle{
+  flex:0 0 auto;
+  color:var(--gold-ink);
+  border-color:#d7bd83;
+  background:#fffaf0;
+}
+
+.attendance-roster .roster-scroll{
+  overflow-x:auto;
+  overscroll-behavior-inline:contain;
+  border:1px solid #eee5d5;
+  border-radius:var(--r-sm);
+  background:#fff;
+}
+
+.attendance-roster table.roster{
+  width:100%;
+  min-width:610px;
+  border-collapse:collapse;
+  background:#fff;
+  color:var(--asphalt);
+  font-family:var(--font-ui);
+  font-size:14px;
+}
+
+.attendance-roster table.roster th,
+.attendance-roster table.roster td{
+  padding:9px 10px;
+  text-align:right;
+  vertical-align:middle;
+  border-bottom:1px solid #efe8da;
+}
+
+.attendance-roster table.roster thead th{
+  position:sticky;
+  top:0;
+  z-index:1;
+  background:var(--roster-soft);
+  color:var(--slate);
+  font-size:12px;
+  font-weight:800;
+  line-height:1.35;
+}
+
+.attendance-roster table.roster tbody tr{
+  transition:background-color .14s ease;
+}
+
+.attendance-roster table.roster tbody tr:hover{
+  background:#fffaf0;
+}
+
+.attendance-roster table.roster tbody tr:last-child td{
+  border-bottom:none;
+}
+
+/* يبقى الإخفاء الافتراضي فعالاً ولو وُجدت قواعد عامة في القالب الأساسي. */
+.attendance-roster .student-extra[hidden]{
+  display:none !important;
+}
+
+.attendance-roster .roster-name-head,
+.attendance-roster .student-name-cell{
+  min-width:255px;
+}
+
+.attendance-roster .student-name-cell{
+  position:relative;
+  white-space:normal;
+}
+
+.attendance-roster .student-name-line{
+  min-height:27px;
+  padding-inline-end:66px;
+  display:flex;
+  align-items:center;
+}
+
+.attendance-roster .student-name-link{
+  color:var(--asphalt);
+  font-family:var(--font-display);
+  font-weight:800;
+  line-height:1.45;
+  text-decoration:none;
+}
+
+.attendance-roster .student-name-link:hover{
+  color:var(--gold-ink);
+  text-decoration:underline;
+  text-decoration-thickness:1px;
+  text-underline-offset:3px;
+}
+
+/* زر الملاحظة بجوار الاسم، بينما حقلها يبقى تحت الاسم داخل الخلية نفسها. */
+.attendance-roster .attendance-note{
+  position:relative;
+  margin:2px 0 0;
+}
+
+.attendance-roster .attendance-note > summary{
+  position:absolute;
+  inset-inline-end:0;
+  top:-29px;
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  list-style:none;
+  color:var(--gold-ink);
+  font-family:var(--font-ui);
+  font-size:11px;
+  font-weight:800;
+  cursor:pointer;
+  user-select:none;
+}
+
+.attendance-roster .attendance-note > summary::-webkit-details-marker{
+  display:none;
+}
+
+.attendance-roster .attendance-note > summary::before{
+  content:"";
+  width:7px;
+  height:7px;
+  border:1.5px solid currentColor;
+  border-radius:50%;
+}
+
+.attendance-roster .attendance-note[open] > summary::before{
+  background:currentColor;
+}
+
+.attendance-roster .attendance-note__panel{
+  padding-top:4px;
+}
+
+.attendance-roster .attendance-note__panel label{
+  display:block;
+  margin-bottom:3px;
+  color:var(--slate);
+  font-size:11px;
+  font-weight:700;
+}
+
+.attendance-roster .attendance-note__panel textarea{
+  display:block;
+  width:100%;
+  min-height:54px;
+  resize:vertical;
+  padding:7px 9px;
+  color:var(--asphalt);
+  background:#fffdf8;
+  border:1px solid #decfae;
+  border-radius:6px;
+  font:inherit;
+  font-size:12px;
+  line-height:1.45;
+}
+
+.attendance-roster .attendance-note__panel textarea:focus{
+  outline:3px solid var(--roster-focus);
+  outline-offset:1px;
+  border-color:var(--gold-ink);
+}
+
+.attendance-roster table.roster .check-col,
+.attendance-roster table.roster .check-cell,
+.attendance-roster table.roster .num-cell{
+  text-align:center;
+}
+
+.attendance-roster table.roster .check-col{
+  min-width:94px;
+}
+
+.attendance-roster table.roster .num-cell{
+  font-variant-numeric:tabular-nums;
+}
+
+.attendance-roster .roster-checkbox{
+  width:26px;
+  height:26px;
+  margin:0;
+  vertical-align:middle;
+  accent-color:var(--gold-ink);
+  cursor:pointer;
+}
+
+.attendance-roster .roster-checkbox:focus-visible{
+  outline:3px solid var(--roster-focus);
+  outline-offset:2px;
+}
+
+.attendance-roster .select-all{
+  display:block;
+  width:max-content;
+  margin:4px auto 0;
+  padding:0;
+  border:0;
+  color:var(--gold-ink);
+  background:transparent;
+  font-family:var(--font-ui);
+  font-size:11px;
+  font-weight:800;
+  line-height:1.4;
+  text-decoration:underline;
+  text-underline-offset:2px;
+  cursor:pointer;
+}
+
+.attendance-roster th.sortable{
+  cursor:pointer;
+  user-select:none;
+}
+
+.attendance-roster th.sortable:hover{
+  color:var(--asphalt);
+}
+
+.attendance-roster .sort-arrow{
+  display:inline-block;
+  min-width:12px;
+  margin-inline-start:3px;
+  color:#aaa394;
+  font-size:10px;
+}
+
+.attendance-roster th.sortable.sort-asc .sort-arrow,
+.attendance-roster th.sortable.sort-desc .sort-arrow{
+  color:var(--gold-ink);
+}
+
+.attendance-roster th.sortable.sort-asc .sort-arrow::after{content:"↑";}
+.attendance-roster th.sortable.sort-desc .sort-arrow::after{content:"↓";}
+.attendance-roster th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow::after{content:"↕";}
+
+.attendance-roster .save-bar{
+  margin-top:var(--s2);
+}
+
+.attendance-roster .save-bar .btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:100%;
+  max-width:280px;
+  padding:12px 18px;
+  border:0;
+  border-radius:999px;
+  color:#fff;
+  background:var(--asphalt);
+  font-family:var(--font-display);
+  font-size:15px;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.attendance-roster .save-bar .btn:hover{
+  background:#1f2225;
+}
+
+.attendance-roster .sr-only{
+  position:absolute;
+  width:1px;
+  height:1px;
+  padding:0;
+  margin:-1px;
+  overflow:hidden;
+  clip:rect(0,0,0,0);
+  white-space:nowrap;
+  border:0;
+}
+
+@media (max-width:620px){
+  .attendance-roster .roster-card{
+    padding:var(--s2);
+  }
+
+  .attendance-roster .roster-tools{
+    align-items:stretch;
+    flex-direction:column;
+  }
+
+  .attendance-roster .roster-data-toggle{
+    width:100%;
+  }
+
+  .attendance-roster table.roster{
+    min-width:575px;
+  }
+}
+
+.attendance-roster .note-save-button{
+  margin-top:6px;padding:5px 10px;border:1px solid #d7bd83;border-radius:7px;
+  background:#fffaf0;color:var(--gold-ink);font:600 11px var(--font-ui);cursor:pointer;
+}
+.attendance-roster .note-save-button:disabled{opacity:.6;cursor:wait}
+.attendance-roster .note-save-status{display:block;margin-top:5px;color:var(--slate);font:11px/1.6 var(--font-ui)}
