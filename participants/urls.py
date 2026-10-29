@@ -7,6 +7,7 @@ from .student_views import StudentDetailView
 from .management_views import (
     ParticipantEditView, SupervisorListView, SupervisorFormView, SupervisorDeleteView,
 )
+from .participant_lifecycle import ParticipantDeleteView, ParticipantRestoreView
 
 app_name = "participants"
 
@@ -25,6 +26,8 @@ urlpatterns = [
     path("student-report/", StudentReportView.as_view(), name="student_report"),
     path("students/<int:pk>/", StudentDetailView.as_view(), name="student_detail"),
     path("students/<int:pk>/edit/", ParticipantEditView.as_view(), name="participant_edit"),
+    path("students/<int:pk>/delete/", ParticipantDeleteView.as_view(), name="participant_delete"),
+    path("students/<int:pk>/restore/", ParticipantRestoreView.as_view(), name="participant_restore"),
     path("supervisors/", SupervisorListView.as_view(), name="supervisor_list"),
     path("supervisors/add/", SupervisorFormView.as_view(), name="supervisor_add"),
     path("supervisors/<int:pk>/edit/", SupervisorFormView.as_view(), name="supervisor_edit"),

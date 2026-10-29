@@ -32,6 +32,15 @@ table.roster th.num-col{text-align:center}
 .roster-student-link:hover{color:var(--gold-ink);text-decoration:underline}
 .roster-edit-link{display:inline-flex;align-items:center;justify-content:center;padding:5px 11px;border:1px solid var(--line);border-radius:99px;background:#fff;color:var(--asphalt);font:600 12px var(--font-ui);text-decoration:none}
 .roster-edit-link:hover{border-color:var(--gold);background:#fff9ec;color:var(--gold-ink)}
+.roster-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.roster-delete-link{border-color:#e7b2a6;color:var(--alert)}
+.roster-delete-link:hover{border-color:var(--alert);background:#fff4f1;color:var(--alert)}
+.roster-restore-link{border-color:var(--gold);background:#fff9ec;color:var(--gold-ink)}
+.status-badge{display:inline-flex;align-items:center;margin-inline-start:6px;padding:2px 7px;border:1px solid #ead9ae;border-radius:99px;background:#fff9ec;color:var(--gold-ink);font:700 10px var(--font-ui);vertical-align:middle}
+.status-filter{display:flex;align-items:end;gap:10px;flex-wrap:wrap;margin:0 0 var(--s2)}
+.status-filter label{display:flex;flex-direction:column;gap:5px;color:var(--slate);font:600 12px var(--font-ui)}
+.status-filter select{min-height:38px;padding:6px 28px 6px 10px;border:1px solid var(--line);border-radius:var(--r-sm);background:#fff;color:var(--asphalt);font:13px var(--font-ui)}
+.status-filter button{min-height:38px;padding:6px 14px;border:1px solid var(--gold);border-radius:99px;background:var(--gold);color:var(--asphalt);font:700 12px var(--font-ui);cursor:pointer}
 
 .roster-search{
   width:100%;
@@ -146,6 +155,20 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
       {% if is_scoped_to_group %}مشاركو بيئتك{% else %}جميع المشاركين{% endif %}
     </h2>
 
+    {% if can_manage_accounts %}
+      <form method="get" class="status-filter" aria-label="فلتر حالة حساب المشارك">
+        <label for="participant-status-filter">
+          حالة الحساب
+          <select name="status" id="participant-status-filter">
+            <option value="active" {% if participant_status != "inactive" and participant_status != "all" %}selected{% endif %}>النشطون</option>
+            <option value="inactive" {% if participant_status == "inactive" %}selected{% endif %}>المؤرشفون</option>
+            <option value="all" {% if participant_status == "all" %}selected{% endif %}>الكل</option>
+          </select>
+        </label>
+        <button type="submit">تطبيق الحالة</button>
+      </form>
+    {% endif %}
+
     {% if not participants %}
       <p class="empty-note">لا توجد بيانات مشاركين لعرضها حتى الآن.</p>
     {% else %}
@@ -193,7 +216,7 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
             {% for participant in participants %}
               <tr data-search="{{ participant.user.full_name|default:''|lower }} {{ participant.user.national_id|default:''|lower }}" data-group="{{ participant.group.name|default:'' }}">
                 <td class="num-cell row-number"></td>
-                <td><a class="roster-student-link" href="{% url 'participants:student_detail' pk=participant.pk %}">{{ participant.user.full_name|default:"—" }}</a></td>
+                <td><a class="roster-student-link" href="{% url 'participants:student_detail' pk=participant.pk %}">{{ participant.user.full_name|default:"—" }}</a>{% if not participant.user.is_active %}<span class="status-badge">مؤرشف</span>{% endif %}</td>
                 <td>{{ participant.user.national_id|default:"—" }}</td>
                 <td>{{ participant.group.name|default:"—" }}</td>
                 <td>{{ participant.get_academic_stage_display|default:"—" }}</td>
@@ -205,7 +228,17 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
                 <td>{{ participant.phone|default:"—" }}</td>
                 <td>{{ participant.guardian_phone|default:"—" }}</td>
                 {% if can_manage_accounts %}
-                  <td><a class="roster-edit-link" href="{% url 'participants:participant_edit' pk=participant.pk %}">تعديل</a></td>
+                  <td>
+                    <div class="roster-actions">
+                      {% if participant.user.is_active %}
+                        <a class="roster-edit-link" href="{% url 'participants:participant_edit' pk=participant.pk %}">تعديل</a>
+                        <a class="roster-edit-link roster-delete-link" href="{% url 'participants:participant_delete' pk=participant.pk %}">أرشفة</a>
+                      {% else %}
+                        <a class="roster-edit-link" href="{% url 'participants:student_detail' pk=participant.pk %}">التفاصيل</a>
+                        <a class="roster-edit-link roster-restore-link" href="{% url 'participants:participant_restore' pk=participant.pk %}">إعادة تفعيل</a>
+                      {% endif %}
+                    </div>
+                  </td>
                 {% endif %}
               </tr>
             {% endfor %}
@@ -356,6 +389,8 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
       .forEach(function (cb) {
         params.append("group", cb.value);
       });
+    var status = document.getElementById("participant-status-filter");
+    if (status) params.append("status", status.value);
     var base = "{% url 'participants:participants_data_pdf' %}";
     var qs = params.toString();
     window.location.href = qs ? base + "?" + qs : base;

@@ -12,7 +12,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import Avg, Count, Max, Min, ProtectedError, Q
 from django.db.models.functions import TruncSecond
 from django.http import HttpResponse
-from django.shortcuts import redirect
+from django.shortcuts import get_object_or_404, redirect
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
@@ -467,7 +467,7 @@ def build_navbar(user, active_key):
     ]
 
 
-def apply_points_delta(participant, points_delta, source, description, granted_by=None):
+def apply_points_delta(participant, points_delta, source, description, granted_by=None, *, event_date=None):
     """
     Applies a points delta to a participant's triple-currency balances,
     following the program's fixed conversion rule: miles = points * 10,
@@ -491,6 +491,7 @@ def apply_points_delta(participant, points_delta, source, description, granted_b
         source=source,
         description=description,
         granted_by=granted_by,
+        event_date=event_date if event_date is not None else timezone.localdate(),
     )
 
 
@@ -538,7 +539,7 @@ class HomeView(TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["participants_count"] = Participant.objects.count()
+        context["participants_count"] = Participant.objects.filter(user__is_active=True).count()
         return context
 
 
@@ -556,7 +557,7 @@ class ParticipantDashboardView(LoginRequiredMixin, TemplateView):
         # the per-environment miles tab was dropped, so `group_range` is no
         # longer built (it would be an unused extra aggregate query).
         context["program_range"] = self._build_range(
-            Participant.objects.all(),
+            Participant.objects.filter(user__is_active=True),
             participant,
         )
 
@@ -567,7 +568,7 @@ class ParticipantDashboardView(LoginRequiredMixin, TemplateView):
         # exposed — see get_elite_status().
         context["elite_status"] = self.get_elite_status(participant)
 
-        context["points_ledger"] = participant.points_ledger_entries.all()[:50]
+        context["points_ledger"] = participant.points_ledger_entries.filter(points_delta__gt=0)[:50]
 
         context["navbar_items"] = build_navbar(self.request.user, "home")
         return context
@@ -594,7 +595,7 @@ class ParticipantDashboardView(LoginRequiredMixin, TemplateView):
         # participants on identical points always resolve the same way
         # across repeated requests (the spec does not define tie handling).
         group_ranking = list(
-            Participant.objects.filter(group=participant.group)
+            Participant.objects.filter(group=participant.group, user__is_active=True)
             .order_by("-points", "id")
             .values_list("id", "points")
         )
@@ -722,7 +723,7 @@ class SupervisorDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateV
         context["can_view_notes"] = can_view_meeting_notes(self.request.user)
 
         if group:
-            participants = Participant.objects.filter(group=group).select_related(
+            participants = Participant.objects.filter(group=group, user__is_active=True, user__role=Role.PARTICIPANT).select_related(
                 "user"
             )
             existing_records = {
@@ -790,7 +791,7 @@ class SupervisorDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateV
         # a crafted request naming a participant from another environment
         # simply has no effect — it is never looked at.
         participant_ids = set(
-            Participant.objects.filter(group=group).values_list("id", flat=True)
+            Participant.objects.filter(group=group, user__is_active=True, user__role=Role.PARTICIPANT).values_list("id", flat=True)
         )
         from .access import can_view_meeting_notes
         may_note = can_view_meeting_notes(request.user)
@@ -807,7 +808,11 @@ class SupervisorDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateV
                     note_error="الملاحظة لا يمكن أن تتجاوز 2000 حرف.",
                 ), status=400)
             with transaction.atomic():
-                participant = Participant.objects.select_for_update().get(pk=raw_id)
+                participant = get_object_or_404(
+                    Participant.objects.select_for_update(of=("self",)).filter(
+                        group=group, user__is_active=True, user__role=Role.PARTICIPANT,
+                    ), pk=raw_id,
+                )
                 self.save_note(participant, selected_date, text)
             return redirect(f"{reverse('participants:supervisor_dashboard')}?date={selected_date.isoformat()}&group={group.pk}")
 
@@ -825,58 +830,67 @@ class SupervisorDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateV
                         ), status=400)
                     note_values[participant_id] = text
 
-        for participant_id in participant_ids:
-            attended = request.POST.get(f"attended_{participant_id}") == "on"
-            is_early = request.POST.get(f"early_{participant_id}") == "on"
-            participant = Participant.objects.get(id=participant_id)
+        with transaction.atomic():
+            for participant_id in sorted(participant_ids):
+                attended = request.POST.get(f"attended_{participant_id}") == "on"
+                is_early = request.POST.get(f"early_{participant_id}") == "on"
+                participant = Participant.objects.select_for_update(of=("self",)).filter(
+                    pk=participant_id, group=group, user__is_active=True,
+                    user__role=Role.PARTICIPANT,
+                ).first()
+                if participant is None:
+                    continue  # Archived/reassigned after the initial roster was loaded.
 
-            existing = MeetingAttendance.objects.filter(
-                participant_id=participant_id,
-                week_start_date=selected_date,
-            ).first()
-
-            old_points = (
-                meeting_attendance_points(existing.attended, existing.is_early)
-                if existing
-                else 0
-            )
-            new_points = meeting_attendance_points(attended, is_early)
-
-            if existing:
-                existing.attended = attended
-                existing.is_early = is_early
-                existing.recorded_by = request.user
-                existing.save()
-            else:
-                MeetingAttendance.objects.create(
+                existing = MeetingAttendance.objects.filter(
                     participant_id=participant_id,
                     week_start_date=selected_date,
-                    attended=attended,
-                    is_early=is_early,
-                    recorded_by=request.user,
-                )
+                ).first()
 
-            delta = new_points - old_points
-            if delta != 0:
-                description_parts = []
-                if attended:
-                    description_parts.append("حضور اللقاء")
-                if is_early:
-                    description_parts.append("حضور مبكر")
-                description = (
-                    " + ".join(description_parts)
-                    if description_parts
-                    else "تعديل حضور اللقاء"
+                old_points = (
+                    meeting_attendance_points(existing.attended, existing.is_early)
+                    if existing
+                    else 0
                 )
-                apply_points_delta(
-                    participant,
-                    delta,
-                    source=PointsLedgerEntry.Source.MEETING_ATTENDANCE,
-                    description=description,
-                    granted_by=request.user,
-                )
-            if participant_id in note_values:
-                self.save_note(participant, selected_date, note_values[participant_id])
+                new_points = meeting_attendance_points(attended, is_early)
+
+                if existing:
+                    existing.attended = attended
+                    existing.is_early = is_early
+                    existing.recorded_by = request.user
+                    existing.save()
+                else:
+                    MeetingAttendance.objects.create(
+                        participant_id=participant_id,
+                        week_start_date=selected_date,
+                        attended=attended,
+                        is_early=is_early,
+                        recorded_by=request.user,
+                    )
+
+                delta = new_points - old_points
+                if delta != 0:
+                    description_parts = []
+                    if attended:
+                        description_parts.append("حضور اللقاء")
+                    if is_early:
+                        description_parts.append("حضور مبكر")
+                    description = (
+                        " + ".join(description_parts)
+                        if description_parts
+                        else "تعديل حضور اللقاء"
+                    )
+                    apply_points_delta(
+                        participant,
+                        delta,
+                        source=PointsLedgerEntry.Source.MEETING_ATTENDANCE,
+                        description=description,
+                        granted_by=request.user,
+                        event_date=selected_date,
+                    )
+                if participant_id in note_values:
+                    self.save_note(participant, selected_date, note_values[participant_id])
+
+        messages.success(request, f"تم حفظ تحضير اللقاء بتاريخ {selected_date:%Y/%m/%d} بنجاح.")
 
         return redirect(
             f"{reverse('participants:supervisor_dashboard')}"
@@ -942,7 +956,7 @@ class QuranCircleAttendanceView(LoginRequiredMixin, UserPassesTestMixin, Templat
         context["navbar_items"] = build_navbar(self.request.user, "quran")
 
         if group:
-            participants = Participant.objects.filter(group=group).select_related(
+            participants = Participant.objects.filter(group=group, user__is_active=True, user__role=Role.PARTICIPANT).select_related(
                 "user"
             )
             existing_records = {
@@ -979,58 +993,67 @@ class QuranCircleAttendanceView(LoginRequiredMixin, UserPassesTestMixin, Templat
         # participant from another group simply has no effect — exactly the
         # same guard SupervisorDashboardView.post() uses.
         participant_ids = set(
-            Participant.objects.filter(group=group).values_list("id", flat=True)
+            Participant.objects.filter(group=group, user__is_active=True, user__role=Role.PARTICIPANT).values_list("id", flat=True)
         )
 
-        for participant_id in participant_ids:
-            attended = request.POST.get(f"attended_{participant_id}") == "on"
-            achieved = request.POST.get(f"achieved_{participant_id}") == "on"
-            participant = Participant.objects.get(id=participant_id)
+        with transaction.atomic():
+            for participant_id in sorted(participant_ids):
+                attended = request.POST.get(f"attended_{participant_id}") == "on"
+                achieved = request.POST.get(f"achieved_{participant_id}") == "on"
+                participant = Participant.objects.select_for_update(of=("self",)).filter(
+                    pk=participant_id, group=group, user__is_active=True,
+                    user__role=Role.PARTICIPANT,
+                ).first()
+                if participant is None:
+                    continue  # Archived/reassigned after the initial roster was loaded.
 
-            existing = CircleAttendance.objects.filter(
-                participant_id=participant_id, date=selected_date
-            ).first()
+                existing = CircleAttendance.objects.filter(
+                    participant_id=participant_id, date=selected_date
+                ).first()
 
-            old_points = (
-                quran_circle_points(existing.attended, existing.achieved)
-                if existing
-                else 0
-            )
-            new_points = quran_circle_points(attended, achieved)
-
-            if existing:
-                existing.attended = attended
-                existing.achieved = achieved
-                existing.recorded_by = request.user
-                existing.save()
-            else:
-                CircleAttendance.objects.create(
-                    participant_id=participant_id,
-                    date=selected_date,
-                    attended=attended,
-                    achieved=achieved,
-                    recorded_by=request.user,
+                old_points = (
+                    quran_circle_points(existing.attended, existing.achieved)
+                    if existing
+                    else 0
                 )
+                new_points = quran_circle_points(attended, achieved)
 
-            delta = new_points - old_points
-            if delta != 0:
-                description_parts = []
-                if attended:
-                    description_parts.append("حضور الحلقة")
-                if achieved:
-                    description_parts.append("إنجاز الحلقة")
-                description = (
-                    " + ".join(description_parts)
-                    if description_parts
-                    else "تعديل حضور الحلقة"
-                )
-                apply_points_delta(
-                    participant,
-                    delta,
-                    source=PointsLedgerEntry.Source.QURAN_CIRCLE,
-                    description=description,
-                    granted_by=request.user,
-                )
+                if existing:
+                    existing.attended = attended
+                    existing.achieved = achieved
+                    existing.recorded_by = request.user
+                    existing.save()
+                else:
+                    CircleAttendance.objects.create(
+                        participant_id=participant_id,
+                        date=selected_date,
+                        attended=attended,
+                        achieved=achieved,
+                        recorded_by=request.user,
+                    )
+
+                delta = new_points - old_points
+                if delta != 0:
+                    description_parts = []
+                    if attended:
+                        description_parts.append("حضور الحلقة")
+                    if achieved:
+                        description_parts.append("إنجاز الحلقة")
+                    description = (
+                        " + ".join(description_parts)
+                        if description_parts
+                        else "تعديل حضور الحلقة"
+                    )
+                    apply_points_delta(
+                        participant,
+                        delta,
+                        source=PointsLedgerEntry.Source.QURAN_CIRCLE,
+                        description=description,
+                        granted_by=request.user,
+                        event_date=selected_date,
+                    )
+
+        messages.success(request, f"تم حفظ تحضير الحلقة بتاريخ {selected_date:%Y/%m/%d} بنجاح.")
 
         redirect_url = (
             f"{reverse('participants:quran_circle_attendance')}"
@@ -1088,7 +1111,7 @@ class WeeklyActivityAttendanceView(LoginRequiredMixin, UserPassesTestMixin, Temp
         context["navbar_items"] = build_navbar(self.request.user, "weekly_activity")
 
         if group:
-            participants = Participant.objects.filter(group=group).select_related(
+            participants = Participant.objects.filter(group=group, user__is_active=True, user__role=Role.PARTICIPANT).select_related(
                 "user"
             )
             existing_records = {
@@ -1124,41 +1147,50 @@ class WeeklyActivityAttendanceView(LoginRequiredMixin, UserPassesTestMixin, Temp
         # participant from another group simply has no effect — same guard
         # QuranCircleAttendanceView.post() uses.
         participant_ids = set(
-            Participant.objects.filter(group=group).values_list("id", flat=True)
+            Participant.objects.filter(group=group, user__is_active=True, user__role=Role.PARTICIPANT).values_list("id", flat=True)
         )
 
-        for participant_id in participant_ids:
-            attended = request.POST.get(f"attended_{participant_id}") == "on"
-            participant = Participant.objects.get(id=participant_id)
+        with transaction.atomic():
+            for participant_id in sorted(participant_ids):
+                attended = request.POST.get(f"attended_{participant_id}") == "on"
+                participant = Participant.objects.select_for_update(of=("self",)).filter(
+                    pk=participant_id, group=group, user__is_active=True,
+                    user__role=Role.PARTICIPANT,
+                ).first()
+                if participant is None:
+                    continue  # Archived/reassigned after the initial roster was loaded.
 
-            existing = WeeklyActivityAttendance.objects.filter(
-                participant_id=participant_id, date=selected_date
-            ).first()
+                existing = WeeklyActivityAttendance.objects.filter(
+                    participant_id=participant_id, date=selected_date
+                ).first()
 
-            old_points = WEEKLY_ACTIVITY_POINTS if (existing and existing.attended) else 0
-            new_points = WEEKLY_ACTIVITY_POINTS if attended else 0
+                old_points = WEEKLY_ACTIVITY_POINTS if (existing and existing.attended) else 0
+                new_points = WEEKLY_ACTIVITY_POINTS if attended else 0
 
-            if existing:
-                existing.attended = attended
-                existing.recorded_by = request.user
-                existing.save()
-            else:
-                WeeklyActivityAttendance.objects.create(
-                    participant_id=participant_id,
-                    date=selected_date,
-                    attended=attended,
-                    recorded_by=request.user,
-                )
+                if existing:
+                    existing.attended = attended
+                    existing.recorded_by = request.user
+                    existing.save()
+                else:
+                    WeeklyActivityAttendance.objects.create(
+                        participant_id=participant_id,
+                        date=selected_date,
+                        attended=attended,
+                        recorded_by=request.user,
+                    )
 
-            delta = new_points - old_points
-            if delta != 0:
-                apply_points_delta(
-                    participant,
-                    delta,
-                    source=PointsLedgerEntry.Source.WEEKLY_ACTIVITY,
-                    description="فعالية الأسبوع" if attended else "تعديل فعالية الأسبوع",
-                    granted_by=request.user,
-                )
+                delta = new_points - old_points
+                if delta != 0:
+                    apply_points_delta(
+                        participant,
+                        delta,
+                        source=PointsLedgerEntry.Source.WEEKLY_ACTIVITY,
+                        description="فعالية الأسبوع" if attended else "تعديل فعالية الأسبوع",
+                        granted_by=request.user,
+                        event_date=selected_date,
+                    )
+
+        messages.success(request, f"تم حفظ تحضير فعالية الأسبوع بتاريخ {selected_date:%Y/%m/%d} بنجاح.")
 
         redirect_url = (
             f"{reverse('participants:weekly_activity_attendance')}"
@@ -1428,14 +1460,18 @@ class GeneralSupervisorDashboardView(
         # Group.participants -> Participant.group has related_name="participants"
         # (participants/models.py: Participant.group ForeignKey).
         group_counts = list(
-            Group.objects.annotate(participant_count=Count("participants"))
+            Group.objects.annotate(participant_count=Count(
+                "participants", filter=Q(participants__user__is_active=True),
+            ))
             .order_by("name")
             .values_list("name", "participant_count")
         )
 
         # Chart 3: average points per group (same reverse relation).
         group_avg_points = list(
-            Group.objects.annotate(avg_points=Avg("participants__points"))
+            Group.objects.annotate(avg_points=Avg(
+                "participants__points", filter=Q(participants__user__is_active=True),
+            ))
             .order_by("name")
             .values_list("name", "avg_points")
         )
@@ -1446,10 +1482,10 @@ class GeneralSupervisorDashboardView(
         # "not submitted" is a clean subtraction with no double-counting.
         latest_task = WeeklyTask.get_active_tasks().order_by("-created_at").first()
         if latest_task:
-            total_participants = Participant.objects.count()
+            total_participants = Participant.objects.filter(user__is_active=True).count()
             status_counts = {
                 row["status"]: row["n"]
-                for row in TaskSubmission.objects.filter(task=latest_task)
+                for row in TaskSubmission.objects.filter(task=latest_task, participant__user__is_active=True)
                 .values("status")
                 .annotate(n=Count("id"))
             }
@@ -1487,7 +1523,7 @@ class GeneralSupervisorDashboardView(
         # Headline KPI tiles (rendered above the charts). "Open tasks" counts
         # every pending submission across ALL weekly tasks, not just the
         # latest one — a different figure from chart 2's pending slice.
-        context["kpi_total_participants"] = Participant.objects.count()
+        context["kpi_total_participants"] = Participant.objects.filter(user__is_active=True).count()
         context["kpi_open_tasks"] = TaskSubmission.objects.filter(
             status=TaskSubmission.Status.PENDING
         ).count()
@@ -1638,7 +1674,7 @@ class ExtraPointsView(LoginRequiredMixin, UserPassesTestMixin, FormView):
         if self.request.user.role == Role.GROUP_SUPERVISOR:
             group = self.request.user.group_set.first()
             return (
-                Participant.objects.filter(group=group).select_related("user")
+                Participant.objects.filter(group=group, user__is_active=True, user__role=Role.PARTICIPANT).select_related("user")
                 if group
                 else Participant.objects.none()
             )
@@ -1661,6 +1697,7 @@ class ExtraPointsView(LoginRequiredMixin, UserPassesTestMixin, FormView):
             source=PointsLedgerEntry.Source.EXTRA,
             description=form.cleaned_data["reason"],
             granted_by=self.request.user,
+            event_date=timezone.localdate(),
         )
         messages.success(self.request, "تم منح النقاط بنجاح.")
         return redirect("participants:extra_points")
@@ -1743,6 +1780,9 @@ class ParticipantsDataView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
         else:
             base_queryset = Participant.objects.all()
 
+        from .participant_lifecycle import filter_participant_status
+        base_queryset = filter_participant_status(base_queryset, self.request)
+
         # CircleAttendance.participant / MeetingAttendance.participant carry
         # explicit related_name values ("circle_attendances" /
         # "meeting_attendances"), so those are the reverse accessors used here.
@@ -1772,6 +1812,8 @@ class ParticipantsDataView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
         context["navbar_items"] = build_navbar(self.request.user, "data")
         from .management_views import can_manage_accounts
         context["can_manage_accounts"] = can_manage_accounts(self.request.user)
+        from .participant_lifecycle import participant_status
+        context["participant_status"] = participant_status(self.request)
         return context
 
 
@@ -1812,6 +1854,8 @@ class ParticipantsDataPDFExportView(LoginRequiredMixin, UserPassesTestMixin, Vie
             if selected_group_names:
                 queryset = queryset.filter(group__name__in=selected_group_names)
 
+        from .participant_lifecycle import filter_participant_status
+        queryset = filter_participant_status(queryset, request)
         return queryset.select_related("user", "group").order_by("-miles")
 
     def get(self, request, *args, **kwargs):
@@ -1978,6 +2022,7 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
                         source=PointsLedgerEntry.Source.WEEKLY_TASK,
                         description=description,
                         granted_by=request.user,
+                        event_date=timezone.localdate(submission.submitted_at),
                     )
                     submission.points_awarded = True
                     submission.save(update_fields=["points_awarded"])

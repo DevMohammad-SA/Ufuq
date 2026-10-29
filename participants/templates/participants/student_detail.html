@@ -11,6 +11,11 @@
 .detail-back:hover{border-color:var(--gold);color:var(--gold-ink)}
 .detail-edit{border-color:var(--gold);background:#fff9ec;color:var(--gold-ink)}
 .detail-edit:hover{background:var(--gold-soft)}
+.detail-delete{border-color:#e7b2a6;color:var(--alert)}
+.detail-delete:hover{border-color:var(--alert);background:#fff4f1;color:var(--alert)}
+.detail-restore{border-color:var(--gold);background:#fff9ec;color:var(--gold-ink)}
+.detail-restore:hover{background:var(--gold-soft)}
+.student-status-badge{display:inline-flex;align-items:center;margin-inline-start:8px;padding:3px 8px;border:1px solid #ead9ae;border-radius:99px;background:#fff9ec;color:var(--gold-ink);font:700 11px var(--font-ui);vertical-align:middle}
 .detail-filter{display:flex;gap:14px;flex-wrap:wrap;align-items:end}
 .detail-field{flex:1 1 190px;min-width:0}
 .detail-field label{display:block;margin-bottom:6px;font:600 13px var(--font-ui)}
@@ -57,7 +62,14 @@
     <p class="page-sub">سجل الطالب الكامل ضمن نطاق صلاحياتك. جميع السجلات أدناه للعرض فقط.</p>
   </div>
   <div class="detail-actions">
-    {% if can_manage_accounts %}<a class="detail-back detail-edit" href="{% url 'participants:participant_edit' pk=participant.pk %}">تعديل بيانات المشارك</a>{% endif %}
+    {% if can_manage_accounts %}
+      {% if participant.user.is_active %}
+        <a class="detail-back detail-edit" href="{% url 'participants:participant_edit' pk=participant.pk %}">تعديل بيانات المشارك</a>
+        <a class="detail-back detail-delete" href="{% url 'participants:participant_delete' pk=participant.pk %}">أرشفة الحساب</a>
+      {% else %}
+        <a class="detail-back detail-restore" href="{% url 'participants:participant_restore' pk=participant.pk %}">إعادة تفعيل الحساب</a>
+      {% endif %}
+    {% endif %}
     <a class="detail-back" href="{% url 'participants:student_report' %}">العودة إلى تقرير الطلاب</a>
   </div>
 </div>
@@ -65,7 +77,7 @@
 <section class="card" aria-labelledby="student-title">
   <div class="student-card">
     <div>
-      <h2 class="student-name" id="student-title">{{ participant.user.full_name|default:"طالب بدون اسم" }}</h2>
+      <h2 class="student-name" id="student-title">{{ participant.user.full_name|default:"طالب بدون اسم" }}{% if not participant.user.is_active %}<span class="student-status-badge">حساب مؤرشف</span>{% endif %}</h2>
       <p class="student-group">{{ participant.group.name|default:"بدون بيئة" }}</p>
     </div>
     <dl class="student-info">

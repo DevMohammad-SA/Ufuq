@@ -551,6 +551,10 @@ class PointsLedgerEntry(models.Model):
     source = models.CharField(max_length=20, choices=Source.choices, verbose_name="المصدر")
     description = models.CharField(max_length=255, verbose_name="الوصف")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="التاريخ")
+    event_date = models.DateField(
+        null=True, blank=True, verbose_name="تاريخ الحدث",
+        help_text="اليوم الفعلي للنشاط؛ يبقى فارغًا عندما لم يُسجل تاريخ الحدث القديم.",
+    )
     granted_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

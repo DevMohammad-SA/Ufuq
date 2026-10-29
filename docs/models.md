@@ -18,7 +18,7 @@
 | `username` | `CharField(max_length=30, unique=True, blank=True, null=True)` | اسم المستخدم. مفتاح دخول المشرفين. |
 | `role` | `CharField(max_length=30, choices=Role.choices)` | الدور. لا قيمة افتراضية. |
 | `full_name` | `CharField(max_length=100, blank=True)` | الاسم الكامل. |
-| `is_active` | `BooleanField(default=True)` | يُفحص في الـ backend. |
+| `is_active` | `BooleanField(default=True)` | يُفحص في الـ backend. تعطيل المشارك الناعم يغيّر هذا العلم فقط، فلا يحذف المستخدم أو صف `Participant`. |
 | `is_staff` | `BooleanField(default=False)` | الوصول لواجهة أدمن Django. |
 | `must_set_password` | `BooleanField(default=False)` | إذا `True`: المشارك مُجبَر على صفحة تعيين كلمة مرور جديدة. راجع [`authentication.md`](authentication.md). |
 | `date_joined` | `DateTimeField(auto_now_add=True)` | — |
@@ -75,6 +75,10 @@
 | `academic_stage` | `CharField(max_length=10, choices=AcademicStage.choices)` | لا قيمة افتراضية. |
 
 `Meta.ordering = ["user__full_name"]`.
+
+تعطيل المشارك ليس حذفًا لهذا الموديل أو للمستخدم المرتبط به: تبقى الأرصدة وكل
+العلاقات التاريخية (الحضور، المهام، الملاحظات، الطلبات، دفتر النقاط واللقطات)
+كما هي، وتعود بلا تصفير عند إعادة تفعيل الحساب.
 
 > **ملاحظة على واجهة المشارك:** منذ التحديث 1.1.0 لا تُعرض بطاقة "النقاط"
 > (`points`) في لوحة المشارك — تُعرض فقط "الأميال" و"النقاط الشرائية". الحقل
@@ -290,7 +294,8 @@ SUBMISSION_FORMAT_EXTENSIONS = {
 | `points_delta` | `IntegerField` | **موقّع عمدًا** (وليس `PositiveIntegerField`) — تصحيح يخفّض منحة سابقة أو خصم يدوي يجب أن يكون قابلًا للتمثيل كدلتا سالبة. |
 | `source` | `CharField(max_length=20, choices=Source.choices)` | مصدر الحركة — انظر أدناه. |
 | `description` | `CharField(max_length=255)` | وصف نصي حر (مثل "حضور اللقاء + حضور مبكر" أو سبب النقاط الإضافية). |
-| `created_at` | `DateTimeField(auto_now_add=True)` | — |
+| `event_date` | `DateField(null=True, blank=True)` | تاريخ وقوع الحدث، أضافته الهجرة `0020_points_event_date`. يبقى `NULL` في السجلات القديمة ويُعرض «غير مسجل»؛ لا ترحيل عكسيًا من الوصف أو وقت التسجيل. |
+| `created_at` | `DateTimeField(auto_now_add=True)` | وقت تسجيل صف الدفتر فعليًا، لا تاريخ وقوع الحدث. |
 | `granted_by` | `FK(AUTH_USER_MODEL, on_delete=SET_NULL, null=True, related_name="+")` | من نفّذ الإجراء الذي ولّد الحركة. |
 
 كلاس `PointsLedgerEntry.Source` (`TextChoices`): `meeting_attendance` (حضور اللقاء

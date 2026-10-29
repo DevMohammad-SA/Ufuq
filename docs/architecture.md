@@ -55,6 +55,15 @@
 `request.user.participant` (انظر مثلًا طريقة
 `ParticipantDashboardView.get_context_data`).
 
+دورة حياة المشارك في `participants/participant_lifecycle.py`: لا يوجد حذف
+فعلي ولا هجرة حذف. تستدعي صفحات الإدارة المساعدة المشتركة في
+`AccountManagementView` لتعطيل `User.is_active` أو استعادته داخل معاملة بأقفال
+مرتبة وتسجيل تدقيق في `LogEntry`. يبقى `User` و`Participant` وكل بياناته
+المرتبطة محفوظة؛ الاستعادة لا تعيد أي رصيد أو نقاط أو حضور إلى حالة ابتدائية.
+الاستعلامات التشغيلية الافتراضية للكشوف والصفحة العامة ومؤشر النخبة تقصر
+المشاركين على الحسابات النشطة، بينما تبقى السجلات التاريخية ضمن نطاق البيئة
+المسموح للمشرف.
+
 ## ربط مشرف البيئة ببيئته/بيئاته
 
 > **⚠️ تغيّر معماري مهم**: هذا القسم كان يصف `Group.supervisor` كـ
@@ -110,6 +119,8 @@ View يحسب الفرق (`new_points - old_points`) ويطبّقه مرة وا�
 إرسال نفس الكشف لا تضاعف النقاط (idempotent). منذ 1.1.0، كل استدعاء لـ
 `apply_points_delta` يكتب أيضًا صفًا في `PointsLedgerEntry` (سجل تدقيق مركزي) —
 راجع [`points-system.md`](points-system.md) للتفاصيل الرقمية والتقنية الكاملة.
+يحمل كل صف، عند توفره، `event_date` لتاريخ الحدث و`created_at` المستقل لوقت
+تسجيله الفعلي؛ لا يُستبدل أحدهما بالآخر.
 
 ## قاعدة البيانات
 
@@ -160,9 +171,11 @@ View يحسب الفرق (`new_points - old_points`) ويطبّقه مرة وا�
 ## سجل الهجرات (Migrations)
 
 - `accounts`: 3 هجرات (آخرها `0003_user_must_set_password_passwordresetrequest`).
-- `participants`: **19 هجرة**، آخرها `0019_task_points_once`. أضافت `0018`
-  نموذجي `MeetingNote` و`TaskReviewPermission`، وأضافت `0019` علامة
-  `TaskSubmission.points_awarded`.
+- `participants`: **20 هجرة**، آخرها `0020_points_event_date` بعد
+  `0019_task_points_once`. أضافت `0018` نموذجي `MeetingNote` و
+  `TaskReviewPermission`، وأضافت `0019` علامة `TaskSubmission.points_awarded`
+  وأضافت `0020` حقل `PointsLedgerEntry.event_date` الاختياري بلا ملء رجعي
+  للسجلات القديمة.
 - `0019` تتضمن هجرة بيانات فعلية (`RunPython`) لكنها لا تطابق العناوين أو
   أوصاف السجل ولا تقرأ دفتر النقاط: التسليم المقبول القديم يصبح `True`، وكل
   تسليم تاريخي معلّق أو مرفوض يصبح `NULL` (قرار تاريخي غير مؤكد). التسليمات

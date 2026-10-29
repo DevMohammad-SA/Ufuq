@@ -179,11 +179,13 @@ class StudentDetailView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
             ),
             self._table(
                 anchor="ledger", title="سجل النقاط",
-                columns=["الوصف", "المصدر", "التغيير", "التاريخ", "مُنح بواسطة"],
+                columns=["الوصف", "المصدر", "التغيير", "تاريخ تسجيل النقاط", "تاريخ الحدث", "مُنح بواسطة"],
                 page=pages["ledger"], parameter="ledger_page",
                 rows=[[
                     self._display(item.description), item.get_source_display(), item.points_delta,
-                    self._datetime(item.created_at), self._display(getattr(item.granted_by, "full_name", None)),
+                    self._datetime(item.created_at),
+                    self._date(item.event_date) if item.event_date else "غير مسجل",
+                    self._display(getattr(item.granted_by, "full_name", None)),
                 ] for item in pages["ledger"]],
             ),
             self._table(

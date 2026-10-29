@@ -13,6 +13,8 @@
       {% if group %}بيئة <b>{{ group.name }}</b> · {% endif %}اختر تاريخ اللقاء، ثم علّم حضور المشاركين واحفظ التحضير دفعة واحدة.
     </p>
 
+    {% include "participants/_attendance_messages.html" %}
+
     <p><a href="{% url 'participants:participants_data' %}" class="btn-inline roster-nav-link">بيانات المشاركين</a></p>
 
     <section class="card roster-card">

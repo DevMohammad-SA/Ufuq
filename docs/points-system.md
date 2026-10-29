@@ -18,8 +18,8 @@
 ## معادلة التحويل — `apply_points_delta`
 
 دالة في `participants/views.py`. تأخذ `points_delta` (موجب أو سالب) بالإضافة
-إلى بيانات تدقيق (`source`, `description`, `granted_by`)، وتطبّق الدلتا على
-الثلاث دفعة واحدة، ثم تكتب سجل تدقيق:
+إلى بيانات تدقيق (`source`, `description`, `granted_by`) وتاريخ الحدث، وتطبّق
+الدلتا على الثلاث دفعة واحدة، ثم تكتب سجل تدقيق:
 
 ```
 participant.points          = max(0, points + points_delta)
@@ -33,6 +33,7 @@ PointsLedgerEntry.objects.create(
     source=source,
     description=description,
     granted_by=granted_by,
+    event_date=event_date,
 )
 ```
 
@@ -49,6 +50,8 @@ PointsLedgerEntry.objects.create(
   حضور/إنجاز الحلقة القرآنية، تسجيل فعالية الأسبوع، قبول المهمة الأسبوعية،
   منح النقاط الإضافية اليدوي. (المتجر **لا** يستدعيها إطلاقًا — يعدّل
   `purchase_points` وحدها مباشرة، بلا سجل في `PointsLedgerEntry`.)
+- `created_at` يبقى وقت **تسجيل** السجل الفعلي ولا يُستبدل بتاريخ الحدث؛
+  `event_date` هو تاريخ وقوع النشاط الذي ولّد الحركة.
 
 ## مصادر النقاط الحالية والقيَم الفعلية
 
@@ -88,7 +91,8 @@ def meeting_attendance_points(attended, is_early):
 
 يُحفظ في موديل `MeetingAttendance` (حقلا `attended` و`is_early`)، وتُطبّق دلتا
 الفرق عبر `apply_points_delta` في `SupervisorDashboardView.post()` بمصدر
-`PointsLedgerEntry.Source.MEETING_ATTENDANCE`.
+`PointsLedgerEntry.Source.MEETING_ATTENDANCE`. تاريخ الحدث في السجل هو التاريخ
+المختار في الكشف.
 
 ### 2. حضور وإنجاز الحلقة القرآنية — `QuranCircleAttendanceView`
 
@@ -110,7 +114,8 @@ QURAN_ACHIEVEMENT_POINTS = 2
 
 يُحفظ في موديل `CircleAttendance` (حقلا `attended` و`achieved`)، وتُطبّق دلتا
 الفرق في `QuranCircleAttendanceView.post()` بمصدر
-`PointsLedgerEntry.Source.QURAN_CIRCLE`.
+`PointsLedgerEntry.Source.QURAN_CIRCLE`. تاريخ الحدث في السجل هو التاريخ
+المختار في الكشف.
 
 > **تحذير — كود ميت لا يزال قائمًا:** يوجد ثابت مستقل `CIRCLE_DAY_POINTS = 3`
 > ودالة `circle_attendance_points(attended)` في `participants/views.py` —
@@ -135,7 +140,7 @@ WEEKLY_ACTIVITY_POINTS = 10
 `WeeklyActivityAttendanceView.post()` بمصدر
 `PointsLedgerEntry.Source.WEEKLY_ACTIVITY`. نمط التحضير (كشف + منتقي تاريخ،
 قفل بيئة مشرف البيئة، اختيار حر للمشرف العام/النظام) مطابق تمامًا لنمط
-`QuranCircleAttendanceView`.
+`QuranCircleAttendanceView`، وتاريخ الحدث هو التاريخ المختار في الكشف.
 
 ### 4. قبول المهمة الأسبوعية — `WeeklyTaskReviewView`
 
@@ -164,6 +169,8 @@ apply_points_delta(
 - عند أول منح للنقاط تُضبط `points_awarded=True` داخل المعاملة، فلا يمنح قبول
   لاحق بعد إعادة فتح التسليم النقاط مرة ثانية. التسليم الجديد يبدأ
   `points_awarded=False`.
+- تاريخ حدث منحة المهمة هو `timezone.localdate(submission.submitted_at)`، أي
+  تاريخ التسليم الأول المحفوظ؛ إعادة الرفع لا تستبدله بتاريخ محاولة لاحقة.
 - `points_awarded=NULL` حالة تاريخية غير مؤكدة أنشأتها الهجرة `0019` لبعض
   التسليمات القديمة المعلقة/المرفوضة. لا يملك مشرف البيئة المفوّض قبولها؛ على
   المشرف العام أو النظام اختيار `historical_award` صراحة: `already_awarded`
@@ -193,6 +200,8 @@ apply_points_delta(
 
 - الدلتا محدودة بين **-1000 و+1000** على مستوى النموذج (`min_value`/`max_value`).
 - الخصم يتم بإدخال قيمة سالبة — لا حقل منفصل لـ"خصم".
+- تاريخ حدث النقاط الإضافية اليدوية هو تاريخ اليوم المحلي
+  (`timezone.localdate()`).
 - **مقصور على المشرف العام/النظام فقط** — تم سحب هذه الصلاحية من مشرف البيئة
   (راجع `CHANGELOG.md`، الإصدار 1.1.0، قسم "Changed"). راجع
   [`roles-and-permissions.md`](roles-and-permissions.md).
@@ -201,13 +210,19 @@ apply_points_delta(
 
 كل استدعاء لـ `apply_points_delta` (أي المصادر الخمسة أعلاه، **ما عدا المتجر**)
 يكتب صفًا في `PointsLedgerEntry` يحمل: المشارك، الدلتا الموقّعة، المصدر
-(`Source`)، وصفًا نصيًا حرًا، ومن نفّذ الإجراء.
+(`Source`)، وصفًا نصيًا حرًا، ومن نفّذ الإجراء، وتاريخ الحدث عند توفره.
 
 - **العرض**: `PointsLedgerView` (المسار `participants:points_ledger`،
   "سجل النقاط" في قسم "النقاط" بالقائمة الجانبية) — مشرف البيئة يرى سجل بيئته فقط، والمشرف
-  العام/النظام يرى كل السجل. محدود بأحدث **200** صف بلا ترقيم صفحات (حد مؤقت
-  بسيط، مقبول حاليًا نظرًا لحجم البيانات).
-- كذلك تُعرض أحدث **50** حركة لكل مشارك ضمن لوحته الشخصية (`participant.points_ledger_entries`).
+  العام/النظام يرى كل السجل. هذا دفتر تدقيقي كامل، بما في ذلك الحركات الموجبة
+  والسالبة والصفرية، ومحدود بأحدث **200** صف بلا ترقيم صفحات. يعرض عمودي
+  «تاريخ التسجيل» (`created_at`) و«تاريخ الحدث» (`event_date`)؛ القيمة الخالية
+  تظهر «غير مسجل».
+- في لوحة المشارك يظهر سياق منفصل بعنوان **«النقاط المضافة لك»**: أحدث **50**
+  حركة فقط حيث `points_delta > 0`. ليس هذا «سجل النقاط»، ولا يعرض الخصومات أو
+  الحركات الصفرية. هذا القصر للعرض فقط؛ لا يغيّر أي سجل أو مبلغ أو رصيد.
+- السجلات السابقة على `0020_points_event_date` تبقى `event_date=NULL` وتعرض
+  «غير مسجل»؛ لا يُستنتج أو يُملأ تاريخها من `created_at` أو الوصف.
 - **لا يشمل** حركات المتجر (شراء/استرجاع) — تلك تُتابَع عبر `StoreOrder` نفسه
   فقط، لأنها تحرّك `purchase_points` وحدها دون المرور بـ `apply_points_delta`.
 

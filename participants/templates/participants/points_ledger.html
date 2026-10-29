@@ -109,6 +109,7 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
     كل عملية منح أو خصم نقاط مرت عبر النظام، بما فيها الحضور والمهام والنقاط الإضافية.
     لا تشمل عمليات الشراء والاسترجاع من المتجر.
     اضغط على عنوان أي عمود للفرز حسبه، أو ابحث بالاسم، أو صفِّ حسب المصدر.
+    تاريخ الحدث للسجلات القديمة غير محفوظ؛ لذلك نعرض «غير مسجل» ولا نستنتجه من الوصف أو تاريخ التسجيل.
     (عرض حتى 200 عملية أحدث، دون تصفح للصفحات حاليًا).
   </p>
 
@@ -149,11 +150,12 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
         <table class="ledger" id="ledger-table">
           <thead>
             <tr>
-              <th class="sortable" data-sort="text" data-col="0">التاريخ<span class="sort-arrow"></span></th>
-              {% if show_participant_column %}<th class="sortable" data-sort="text" data-col="1">المشارك<span class="sort-arrow"></span></th>{% endif %}
+              <th class="sortable" data-sort="text" data-col="0">تاريخ الحدث<span class="sort-arrow"></span></th>
+              <th class="sortable" data-sort="text" data-col="1">تاريخ تسجيل النقاط<span class="sort-arrow"></span></th>
+              {% if show_participant_column %}<th class="sortable" data-sort="text" data-col="2">المشارك<span class="sort-arrow"></span></th>{% endif %}
               <th>البيئة</th>
-              <th class="sortable" data-sort="number" data-col="{% if show_participant_column %}3{% else %}2{% endif %}">التغيير<span class="sort-arrow"></span></th>
-              <th class="sortable" data-sort="text" data-col="{% if show_participant_column %}4{% else %}3{% endif %}">المصدر<span class="sort-arrow"></span></th>
+              <th class="sortable" data-sort="number" data-col="{% if show_participant_column %}4{% else %}3{% endif %}">التغيير<span class="sort-arrow"></span></th>
+              <th class="sortable" data-sort="text" data-col="{% if show_participant_column %}5{% else %}4{% endif %}">المصدر<span class="sort-arrow"></span></th>
               <th>الوصف</th>
               <th>مُنِح بواسطة</th>
             </tr>
@@ -165,7 +167,8 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
                 data-granted-by-name="{{ entry.granted_by.full_name|default:''|lower }}"
                 data-source="{{ entry.source }}"
               >
-                <td>{{ entry.created_at|date:"Y-m-d H:i" }}</td>
+                <td data-sort-value="{{ entry.event_date|date:'Y-m-d' }}">{{ entry.event_date|date:"Y-m-d"|default:"غير مسجل" }}</td>
+                <td data-sort-value="{{ entry.created_at|date:'c' }}">{{ entry.created_at|date:"Y-m-d H:i" }}</td>
                 {% if show_participant_column %}<td>{{ entry.participant.user.full_name }}</td>{% endif %}
                 <td>{{ entry.participant.group.name|default:"—" }}</td>
                 <td class="delta-cell {% if entry.points_delta > 0 %}delta-positive{% else %}delta-negative{% endif %}">
@@ -251,7 +254,8 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
 
   function getCellValue(row, colIndex, type) {
     var cell = row.children[colIndex];
-    var text = cell ? cell.textContent.trim() : "";
+    var sortValue = cell && cell.getAttribute("data-sort-value");
+    var text = cell ? (sortValue !== null ? sortValue : cell.textContent).trim() : "";
     if (type === "number") {
       var n = parseFloat(text.replace(/[^\d.-]/g, ""));
       return isNaN(n) ? -Infinity : n;

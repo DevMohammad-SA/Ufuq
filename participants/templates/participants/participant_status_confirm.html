@@ -1,0 +1,66 @@
+{% extends "participants/app_base.html" %}
+
+{% block title %}{% if is_restore %}إعادة تفعيل حساب المشارك{% else %}أرشفة حساب المشارك{% endif %} — رحّال{% endblock %}
+
+{% block extra_style %}
+.wrap{max-width:100%;min-width:0}
+.confirm-card{max-width:720px;border-color:#ead9ae}
+.participant-summary{margin:0 0 var(--s2);padding:14px;border:1px solid var(--line);border-radius:var(--r-sm);background:#fcfbf8}
+.participant-summary strong{display:block;color:var(--asphalt);font:800 17px var(--font-display)}
+.participant-summary span{display:block;margin-top:3px;color:var(--slate);font:13px var(--font-ui);overflow-wrap:anywhere}
+.warning-note{margin:0 0 var(--s2);padding:12px 14px;border:1px solid #ead9ae;border-radius:var(--r-sm);background:#fff9ec;color:var(--gold-ink);font:13px var(--font-ui)}
+.confirm-check{display:flex;align-items:flex-start;gap:9px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r-sm);background:#fff;font:14px var(--font-ui);cursor:pointer}
+.confirm-check input{width:18px;height:18px;margin:3px 0 0;accent-color:{% if is_restore %}var(--gold-ink){% else %}var(--alert){% endif %};flex:none}
+.confirm-check span{color:var(--asphalt)}
+.form-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:var(--s3)}
+.status-button,.cancel-button{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:9px 18px;border:1px solid {% if is_restore %}var(--gold){% else %}var(--alert){% endif %};border-radius:99px;background:{% if is_restore %}var(--gold){% else %}var(--alert){% endif %};color:{% if is_restore %}var(--asphalt){% else %}#fff{% endif %};font:700 14px var(--font-display);text-decoration:none;cursor:pointer}
+.status-button:hover{background:{% if is_restore %}var(--gold-soft){% else %}#963e29{% endif %};border-color:{% if is_restore %}var(--gold-ink){% else %}#963e29{% endif %}}
+.cancel-button{border-color:var(--line);background:#fff;color:var(--asphalt)}
+.cancel-button:hover{background:var(--sand);border-color:var(--asphalt)}
+@media(max-width:720px){.wrap{padding:16px}.card{padding:16px}.status-button,.cancel-button{flex:1}}
+{% endblock %}
+
+{% block content %}
+  <h1 class="page-title">{% if is_restore %}إعادة تفعيل حساب المشارك{% else %}أرشفة حساب المشارك{% endif %}</h1>
+  <p class="page-sub">
+    {% if is_restore %}
+      سيعود المشارك إلى الحسابات النشطة دون إعادة حساب أرصدته أو تغيير سجلاته التاريخية.
+    {% else %}
+      هذا الإجراء يوقف الحساب فقط، ولا يحذف بيانات المشارك أو الحضور أو المهام أو النقاط أو الطلبات.
+    {% endif %}
+  </p>
+  {% if messages %}
+    {% for message in messages %}<p class="warning-note" role="alert">{{ message }}</p>{% endfor %}
+  {% endif %}
+
+  <section class="card confirm-card" aria-labelledby="participant-status-title">
+    <h2 id="participant-status-title">تأكيد الإجراء</h2>
+    <div class="participant-summary">
+      <strong>{{ participant.user.full_name|default:"مشارك بدون اسم" }}</strong>
+      <span>رقم الهوية: {{ participant.user.national_id|default:"—" }}</span>
+      <span>البيئة: {{ participant.group.name|default:"بدون بيئة" }}</span>
+      <span>الحالة الحالية: {% if participant.user.is_active %}نشط{% else %}مؤرشف{% endif %}</span>
+    </div>
+
+    <p class="warning-note">
+      {% if is_restore %}
+        تبقى جميع الأرصدة والحضور والتسليمات والملاحظات والطلبات وسجل النقاط كما هي.
+      {% else %}
+        يبقى السجل التاريخي كاملًا للعرض الإشرافي، ويمكن إعادة تفعيل الحساب لاحقًا من قائمة المشاركين المؤرشفين.
+      {% endif %}
+    </p>
+
+    <form method="post">
+      {% csrf_token %}
+      <label class="confirm-check" for="confirm-participant-status">
+        <input id="confirm-participant-status" type="checkbox" name="confirm" value="yes" required>
+        <span>{% if is_restore %}أفهم أن هذا الإجراء سيعيد تفعيل حساب المشارك دون تغيير سجلاته.{% else %}أفهم أن هذا الإجراء سيؤرشف حساب المشارك ولن يحذف سجلاته التاريخية.{% endif %}</span>
+      </label>
+
+      <div class="form-actions">
+        <button type="submit" class="status-button">{% if is_restore %}إعادة تفعيل الحساب{% else %}أرشفة الحساب{% endif %}</button>
+        <a class="cancel-button" href="{% url 'participants:participants_data' %}?status={% if is_restore %}inactive{% else %}active{% endif %}">إلغاء</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

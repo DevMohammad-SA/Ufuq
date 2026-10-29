@@ -157,7 +157,6 @@
   white-space:nowrap;
 }
 .ledger-delta.is-positive{color:var(--done)}
-.ledger-delta.is-negative{color:var(--alert)}
 {% endblock %}
 
 {% block content %}
@@ -199,29 +198,23 @@
   </section>
 
   <section class="progress-section">
-    <h2 class="section-title">سجل نقاطك 🧾</h2>
+    <h2 class="section-title">النقاط المضافة لك 🧾</h2>
     {% if points_ledger %}
       <div class="ledger-list">
         {% for entry in points_ledger %}
           <div class="ledger-item">
             <div>
-              <div class="ledger-text">
-                {% if entry.points_delta > 0 %}
-                  انضافت لك {{ entry.points_delta }} نقطة عشان {{ entry.description }} ✅
-                {% else %}
-                  انخصمت منك {{ entry.points_delta|cut:"-" }} نقطة عشان {{ entry.description }} ⚠️
-                {% endif %}
-              </div>
+              <div class="ledger-text">أُضيفت لك {{ entry.points_delta }} نقطة بسبب {{ entry.description }} ✅</div>
               <div class="ledger-date">{{ entry.created_at|date:"Y-m-d H:i" }}</div>
             </div>
-            <div class="ledger-delta {% if entry.points_delta > 0 %}is-positive{% else %}is-negative{% endif %}">
+            <div class="ledger-delta is-positive">
               {{ entry.points_delta|stringformat:"+d" }}
             </div>
           </div>
         {% endfor %}
       </div>
     {% else %}
-      <p class="empty-note">لسه ما فيه شي بسجلك — أول نقطة تجيك بتظهر هنا! 🎉</p>
+      <p class="empty-note">لا توجد نقاط مضافة لك حتى الآن — ستظهر أحدث الإضافات هنا! 🎉</p>
     {% endif %}
   </section>
 {% endblock %}

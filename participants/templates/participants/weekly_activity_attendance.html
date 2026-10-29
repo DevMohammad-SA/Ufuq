@@ -143,6 +143,8 @@ table.roster input[type="checkbox"]{
     {% if group %}بيئة <b>{{ group.name }}</b> · {% endif %}اختر التاريخ{% if not is_group_locked %} والبيئة{% endif %}، ثم علّم حضور مشاركي الفعالية واحفظ الجدول دفعة واحدة. حضور الفعالية = 10 نقاط.
   </p>
 
+  {% include "participants/_attendance_messages.html" %}
+
   <section class="card">
     <h2>
       {% if is_group_locked %}

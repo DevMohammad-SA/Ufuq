@@ -52,7 +52,10 @@ version number is implied by those updates.
 
   Every one of these (except the store) also writes an audit-log row to
   `PointsLedgerEntry`, viewable per‑group or program‑wide in the new
-  **points ledger** (`participants:points_ledger`). Full details:
+  **points ledger** (`participants:points_ledger`) with separate recording and
+  event dates. The participant dashboard shows only “النقاط المضافة لك”
+  (“points added to you”): the latest 50 positive movements, not a full ledger
+  and not deductions or zero movements. Full details:
   [`docs/points-system.md`](docs/points-system.md).
 
 ## Roles
@@ -77,7 +80,8 @@ Every item below maps to a real view and URL — see
   picker: the weekly gathering (group supervisor, own environment), the Quran
   circle (attendance + achievement scored separately), and the weekly
   activity. Re‑submitting a roster applies only the delta, so it never
-  double‑awards.
+  double‑awards. A roster template shows success only after its atomic save
+  completes, including the selected date.
 - **Weekly tasks**: several can be open in parallel; each is created inactive
   and shown only once a supervisor activates it, then drops out by itself at
   its due date. Submission formats are free checkboxes (PDF / image / audio /
@@ -110,7 +114,9 @@ Every item below maps to a real view and URL — see
   superadmins can edit a participant's basic data on a separate page and
   manage group/general-supervisor accounts (add, edit, confirmed soft-disable)
   through the Rahhal front end, without granting a general supervisor Django
-  admin privileges. See [`docs/features.md`](docs/features.md) and
+  admin privileges. They can also confirmably soft-disable or restore an
+  eligible participant account without deleting its records or resetting its
+  balances. See [`docs/features.md`](docs/features.md) and
   [`docs/roles-and-permissions.md`](docs/roles-and-permissions.md).
 - **Navigation**: a collapsible sidebar on desktop (state persisted in
   `localStorage`) and a fixed bottom bar + slide‑in drawer on mobile, with

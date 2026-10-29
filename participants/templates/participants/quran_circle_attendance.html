@@ -12,6 +12,8 @@
       {% if group %}بيئة <b>{{ group.name }}</b> · {% endif %}اختر التاريخ{% if show_group_selector %} والبيئة{% endif %}، ثم علّم حضور وإنجاز مشاركي الحلقة واحفظ الجدول دفعة واحدة. حضور الحلقة = 3 نقاط، وإنجاز الحلقة = 2 نقطة.
     </p>
 
+    {% include "participants/_attendance_messages.html" %}
+
     <section class="card roster-card">
       <h2>الحلقة القرآنية{% if group %} — بيئة {{ group.name }}{% endif %}</h2>
 

@@ -1,0 +1,36 @@
+{% if messages %}
+  <style>
+  .attendance-feedback{
+    display:grid;
+    gap:var(--s1);
+    margin:0 0 var(--s2);
+  }
+  .attendance-feedback__message{
+    padding:12px 14px;
+    border:1px solid var(--line);
+    border-radius:var(--r-sm);
+    background:#fffefa;
+    color:var(--asphalt);
+    font:600 14px/1.7 var(--font-ui);
+    box-shadow:0 8px 20px -20px rgba(43,47,51,.45);
+  }
+  .attendance-feedback__message--success{
+    border-color:#c7ddca;
+    background:#e4efe5;
+    color:var(--done);
+  }
+  .attendance-feedback__message--error{
+    border-color:#dfad9e;
+    background:#fbeeea;
+    color:var(--alert);
+  }
+  @media (max-width:620px){
+    .attendance-feedback__message{padding:11px 12px;font-size:13px}
+  }
+  </style>
+  <div class="attendance-feedback" aria-live="polite">
+    {% for message in messages %}
+      <div class="attendance-feedback__message attendance-feedback__message--{{ message.tags|default:'info' }}"{% if message.tags == "error" %} role="alert"{% else %} role="status"{% endif %}>{{ message }}</div>
+    {% endfor %}
+  </div>
+{% endif %}
