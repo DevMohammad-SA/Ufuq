@@ -45,4 +45,4 @@ jobs:
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
             "$SERVER_USER@$SERVER_HOST" \
-            '/home/mohammad/deploy-ufuq.sh'
+            '/home/mohammad/scripts/deploy-ufuq.sh'
