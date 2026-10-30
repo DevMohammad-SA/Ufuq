@@ -49,6 +49,7 @@
 .report-statuses{display:flex;flex-direction:column;gap:4px;text-align:start;font-size:11px;white-space:nowrap}
 .report-status-accepted{color:var(--done)}
 .report-status-pending{color:var(--gold-ink)}
+.report-status-returned{color:#36566F}
 .report-status-rejected{color:var(--alert)}
 .report-breakdown{text-align:start;min-width:170px}
 .report-breakdown summary{color:var(--gold-ink);cursor:pointer;font-size:12px}
@@ -149,7 +150,7 @@
               <td class="report-num">{{ row.circle_attended }}</td>
               <td class="report-num">{{ row.circle_achieved }}</td>
               <td class="report-num">{{ row.tasks_submitted }}</td>
-              <td><div class="report-statuses"><span class="report-status-accepted">مقبولة: {{ row.tasks_accepted }}</span><span class="report-status-pending">قيد المراجعة: {{ row.tasks_pending }}</span><span class="report-status-rejected">مرفوضة: {{ row.tasks_rejected }}</span></div></td>
+              <td><div class="report-statuses"><span class="report-status-accepted">مقبولة: {{ row.tasks_accepted }}</span><span class="report-status-pending">قيد المراجعة: {{ row.tasks_pending }}</span><span class="report-status-returned">مُعادة للتعديل: {{ row.tasks_returned }}</span><span class="report-status-rejected">مرفوضة: {{ row.tasks_rejected }}</span></div></td>
               <td{% if row.points_circle < 0 %} class="report-negative"{% endif %}>{{ row.points_circle }}</td>
               <td{% if row.points_tasks < 0 %} class="report-negative"{% endif %}>{{ row.points_tasks }}</td>
               <td><details class="report-breakdown"><summary>تفاصيل أخرى</summary><dl>

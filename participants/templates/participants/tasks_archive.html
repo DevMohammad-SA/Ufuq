@@ -31,6 +31,7 @@ table.roster tr:last-child td{border-bottom:none}
 .status-pending{background:var(--gold-soft); color:var(--gold-ink)}
 .status-accepted{background:#E4EFE5; color:var(--done)}
 .status-rejected{background:#FBEEEA; color:var(--alert)}
+.status-returned{background:#E9F0F6; color:#36566F}
 .rejection-note{font-family:var(--font-ui); font-size:12px; color:var(--slate); margin:4px 0 0}
 .featured-badge{
   display:inline-block;
@@ -261,6 +262,11 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
                           <span class="status-pill status-accepted">مقبولة</span>
                           {% if submission.is_featured %}
                             <span class="featured-badge">مميزة ⭐</span>
+                          {% endif %}
+                        {% elif submission.status == "returned" %}
+                          <span class="status-pill status-returned">مُعادة للتعديل</span>
+                          {% if submission.revision_note %}
+                            <p class="rejection-note">ملاحظة التعديل: {{ submission.revision_note }}</p>
                           {% endif %}
                         {% else %}
                           <span class="status-pill status-rejected">مرفوضة</span>

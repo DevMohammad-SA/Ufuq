@@ -83,6 +83,35 @@ class StudentReportingTests(TestCase):
         self.assertEqual(row["tasks_submitted"], 3)
         self.assertEqual([row["tasks_accepted"], row["tasks_pending"], row["tasks_rejected"]], [1, 1, 1])
 
+    def test_returned_task_is_counted_and_displayed_separately(self):
+        task = WeeklyTask.objects.create(
+            title="مهمة معادة في التقرير",
+            description="اختبار",
+            due_date=datetime.date(2026, 10, 15),
+            allowed_formats="text",
+        )
+        submission = TaskSubmission.objects.create(
+            participant=self.student,
+            task=task,
+            text_content="يحتاج تعديل",
+            status=TaskSubmission.Status.REVISION_REQUIRED,
+            revision_note="أكمل الإجابة.",
+        )
+        TaskSubmission.objects.filter(pk=submission.pk).update(
+            submitted_at=datetime.datetime(2026, 10, 2, 12, tzinfo=UTC)
+        )
+
+        row = build_student_report(self.general, self.filters(q="الطالب الأول"))[0]
+        self.assertEqual(row["tasks_submitted"], 4)
+        self.assertEqual(
+            row["tasks_accepted"] + row["tasks_pending"] + row["tasks_returned"] + row["tasks_rejected"],
+            row["tasks_submitted"],
+        )
+        self.assertEqual(row["tasks_returned"], 1)
+
+        response = self.get_report(q="الطالب الأول")
+        self.assertContains(response, "مُعادة للتعديل: 1")
+
     def test_single_day_covers_local_midnight_not_utc_date(self):
         rows = build_student_report(self.general, self.filters(end_date=datetime.date(2026, 10, 2), q="الطالب الأول"))
         self.assertEqual(rows[0]["tasks_submitted"], 2)

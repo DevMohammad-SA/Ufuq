@@ -27,7 +27,9 @@ from .forms import (
     ParticipantImportForm,
     SingleParticipantForm,
     StoreProductForm,
+    TaskReturnForRevisionForm,
     TaskSubmissionForm,
+    WeeklyTaskEditForm,
     WeeklyTaskForm,
 )
 from .models import (
@@ -199,12 +201,15 @@ def get_notification_counts(user):
             }
             for task in WeeklyTask.get_active_tasks():
                 submission = submissions_by_task.get(task.id)
-                # Mutually exclusive in practice: reopened_for_resubmission
-                # can only be True on a submission that already exists, so
-                # each task can only add up to 1.
+                # Each active task can only add up to 1: it is either missing,
+                # explicitly reopened, or returned to this participant for a
+                # correction before the original deadline.
                 if submission is None:
                     tasks_badge += 1
-                elif submission.reopened_for_resubmission:
+                elif (
+                    submission.reopened_for_resubmission
+                    or submission.status == TaskSubmission.Status.REVISION_REQUIRED
+                ):
                     tasks_badge += 1
             counts["tasks"] = tasks_badge
 
@@ -1491,13 +1496,16 @@ class GeneralSupervisorDashboardView(
             }
             accepted = status_counts.get(TaskSubmission.Status.ACCEPTED, 0)
             rejected = status_counts.get(TaskSubmission.Status.REJECTED, 0)
+            revision_required = status_counts.get(TaskSubmission.Status.REVISION_REQUIRED, 0)
             pending = status_counts.get(TaskSubmission.Status.PENDING, 0)
-            not_submitted = max(0, total_participants - (accepted + rejected + pending))
+            not_submitted = max(
+                0, total_participants - (accepted + rejected + revision_required + pending)
+            )
             latest_task_title = latest_task.title
-            task_data = [accepted, rejected, pending, not_submitted]
+            task_data = [accepted, rejected, revision_required, pending, not_submitted]
         else:
             latest_task_title = None
-            task_data = [0, 0, 0, 0]
+            task_data = [0, 0, 0, 0, 0]
 
         # Chart 4: store orders by status, program-wide.
         order_status_counts = {
@@ -1914,6 +1922,17 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
         context["can_review_submissions"] = can_review_task_submissions(self.request.user)
         if context["can_manage_tasks"]:
             context.setdefault("create_form", WeeklyTaskForm())
+            edit_task_id = self.request.GET.get("edit_task", "")
+            if edit_task_id:
+                if not edit_task_id.isdecimal():
+                    from django.http import Http404
+                    raise Http404("مهمة غير متاحة")
+                edit_task = get_object_or_404(WeeklyTask, pk=edit_task_id)
+                context["edit_task"] = edit_task
+                context["edit_form"] = WeeklyTaskEditForm(
+                    instance=edit_task,
+                    auto_id=f"edit_task_{edit_task.pk}_%s",
+                )
         tasks = (
             WeeklyTask.get_active_tasks() if context["can_manage_tasks"]
             else WeeklyTask.objects.all().order_by("-created_at")
@@ -1947,7 +1966,7 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
         action = request.POST.get("action")
         from .access import can_manage_tasks, scoped_submissions
         may_manage = can_manage_tasks(request.user)
-        if not may_manage and action not in ("accept", "reject"):
+        if not may_manage and action not in ("accept", "reject", "return_for_revision"):
             raise PermissionDenied("لا يمكنك إنشاء المهام أو تفعيلها أو إعادة فتح التسليمات.")
 
         if action == "create_task":
@@ -1966,11 +1985,30 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
                 task.is_active = not task.is_active
                 task.save(update_fields=["is_active"])
 
-        elif action in ("accept", "reject"):
+        elif action == "update_task":
+            task_id = request.POST.get("task_id", "")
+            if not task_id.isdecimal():
+                from django.http import Http404
+                raise Http404("مهمة غير متاحة")
+            task = get_object_or_404(WeeklyTask, pk=task_id)
+            form = WeeklyTaskEditForm(
+                request.POST,
+                instance=task,
+                auto_id=f"edit_task_{task.pk}_%s",
+            )
+            if form.is_valid():
+                form.save()
+                messages.success(request, "تم تعديل بيانات المهمة بنجاح.")
+                return redirect("participants:weekly_task_review")
+            context = self.get_context_data()
+            context["edit_task"] = task
+            context["edit_form"] = form
+            return self.render_to_response(context)
+
+        elif action in ("accept", "reject", "return_for_revision"):
             # Recheck and lock delegation on every POST; an already-open page
             # cannot bypass revocation, and concurrent reviews cannot re-award.
             from .models import TaskReviewPermission
-            from django.shortcuts import get_object_or_404
             from django.http import Http404
             with transaction.atomic():
                 if not may_manage and not TaskReviewPermission.objects.select_for_update().filter(
@@ -1985,31 +2023,50 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
                 )
                 if submission.status != TaskSubmission.Status.PENDING:
                     return redirect("participants:weekly_task_review")
-                if action == "accept" and submission.points_awarded is None:
-                    if not may_manage:
-                        raise PermissionDenied("هذا التسليم قديم ويحتاج تحقق المشرف العام من نقاطه قبل القبول.")
-                    historical_award = request.POST.get("historical_award")
-                    if historical_award not in ("already_awarded", "not_awarded"):
-                        messages.error(request, "تحقق أولًا هل صُرفت نقاط هذا التسليم القديم، ثم حدد القرار قبل القبول.")
+
+                if action == "return_for_revision":
+                    if not WeeklyTask.get_active_tasks().filter(pk=submission.task_id).exists():
+                        messages.error(
+                            request,
+                            "لا يمكن إعادة المهمة للتعديل بعد انتهاء موعدها أو تعطيلها. استخدم إعادة الفتح عند الحاجة.",
+                        )
                         return redirect("participants:weekly_task_review")
-                    submission.points_awarded = historical_award == "already_awarded"
-                submission.status = (
-                    TaskSubmission.Status.ACCEPTED
-                    if action == "accept"
-                    else TaskSubmission.Status.REJECTED
-                )
-                if action == "reject":
-                    submission.rejection_reason = request.POST.get(
-                        "rejection_reason", ""
-                    ).strip()
-                else:
+                    revision_form = TaskReturnForRevisionForm(request.POST)
+                    if not revision_form.is_valid():
+                        messages.error(request, revision_form.errors["revision_note"][0])
+                        return redirect("participants:weekly_task_review")
+                    submission.status = TaskSubmission.Status.REVISION_REQUIRED
+                    submission.revision_note = revision_form.cleaned_data["revision_note"]
                     submission.rejection_reason = ""
-                is_featured = action == "accept" and request.POST.get("is_featured") == "on"
-                submission.is_featured = is_featured
+                    submission.is_featured = False
+                else:
+                    if action == "accept" and submission.points_awarded is None:
+                        if not may_manage:
+                            raise PermissionDenied("هذا التسليم قديم ويحتاج تحقق المشرف العام من نقاطه قبل القبول.")
+                        historical_award = request.POST.get("historical_award")
+                        if historical_award not in ("already_awarded", "not_awarded"):
+                            messages.error(request, "تحقق أولًا هل صُرفت نقاط هذا التسليم القديم، ثم حدد القرار قبل القبول.")
+                            return redirect("participants:weekly_task_review")
+                        submission.points_awarded = historical_award == "already_awarded"
+                    submission.status = (
+                        TaskSubmission.Status.ACCEPTED
+                        if action == "accept"
+                        else TaskSubmission.Status.REJECTED
+                    )
+                    if action == "reject":
+                        submission.rejection_reason = request.POST.get(
+                            "rejection_reason", ""
+                        ).strip()
+                    else:
+                        submission.rejection_reason = ""
+                    is_featured = action == "accept" and request.POST.get("is_featured") == "on"
+                    submission.is_featured = is_featured
                 submission.reviewed_by = request.user
                 submission.reviewed_at = timezone.now()
                 submission.save()
 
+                if action == "return_for_revision":
+                    messages.success(request, "أُعيدت المهمة للتعديل مع ملاحظة للمشارك.")
                 if action == "accept" and not submission.points_awarded:
                     participant = Participant.objects.select_for_update().get(pk=submission.participant_id)
                     points = 12 if is_featured else 10
@@ -2045,10 +2102,22 @@ class TaskSubmissionView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
             for s in TaskSubmission.objects.filter(participant=participant)
         }
 
+        reopened_task_ids = TaskSubmission.objects.filter(
+            participant=participant, reopened_for_resubmission=True
+        ).values("task_id")
+        visible_tasks = (
+            WeeklyTask.get_active_tasks()
+            | WeeklyTask.objects.filter(pk__in=reopened_task_ids)
+        ).distinct().order_by("due_date")
+
         tasks_data = []
-        for task in WeeklyTask.get_active_tasks():
+        for task in visible_tasks:
             existing = submissions_by_task.get(task.id)
-            needs_form = existing is None or existing.reopened_for_resubmission
+            needs_form = (
+                existing is None
+                or existing.reopened_for_resubmission
+                or existing.status == TaskSubmission.Status.REVISION_REQUIRED
+            )
             tasks_data.append(
                 {
                     "task": task,
@@ -2070,7 +2139,7 @@ class TaskSubmissionView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
     def post(self, request, *args, **kwargs):
         task_id = request.POST.get("task_id")
         participant = request.user.participant
-        task = WeeklyTask.get_active_tasks().filter(id=task_id).first()
+        task = WeeklyTask.objects.filter(id=task_id).first()
 
         if not task:
             return redirect("participants:task_submission")
@@ -2079,18 +2148,21 @@ class TaskSubmissionView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
             task=task, participant=participant
         ).first()
 
-        # One submission per participant per task. A second attempt is only
-        # allowed when a supervisor has explicitly reopened this participant's
-        # submission (reopened_for_resubmission=True) — every check is here in
-        # the view, not only in the template, since a crafted request could
-        # bypass a disabled UI button.
-        if existing and not existing.reopened_for_resubmission:
-            return redirect("participants:task_submission")
+        normally_open = WeeklyTask.get_active_tasks().filter(pk=task.pk).exists()
+        explicitly_reopened = bool(existing and existing.reopened_for_resubmission)
+        returned_before_deadline = bool(
+            existing
+            and existing.status == TaskSubmission.Status.REVISION_REQUIRED
+            and normally_open
+        )
 
-        # With no prior submission the normal deadline gate applies. An
-        # explicit reopen overrides the deadline for THIS participant only
-        # (a reopened submission always has `existing` set).
-        if existing is None and task.is_past_due():
+        # A second attempt is only allowed following an explicit archive reopen
+        # (which may extend beyond the due date) or a reviewer return while the
+        # original task remains normally open. Every check is server-side so a
+        # crafted request cannot convert a return-for-revision into an extension.
+        if not normally_open and not explicitly_reopened:
+            return redirect("participants:task_submission")
+        if existing and not (explicitly_reopened or returned_before_deadline):
             return redirect("participants:task_submission")
 
         # instance=existing makes a successful save UPDATE the same row

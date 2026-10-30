@@ -163,6 +163,26 @@ class StudentDetailTests(TestCase):
         self.assertEqual(response.context["summary"]["ledger_total"], -3)
         self.assertEqual(response.context["summary"]["current_balance"], 77)
 
+    def test_returned_task_has_its_own_summary_count_and_reviewer_note(self):
+        task = WeeklyTask.objects.create(
+            title="مهمة معادة في الملف",
+            description="اختبار",
+            due_date=datetime.date(2026, 1, 12),
+            allowed_formats="text",
+        )
+        TaskSubmission.objects.create(
+            task=task,
+            participant=self.student,
+            text_content="محاولة تحتاج تعديل",
+            status=TaskSubmission.Status.REVISION_REQUIRED,
+            revision_note="أضف الدليل المطلوب.",
+            reviewed_by=self.general,
+        )
+        response = self.get_detail(self.general)
+        self.assertEqual(response.context["summary"]["returned"], 1)
+        self.assertContains(response, "مُعادة للتعديل")
+        self.assertContains(response, "أضف الدليل المطلوب.")
+
     def test_each_history_uses_its_own_twenty_row_pagination(self):
         for index in range(20):
             CircleAttendance.objects.create(

@@ -22,7 +22,8 @@ POINT_COLUMNS = {
 }
 COUNT_COLUMNS = (
     "circle_attended", "circle_achieved", "tasks_submitted", "tasks_accepted",
-    "tasks_pending", "tasks_rejected", "meetings_attended", "activities_attended",
+    "tasks_pending", "tasks_returned", "tasks_rejected", "meetings_attended",
+    "activities_attended",
 )
 
 
@@ -137,6 +138,7 @@ def build_student_report(user, filters):
         tasks_submitted=Count("pk"),
         tasks_accepted=Count("pk", filter=Q(status=TaskSubmission.Status.ACCEPTED)),
         tasks_pending=Count("pk", filter=Q(status=TaskSubmission.Status.PENDING)),
+        tasks_returned=Count("pk", filter=Q(status=TaskSubmission.Status.REVISION_REQUIRED)),
         tasks_rejected=Count("pk", filter=Q(status=TaskSubmission.Status.REJECTED)),
     ):
         row = by_id.get(values.pop("participant_id"))

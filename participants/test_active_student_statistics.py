@@ -36,7 +36,7 @@ class ActiveStudentStatisticsTests(TestCase):
         averages = dict(zip(charts["avgLabels"], charts["avgPoints"]))
         self.assertEqual(counts, {self.group.name: 1, self.empty_group.name: 0})
         self.assertEqual(averages, {self.group.name: 10, self.empty_group.name: 0})
-        self.assertEqual(charts["taskData"], [1, 0, 0, 0])
+        self.assertEqual(charts["taskData"], [1, 0, 0, 0, 0])
         self.assertEqual(TaskSubmission.objects.count(), 2)
 
     def test_archive_updates_current_statistics_but_preserves_report_histories(self):
@@ -45,7 +45,7 @@ class ActiveStudentStatisticsTests(TestCase):
         response = self.client.get(reverse("participants:general_supervisor_dashboard"))
         self.assertEqual(response.context["kpi_total_participants"], 0)
         self.assertEqual(response.context["charts_data"]["groupCounts"], [0, 0])
-        self.assertEqual(response.context["charts_data"]["taskData"], [0, 0, 0, 0])
+        self.assertEqual(response.context["charts_data"]["taskData"], [0, 0, 0, 0, 0])
         self.assertEqual(Participant.objects.count(), 2)
         self.assertEqual(TaskSubmission.objects.count(), 2)
         report = self.client.get(reverse("participants:student_report"))

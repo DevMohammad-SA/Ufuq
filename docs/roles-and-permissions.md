@@ -65,9 +65,9 @@
 | `SupervisorListView` | `supervisor_list` | `role in (GENERAL_SUPERVISOR, SUPERADMIN)`؛ للحسابات النشطة فقط |
 | `SupervisorFormView` | `supervisor_add` / `supervisor_edit` | `role in (GENERAL_SUPERVISOR, SUPERADMIN)`؛ هدف التعديل مشرف بيئة/عام غير موظف وغير أدمن ولا يملك صف `Participant` |
 | `SupervisorDeleteView` | `supervisor_delete` | `role in (GENERAL_SUPERVISOR, SUPERADMIN)`؛ لا يقبل حذف الحساب الذاتي، وينفّذ تعطيلًا ناعمًا مؤكدًا بدل حذف الصف |
-| `WeeklyTaskReviewView` | `weekly_task_review` | `role in (GROUP_SUPERVISOR, GENERAL_SUPERVISOR, SUPERADMIN)`؛ مشرف البيئة يرى تسليمات طلاب بيئاته فقط، وقبول/رفضها مشروط بتفويض فعّال |
+| `WeeklyTaskReviewView` | `weekly_task_review` | `role in (GROUP_SUPERVISOR, GENERAL_SUPERVISOR, SUPERADMIN)`؛ مشرف البيئة يرى تسليمات طلاب بيئاته فقط، وقبول/رفضها/إعادتها للتعديل مشروط بتفويض فعّال، بينما إنشاء المهمة وتعديلها وتفعيلها وإعادة فتحها للعام/النظام |
 | `TaskReviewPermissionsView` **(غير موسوم بعد)** | `task_review_permissions` | `role == GENERAL_SUPERVISOR` فقط — يمنح أو يسحب تفويض مشرف البيئة |
-| `TaskSubmissionView` | `task_submission` | `role == PARTICIPANT` — ولا يقبل POST إلا لمهمة ضمن `get_active_tasks()`، راجع [`weekly-tasks.md`](weekly-tasks.md) |
+| `TaskSubmissionView` | `task_submission` | `role == PARTICIPANT` — يقبل الرفع لمهمة نشطة ضمن موعدها، أو إعادة فتح إدارية صريحة لنفس التسليم بعد الموعد؛ راجع [`weekly-tasks.md`](weekly-tasks.md) |
 | `TasksArchiveView` | `tasks_archive` | `role in (GENERAL_SUPERVISOR, SUPERADMIN)` |
 | `StoreView` | `store` | `role == PARTICIPANT` |
 | `StoreManagementView` | `store_management` | `role in (GROUP_SUPERVISOR, GENERAL_SUPERVISOR, SUPERADMIN)`؛ مشرف البيئة يطالع طلبات بيئاته فقط، وكل POST منه 403؛ الإدارة/الإكمال/الاسترجاع للمشرف العام أو النظام |
@@ -156,11 +156,11 @@
 ## تفويض مراجعة المهام
 
 - لا ينشأ لمشرف البيئة تفويض افتراضي. يظل قادرًا على معاينة مهام وتسليمات
-  طلاب بيئاته المسندة، بلا إنشاء/تفعيل/إعادة فتح.
+  طلاب بيئاته المسندة، بلا إنشاء/تعديل/تفعيل/إعادة فتح.
 - المشرف العام وحده يفعّل أو يلغي صف `TaskReviewPermission` لمشرف بيئة؛
-  التفويض لا يوسّع نطاق الطلاب بل يسمح فقط بالقبول والرفض ضمن النطاق الموجود.
+  التفويض لا يوسّع نطاق الطلاب بل يسمح فقط بالقبول والرفض وإعادة المهمة للتعديل ضمن النطاق الموجود.
 - يعيد `WeeklyTaskReviewView.post()` قفل وفحص `enabled=True` داخل معاملة عند
-  كل قبول أو رفض. لذلك يسري الإلغاء على الطلب اللاحق حتى لو بقيت صفحة المراجع
+  كل قبول أو رفض أو إعادة للتعديل. لذلك يسري الإلغاء على الطلب اللاحق حتى لو بقيت صفحة المراجع
   مفتوحة.
 - لا يمكن لمشرف البيئة المفوّض قبول تسليم تاريخي `points_awarded=NULL`؛ يحتاج
   المشرف العام أو النظام إلى قرار صريح من حقل `historical_award` قبل القبول.

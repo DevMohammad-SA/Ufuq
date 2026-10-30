@@ -199,6 +199,7 @@
   var doneColor = "#4E7A55";
   var alertColor = "#B4553B";
   var slateColor = "#5F676E";
+  var revisionColor = "#4D6F8C";
 
   new Chart(document.getElementById("chartGroups"), {
     type: "bar",
@@ -222,10 +223,10 @@
     new Chart(tasksCanvas, {
       type: "doughnut",
       data: {
-        labels: ["مقبول", "مرفوض", "قيد المراجعة", "لم يسلّم"],
+        labels: ["مقبول", "مرفوض", "مُعادة للتعديل", "قيد المراجعة", "لم يسلّم"],
         datasets: [{
           data: data.taskData,
-          backgroundColor: [doneColor, alertColor, goldColor, slateColor],
+          backgroundColor: [doneColor, alertColor, revisionColor, goldColor, slateColor],
         }],
       },
       options: { responsive: true },

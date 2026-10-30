@@ -1,4 +1,4 @@
-"""Exercise an actual 0017 -> 0019 upgrade using synthetic historical data."""
+"""Exercise an actual 0017 -> latest upgrade using synthetic historical data."""
 import datetime
 
 from django.db import connection
@@ -58,6 +58,7 @@ class StudentFeaturesUpgradeTests(TransactionTestCase):
             for pk, status in zip(ids, statuses):
                 row = Submission.objects.get(pk=pk)
                 self.assertEqual((row.status, row.text_content), (status, "نص محفوظ"))
+                self.assertEqual(row.revision_note, "")
             attendance = new.get_model("participants", "CircleAttendance").objects.get(participant_id=student.pk)
             self.assertEqual((attendance.attended, attendance.achieved, attendance.recorded_by_id), (True, False, supervisor.pk))
             self.assertEqual(new.get_model("participants", "StoreOrder").objects.get(pk=order.pk).status, "completed")

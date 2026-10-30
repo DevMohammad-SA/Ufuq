@@ -66,7 +66,7 @@ Defined in `accounts/models.py` (`Role`):
 | --- | --- | --- |
 | `participant` | مشارك | Logs in with **national ID + password**. Personal dashboard (with an embedded points ledger and the elite‑trip indicator), submission page listing **every open weekly task**, store. |
 | `group_supervisor` | مشرف بيئة | Records attendance and views data, reports, task submissions, and store orders for **all assigned environments**. Task review is view-only unless a general supervisor delegates it. |
-| `general_supervisor` | مشرف عام | Program‑wide: Excel import, single‑participant add form, weekly-task management, store management, manual extra‑points grants, points reset, full points ledger, all environments, task-review delegation, and Rahhal-front-end management of participant data and supervisor accounts. |
+| `general_supervisor` | مشرف عام | Program‑wide: Excel import, single‑participant add form, weekly-task management and editing, store management, manual extra‑points grants, points reset, full points ledger, all environments, task-review delegation, and Rahhal-front-end management of participant data and supervisor accounts. |
 | `superadmin` | مشرف النظام | Program-wide management plus Django admin (`is_staff`/`is_superuser`) and access to the front-end account-management screens. It does not manage group-supervisor task-review delegation or view private meeting notes. |
 
 Full permission matrix: [`docs/roles-and-permissions.md`](docs/roles-and-permissions.md).
@@ -87,8 +87,12 @@ Every item below maps to a real view and URL — see
   its due date. Submission formats are free checkboxes (PDF / image / audio /
   video / direct text) combined as AND ("submit all of these together") or OR
   ("pick one"), validated server‑side. Review is accept (+10, or +12 when
-  marked featured ⭐) or reject with a reason the participant sees. One
-  submission per participant per task, unless a supervisor reopens it.
+  marked featured ⭐), reject with a visible reason, or return for revision
+  with required feedback and no points. A return does not extend the original
+  deadline; a participant updates the same record before that date, while an
+  archive reopen remains the explicit after-deadline exception. General
+  supervisors/superadmins edit an existing task's title, description, due date,
+  and formats in place without changing earlier submissions.
 - **Store**: participants spend purchase points; supervisors add/edit/delete
   products and complete or refund orders. Stock and balance are re‑checked
   under `select_for_update()` inside a transaction.

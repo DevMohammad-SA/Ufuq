@@ -218,10 +218,11 @@ SUBMISSION_FORMAT_EXTENSIONS = {
 | `participant` | `FK(Participant, on_delete=CASCADE, related_name="task_submissions")` | — |
 | `file` | `FileField(upload_to="task_submissions/%Y/%W/", blank=True, null=True)` | اختياري الآن (كان إلزاميًا) — فارغ لتسليم نصي. يُضغط إن كان صورة عبر `save()`. |
 | `text_content` | `TextField(blank=True)` | **جديد**. يُستخدم فقط عند اختيار صيغة "نص مباشر". |
-| `status` | `CharField(choices=Status.choices, default=PENDING)` | `pending` / `accepted` / `rejected`. |
+| `status` | `CharField(choices=Status.choices, default=PENDING)` | `pending` / `accepted` / `rejected` / `returned` («مُعادة للتعديل»). |
 | `is_featured` | `BooleanField(default=False)` | **جديد**. تُفعَّل عند القبول فقط عبر خانة اختيار "مميزة" في `WeeklyTaskReviewView` — تمنح نقطتين إضافيتين (12 بدل 10). راجع [`points-system.md`](points-system.md). |
 | `points_awarded` | `BooleanField(null=True, default=False)` | علامة المنحة الدائمة: `True` = صُرفت النقاط، `False` = لم تُصرف (الافتراضي للتسليم الجديد)، و`NULL` = حالة تاريخية غير مؤكدة تحتاج قرار `historical_award` صريحًا من المشرف العام/النظام عند القبول. تمنع المنح المتكرر بعد إعادة التسليم. أضافتها الهجرة `0019`. |
 | `rejection_reason` | `TextField(blank=True)` | **جديد**. يُملأ عند الرفض، ويظهر للمشارك ليفهم سبب الرفض. |
+| `revision_note` | `TextField(blank=True)` | أضافته الهجرة `0021`. تُملأ فقط عند `status=returned` من نموذج خادمي إلزامي بحد 2000 حرف؛ تظهر للمشارك أثناء التعديل قبل الموعد وللمراجع كسياق، ولا تغيّر نقاطًا أو الموعد. |
 | `reopened_for_resubmission` | `BooleanField(default=False)` | يتيح تسليمًا ثانيًا لمشارك واحد. |
 | `submitted_at` | `DateTimeField(auto_now_add=True)` | — |
 | `reviewed_by` | `FK(AUTH_USER_MODEL, on_delete=SET_NULL, null=True, blank=True, related_name="+")` | — |

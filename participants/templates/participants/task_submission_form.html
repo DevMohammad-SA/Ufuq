@@ -80,6 +80,7 @@
 .status-pending{background:var(--gold-soft); color:var(--gold-ink)}
 .status-accepted{background:#E4EFE5; color:var(--done)}
 .status-rejected{background:#FBEEEA; color:var(--alert)}
+.status-returned{background:#E9F0F6; color:#36566F}
 .rejection-note{
   font-family:var(--font-ui);
   font-size:13px;
@@ -130,7 +131,7 @@
   {% for entry in tasks_data %}
     <section class="card">
       {% with task=entry.task existing_submission=entry.existing_submission form=entry.form %}
-        {% if existing_submission and not existing_submission.reopened_for_resubmission %}
+        {% if existing_submission and not existing_submission.reopened_for_resubmission and existing_submission.status != "returned" %}
           <h2>{{ task.title }}</h2>
           {% if existing_submission.file and existing_submission.text_content %}
             <p>تم تسليم ملفك ونصك لهذي المهمة بتاريخ {{ existing_submission.submitted_at }} ✅</p>
@@ -158,7 +159,12 @@
 
         {% else %}
           <h2>{{ task.title }}</h2>
-          {% if existing_submission and existing_submission.reopened_for_resubmission %}
+          {% if existing_submission and existing_submission.status == "returned" %}
+            <div class="info-note">
+              أعاد المشرف المهمة للتعديل. عدّل تسليمك وأرسله قبل موعد المهمة الأصلي.
+              {% if existing_submission.revision_note %}<br><b>ملاحظة المشرف:</b> {{ existing_submission.revision_note }}{% endif %}
+            </div>
+          {% elif existing_submission and existing_submission.reopened_for_resubmission %}
             <div class="info-note">المشرف فتح لك تسليم هذي المهمة من جديد 🔓 تقدر ترفع تسليم جديد الحين.</div>
           {% endif %}
           <p>{{ task.description }}</p>
@@ -209,7 +215,7 @@
                 {% if form.text_content.errors %}<div class="errors">{{ form.text_content.errors|join:"، " }}</div>{% endif %}
               </div>
             {% endif %}
-            <button type="submit" class="btn">تسليم المهمة</button>
+            <button type="submit" class="btn">{% if existing_submission and existing_submission.status == "returned" %}إعادة إرسال المهمة{% else %}تسليم المهمة{% endif %}</button>
           </form>
         {% endif %}
       {% endwith %}

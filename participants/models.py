@@ -306,18 +306,20 @@ class TaskSubmission(models.Model):
     """
     A participant's file submission for a specific WeeklyTask.
 
-    Status is either PENDING (awaiting review) or a final decision
-    (ACCEPTED/REJECTED) made by the General Supervisor. There is no
-    partial grading — acceptance awards the full 10 points, rejection
-    awards 0. Points are NOT applied automatically by this model's save()
-    — the review view applies them explicitly and exactly once per
-    decision, mirroring the same pattern used for attendance points.
+    Status is PENDING (awaiting review), a final decision (ACCEPTED/REJECTED),
+    or REVISION_REQUIRED when the reviewer returns the same submission to the
+    participant for a correction before the original deadline. A returned
+    submission never changes a balance or grants an implicit deadline
+    extension. Points are NOT applied automatically by this model's save() —
+    the review view applies them explicitly and exactly once per decision,
+    mirroring the same pattern used for attendance points.
     """
 
     class Status(models.TextChoices):
         PENDING = "pending", "قيد المراجعة"
         ACCEPTED = "accepted", "مقبولة"
         REJECTED = "rejected", "مرفوضة"
+        REVISION_REQUIRED = "returned", "مُعادة للتعديل"
 
     task = models.ForeignKey(
         WeeklyTask,
@@ -357,6 +359,11 @@ class TaskSubmission(models.Model):
         blank=True,
         verbose_name="سبب الرفض",
         help_text="يظهر للمشارك عند رفض تسليمه",
+    )
+    revision_note = models.TextField(
+        blank=True,
+        verbose_name="ملاحظة التعديل",
+        help_text="ملاحظة المشرف عند إعادة التسليم للتعديل قبل الموعد",
     )
     reopened_for_resubmission = models.BooleanField(
         default=False,

@@ -164,14 +164,18 @@ class StudentDetailView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
                 anchor="tasks", title="تسليمات المهام",
                 columns=[
                     "العنوان", "الوصف", "موعد المهمة", "تاريخ التسليم", "النص", "الملف",
-                    "الحالة", "سبب الرفض", "المراجع", "وقت المراجعة", "مميزة", "أُعيد فتحها",
+                    "الحالة", "ملاحظة المراجع", "المراجع", "وقت المراجعة", "مميزة", "أُعيد فتحها",
                 ], page=pages["task"], parameter="task_page",
                 rows=[[
                     self._display(item.task.title), self._display(item.task.description),
                     self._date(item.task.due_date), self._datetime(item.submitted_at),
                     self._display(item.text_content),
                     {"value": item.file.name, "url": item.file.url} if item.file else "—",
-                    item.get_status_display(), self._display(item.rejection_reason),
+                    item.get_status_display(), self._display(
+                        item.revision_note
+                        if item.status == TaskSubmission.Status.REVISION_REQUIRED
+                        else item.rejection_reason
+                    ),
                     self._display(getattr(item.reviewed_by, "full_name", None)),
                     self._datetime(item.reviewed_at), self._yes_no(item.is_featured),
                     self._yes_no(item.reopened_for_resubmission),
@@ -238,6 +242,7 @@ class StudentDetailView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
             submitted=Count("pk"),
             accepted=Count("pk", filter=Q(status=TaskSubmission.Status.ACCEPTED)),
             pending=Count("pk", filter=Q(status=TaskSubmission.Status.PENDING)),
+            returned=Count("pk", filter=Q(status=TaskSubmission.Status.REVISION_REQUIRED)),
             rejected=Count("pk", filter=Q(status=TaskSubmission.Status.REJECTED)),
         )
         return {

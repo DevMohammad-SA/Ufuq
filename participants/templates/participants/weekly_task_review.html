@@ -75,6 +75,8 @@
 .btn-accept:hover{background:#3d6244}
 .btn-reject{background:var(--alert)}
 .btn-reject:hover{background:#9a4632}
+.btn-return{background:#4D6F8C}
+.btn-return:hover{background:#36566F}
 .btn-sm{padding:8px 16px; font-size:13px; margin-top:0}
 
 .current-task-title{font-size:20px; font-weight:800; margin:0 0 4px}
@@ -125,13 +127,14 @@ th{color:var(--slate); font-weight:600; font-size:12px}
 .status-pending{background:var(--gold-soft); color:var(--gold-ink)}
 .status-accepted{background:#E4EFE5; color:var(--done)}
 .status-rejected{background:#FBEEEA; color:var(--alert)}
+.status-returned{background:#E9F0F6; color:#36566F}
 .status-active{background:#E4EFE5; color:var(--done)}
 .status-inactive{background:var(--sand); color:var(--slate)}
 .status-past-due{background:#FBEEEA; color:var(--alert)}
 
-.review-actions{display:flex; gap:8px}
+.review-actions{display:flex; gap:8px; flex-wrap:wrap}
 .review-actions form{display:inline-flex; gap:6px; align-items:center}
-.reject-form{display:flex !important; gap:6px; align-items:center}
+.reject-form,.return-form{display:flex !important; gap:6px; align-items:center}
 .featured-checkbox-label{
   display:inline-flex;
   align-items:center;
@@ -156,6 +159,18 @@ th{color:var(--slate); font-weight:600; font-size:12px}
   font-size:12px;
   color:var(--slate);
   margin:4px 0 0;
+}
+.return-note-input{
+  border:1.5px solid var(--line);
+  border-radius:var(--r-sm);
+  padding:6px 10px;
+  font-family:var(--font-ui);
+  font-size:13px;
+  color:var(--asphalt);
+  background:var(--sand);
+  width:180px;
+  min-height:40px;
+  resize:vertical;
 }
 
 .file-link{color:var(--gold-ink); font-weight:600; text-decoration:none}
@@ -289,11 +304,11 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
 {% block content %}
   <h1 class="page-title">المهام الأسبوعية</h1>
   {% if can_manage_tasks %}
-    <p class="page-sub">إنشاء مهام الأسبوع، تفعيلها، ومراجعة تسليمات المشاركين.</p>
+    <p class="page-sub">إنشاء مهام الأسبوع وتعديلها وتفعيلها ومراجعة تسليمات المشاركين.</p>
   {% else %}
     <p class="page-sub">مهام وتسليمات طلاب البيئات المسندة إليك فقط، بما فيها المهام السابقة.</p>
     <section class="card">
-      {% if can_review_submissions %}<h2>التصحيح مفعّل</h2><p>يمكنك قبول أو رفض تسليمات طلاب بيئاتك. لا يمكنك إنشاء المهام أو تفعيلها أو إعادة فتحها.</p>
+      {% if can_review_submissions %}<h2>التصحيح مفعّل</h2><p>يمكنك قبول أو رفض أو إعادة تسليمات طلاب بيئاتك للتعديل. لا يمكنك إنشاء المهام أو تفعيلها أو إعادة فتحها.</p>
       {% else %}<h2>الاطلاع فقط</h2><p>يمكنك معاينة ملفات ونصوص طلابك وحالات التسليم. التصحيح متاح بعد تفعيله لك من المشرف العام.</p>{% endif %}
     </section>
   {% endif %}
@@ -346,6 +361,50 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
       <button type="submit" class="btn btn-block">إنشاء المهمة</button>
     </form>
   </section>
+
+  {% if edit_task %}
+  <section class="card" id="task-edit-form">
+    <h2>تعديل المهمة: {{ edit_task.title }}</h2>
+    <p>تطبق الصيغ والموعد الجديدان على أي تسليم أو إعادة تسليم لاحقة فقط. التسليمات والنقاط الموجودة تبقى كما هي.</p>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="update_task">
+      <input type="hidden" name="task_id" value="{{ edit_task.id }}">
+
+      <div class="field">
+        <label for="{{ edit_form.title.id_for_label }}">عنوان المهمة</label>
+        {{ edit_form.title }}
+        {% if edit_form.title.errors %}<div class="errors">{{ edit_form.title.errors|join:"، " }}</div>{% endif %}
+      </div>
+
+      <div class="field">
+        <label for="{{ edit_form.description.id_for_label }}">وصف المهمة</label>
+        {{ edit_form.description }}
+        {% if edit_form.description.errors %}<div class="errors">{{ edit_form.description.errors|join:"، " }}</div>{% endif %}
+      </div>
+
+      <div class="field">
+        <label for="{{ edit_form.due_date.id_for_label }}">آخر موعد للتسليم</label>
+        {{ edit_form.due_date }}
+        {% if edit_form.due_date.errors %}<div class="errors">{{ edit_form.due_date.errors|join:"، " }}</div>{% endif %}
+      </div>
+
+      <div class="field">
+        <label>الصيغ المسموحة</label>
+        {{ edit_form.allowed_formats }}
+        {% if edit_form.allowed_formats.errors %}<div class="errors">{{ edit_form.allowed_formats.errors|join:"، " }}</div>{% endif %}
+      </div>
+
+      <div class="field-checkbox">
+        {{ edit_form.require_all_formats }}
+        <label for="{{ edit_form.require_all_formats.id_for_label }}">تتطلب كل الصيغ المختارة معًا</label>
+      </div>
+
+      <button type="submit" class="btn">حفظ تعديلات المهمة</button>
+      <a class="btn-inline" href="{% url 'participants:weekly_task_review' %}">إلغاء</a>
+    </form>
+  </section>
+  {% endif %}
   {% endif %}
 
   {% for entry in tasks_with_submissions %}
@@ -427,11 +486,19 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
                       <span class="status-pill status-pending">قيد المراجعة</span>
                     {% elif submission.status == "accepted" %}
                       <span class="status-pill status-accepted">مقبولة</span>
+                    {% elif submission.status == "returned" %}
+                      <span class="status-pill status-returned">مُعادة للتعديل</span>
+                      {% if submission.revision_note %}
+                        <p class="rejection-note">ملاحظة التعديل: {{ submission.revision_note }}</p>
+                      {% endif %}
                     {% else %}
                       <span class="status-pill status-rejected">مرفوضة</span>
                       {% if submission.rejection_reason %}
                         <p class="rejection-note">السبب: {{ submission.rejection_reason }}</p>
                       {% endif %}
+                    {% endif %}
+                    {% if submission.status != "returned" and submission.revision_note %}
+                      <p class="rejection-note">آخر ملاحظة إعادة للتعديل: {{ submission.revision_note }}</p>
                     {% endif %}
                   </td>
                   {% if can_review_submissions %}
@@ -468,6 +535,13 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
                           <input type="hidden" name="submission_id" value="{{ submission.id }}">
                           <input type="text" name="rejection_reason" placeholder="سبب الرفض (اختياري)" class="reject-reason-input">
                           <button type="submit" class="btn btn-reject btn-sm">رفض</button>
+                        </form>
+                        <form method="post" class="return-form">
+                          {% csrf_token %}
+                          <input type="hidden" name="action" value="return_for_revision">
+                          <input type="hidden" name="submission_id" value="{{ submission.id }}">
+                          <textarea name="revision_note" class="return-note-input" rows="2" maxlength="2000" required aria-label="ملاحظة التعديل" placeholder="ملاحظة التعديل (مطلوبة)"></textarea>
+                          <button type="submit" class="btn btn-return btn-sm">إعادة للتعديل</button>
                         </form>
                       </div>
                     {% else %}
@@ -521,6 +595,7 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
                   {% endif %}
                 </td>
                 <td>
+                  <a href="?edit_task={{ task.id }}#task-edit-form" class="btn-inline">تعديل</a>
                   <form method="post" class="task-toggle-form">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="toggle_active">

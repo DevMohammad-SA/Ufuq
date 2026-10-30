@@ -37,6 +37,7 @@ class WeeklyTaskForm(forms.ModelForm):
         choices=WeeklyTask.FORMAT_CHOICES,
         widget=forms.CheckboxSelectMultiple,
         label="الصيغ المسموحة",
+        error_messages={"required": "يجب اختيار صيغة واحدة على الأقل"},
     )
 
     class Meta:
@@ -66,6 +67,19 @@ class WeeklyTaskForm(forms.ModelForm):
         if not formats:
             raise forms.ValidationError("يجب اختيار صيغة واحدة على الأقل")
         return ",".join(formats)
+
+
+class WeeklyTaskEditForm(WeeklyTaskForm):
+    """Edit the requested task data without changing its activation state."""
+
+    class Meta(WeeklyTaskForm.Meta):
+        fields = [
+            "title",
+            "description",
+            "due_date",
+            "allowed_formats",
+            "require_all_formats",
+        ]
 
 
 class TaskSubmissionForm(forms.ModelForm):
@@ -200,6 +214,18 @@ class TaskSubmissionForm(forms.ModelForm):
                 cleaned_data["text_content"] = ""
 
         return cleaned_data
+
+
+class TaskReturnForRevisionForm(forms.Form):
+    """Server-side validation for feedback on a returned task submission."""
+
+    revision_note = forms.CharField(
+        label="ملاحظة التعديل",
+        max_length=2000,
+        required=True,
+        strip=True,
+        error_messages={"required": "اكتب ملاحظة توضّح المطلوب تعديله."},
+    )
 
 
 class ExtraPointsForm(forms.Form):
