@@ -85,8 +85,10 @@ Every item below maps to a real view and URL — see
 - **Elite-trip preparation**: a separate roster for group supervisors in their
   assigned environments and general supervisors in any selected environment,
   with mutually exclusive present / excused / absent / not-nominated statuses
-  and per-status counts. It persists data and statistics only: no balance,
-  points-ledger, or elite-indicator mutation; superadmins cannot access it.
+  and per-status counts. Supervisors select an individual status from a compact
+  dropdown or confirm a bulk status before making any individual adjustments
+  and saving. It persists data and statistics only: no balance, points-ledger,
+  or elite-indicator mutation; superadmins cannot access it.
 - **Weekly tasks**: several can be open in parallel; each is created inactive
   and shown only once a supervisor activates it, then drops out by itself at
   its due date. Submission formats are free checkboxes (PDF / image / audio /

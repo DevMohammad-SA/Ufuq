@@ -9,8 +9,20 @@
   .elite-trip-stat{flex:1 1 130px;min-width:130px;padding:12px 14px;border:1px solid #e6ddca;border-radius:var(--r-sm);background:#fffaf0}
   .elite-trip-stat__label{display:block;color:var(--slate);font:700 12px var(--font-ui)}
   .elite-trip-stat__value{display:block;margin-top:3px;color:var(--asphalt);font:800 22px var(--font-display);font-variant-numeric:tabular-nums}
-  .attendance-roster table.roster .status-col{min-width:85px;text-align:center}
-  .attendance-roster .status-radio{width:21px;height:21px;margin:0;accent-color:var(--gold-ink);cursor:pointer}
+  .attendance-roster table.roster .status-col{min-width:185px;text-align:center}
+  .elite-trip-bulk{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin:0 0 var(--s2);padding:12px;border:1px solid #e6ddca;border-radius:var(--r-sm);background:#fffaf0}
+  .elite-trip-bulk__field{display:flex;flex:1 1 220px;flex-direction:column;gap:4px}
+  .elite-trip-bulk label{color:var(--slate);font:700 12px var(--font-ui)}
+  .elite-trip-bulk select,.elite-trip-status-select{min-height:42px;padding:8px 34px 8px 12px;color:var(--asphalt);background:#fff;border:1.5px solid var(--line);border-radius:var(--r-sm);font:700 14px var(--font-ui);cursor:pointer}
+  .elite-trip-status-select{width:100%;min-width:160px}
+  .elite-trip-status-select[data-status="present"]{border-color:#9acbb0;color:#276749}
+  .elite-trip-status-select[data-status="excused"]{border-color:#d7bd83;color:#8a651d}
+  .elite-trip-status-select[data-status="absent"]{border-color:#dfad9e;color:#8d3f2e}
+  .elite-trip-status-select[data-status="not_nominated"]{border-color:#b9bfd1;color:#46506c}
+  .elite-trip-bulk__apply{min-height:42px;padding:8px 16px;border:0;border-radius:999px;color:#fff;background:var(--asphalt);font:800 13px var(--font-ui);cursor:pointer}
+  .elite-trip-bulk__apply:disabled{opacity:.48;cursor:not-allowed}
+  .elite-trip-bulk__feedback{flex:1 0 100%;margin:0;color:var(--slate);font:600 12px/1.5 var(--font-ui)}
+  @media (max-width:620px){.elite-trip-bulk__field,.elite-trip-bulk__apply{width:100%}}
 </style>
 {% endblock %}
 
@@ -89,20 +101,32 @@
             <input type="hidden" name="date" value="{{ selected_date|date:'Y-m-d' }}">
             <input type="hidden" name="group" value="{{ group.id }}">
 
+            <div class="elite-trip-bulk" aria-label="تعيين حالة تحضير جميع الطلاب">
+              <div class="elite-trip-bulk__field">
+                <label for="elite-trip-bulk-status">تعيين حالة جميع الطلاب</label>
+                <select id="elite-trip-bulk-status" aria-describedby="elite-trip-bulk-help">
+                  <option value="">— اختر الحالة —</option>
+                  {% for value, label in status_choices %}
+                    <option value="{{ value }}">{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <button type="button" class="elite-trip-bulk__apply" id="elite-trip-bulk-apply" disabled>تطبيق على جميع الطلاب</button>
+              <p class="elite-trip-bulk__feedback" id="elite-trip-bulk-feedback" aria-live="polite" hidden></p>
+              <span class="sr-only" id="elite-trip-bulk-help">يمكنك تعديل أي طالب بشكل فردي قبل حفظ الكشف.</span>
+            </div>
+
             <div class="roster-scroll">
               <table class="roster" id="roster-table">
                 <thead>
                   <tr>
                     <th class="sortable roster-name-head" data-sort="text" data-col="0" scope="col">الاسم الكامل<span class="sort-arrow" aria-hidden="true"></span></th>
-                    <th class="status-col" scope="col">حاضر</th>
-                    <th class="status-col" scope="col">معتذر</th>
-                    <th class="status-col" scope="col">غائب</th>
-                    <th class="status-col" scope="col">غير مرشح</th>
+                    <th class="status-col" scope="col">حالة التحضير</th>
                     <th class="student-extra" hidden scope="col">رقم الهوية</th>
                     <th class="student-extra" hidden scope="col">رقم الجوال</th>
                     <th class="student-extra" hidden scope="col">المرحلة الدراسية</th>
-                    <th class="student-extra sortable" hidden data-sort="number" data-col="8" scope="col">الأميال<span class="sort-arrow" aria-hidden="true"></span></th>
-                    <th class="student-extra sortable" hidden data-sort="number" data-col="9" scope="col">النقاط<span class="sort-arrow" aria-hidden="true"></span></th>
+                    <th class="student-extra sortable" hidden data-sort="number" data-col="5" scope="col">الأميال<span class="sort-arrow" aria-hidden="true"></span></th>
+                    <th class="student-extra sortable" hidden data-sort="number" data-col="6" scope="col">النقاط<span class="sort-arrow" aria-hidden="true"></span></th>
                   </tr>
                 </thead>
                 <tbody id="roster-body">
@@ -113,12 +137,14 @@
                           <a class="student-name-link" href="{% url 'participants:student_detail' pk=entry.participant.pk %}" aria-label="فتح ملف {{ entry.participant.user.full_name|default:'المشارك' }}">{{ entry.participant.user.full_name|default:"—" }}</a>
                         </div>
                       </td>
-                      {% for value, label in status_choices %}
-                        <td class="check-cell">
-                          <input class="status-radio" type="radio" id="elite-trip-{{ value }}-{{ entry.participant.id }}" name="status_{{ entry.participant.id }}" value="{{ value }}"{% if entry.status == value %} checked{% endif %}>
-                          <label class="sr-only" for="elite-trip-{{ value }}-{{ entry.participant.id }}">{{ label }} لـ {{ entry.participant.user.full_name|default:'المشارك' }}</label>
-                        </td>
-                      {% endfor %}
+                      <td class="check-cell">
+                        <label class="sr-only" for="elite-trip-status-{{ entry.participant.id }}">حالة تحضير {{ entry.participant.user.full_name|default:'المشارك' }}</label>
+                        <select class="elite-trip-status-select" id="elite-trip-status-{{ entry.participant.id }}" name="status_{{ entry.participant.id }}" data-elite-trip-status data-status="{{ entry.status }}">
+                          {% for value, label in status_choices %}
+                            <option value="{{ value }}"{% if entry.status == value %} selected{% endif %}>{{ label }}</option>
+                          {% endfor %}
+                        </select>
+                      </td>
                       <td class="student-extra" hidden>{{ entry.participant.user.national_id|default:"—" }}</td>
                       <td class="student-extra" hidden dir="ltr">{{ entry.participant.phone|default:"—" }}</td>
                       <td class="student-extra" hidden>{{ entry.participant.get_academic_stage_display|default:"—" }}</td>
@@ -145,4 +171,5 @@
 
 {% block scripts %}
 <script src="{% static 'js/attendance-roster.js' %}" defer></script>
+<script src="{% static 'js/elite-trip-attendance.js' %}" defer></script>
 {% endblock %}

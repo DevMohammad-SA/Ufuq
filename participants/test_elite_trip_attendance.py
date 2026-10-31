@@ -88,6 +88,10 @@ class EliteTripAttendanceTests(TestCase):
         self.assertContains(response, "غائب")
         self.assertContains(response, "غير مرشح")
         self.assertContains(response, 'name="status_%s"' % self.second_student.pk)
+        self.assertContains(response, 'class="elite-trip-status-select"')
+        self.assertContains(response, 'id="elite-trip-bulk-status"')
+        self.assertContains(response, "تطبيق على جميع الطلاب")
+        self.assertNotContains(response, 'class="status-radio"')
         self.assertContains(response, 'class="student-extra" hidden')
         self.assertContains(response, "الإحصاءات تعرض السجلات المحفوظة")
 
