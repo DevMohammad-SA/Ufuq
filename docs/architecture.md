@@ -12,7 +12,7 @@
 | التطبيق | المسؤولية | الاعتماد |
 |---------|-----------|----------|
 | `accounts` | الهوية والمصادقة فقط: موديل `User` المخصص، `Role`، backend الدخول، middleware إجبار كلمة المرور، طلبات استرجاع كلمة المرور. | لا يعتمد على `participants` على مستوى الوحدة (باستثناء استيراد كسول واحد داخل دالة، انظر أدناه). |
-| `participants` | كل البيانات البرنامجية: البيئات، المشاركون، الحضور بأنواعه الثلاثة، المهام، المتجر، سجل النقاط، لوحات التحكم، التقارير. | يعتمد على `accounts` (يستورد `Role` و`User` و`PasswordResetRequest`). |
+| `participants` | كل البيانات البرنامجية: البيئات، المشاركون، ثلاثة أنواع حضور تمنح نقاطًا وتحضير رحلة النخبة للحفظ والإحصاء فقط، المهام، المتجر، سجل النقاط، لوحات التحكم، التقارير. | يعتمد على `accounts` (يستورد `Role` و`User` و`PasswordResetRequest`). |
 
 **اتجاه الاعتماد دائمًا `participants → accounts`**، ولا يوجد استيراد عكسي على
 مستوى الوحدة. الاستثناء الوحيد: `accounts/views.py`
@@ -75,7 +75,7 @@
 `related_name`، فيمكن لبيئة واحدة أن يكون لها أكثر من مشرف، ويمكن نظريًا
 لمشرف أن يظهر في أكثر من بيئة. العلاقة العكسية من `User` لا تزال الاسم
 الافتراضي `group_set` (نفس الاسم الذي كانت تنتجه `ForeignKey` غير المسمّاة).
-واجهات الحضور والتقارير والبيانات وسجل النقاط وPDF تستخدم حدود
+واجهات الحضور وتحضير رحلة النخبة والتقارير والبيانات وسجل النقاط وPDF تستخدم حدود
 `allowed_groups()`/`attendance_group()` لاختيار **كل البيئات المسندة** لمشرف
 البيئة مع منع أي معرّف خارجها. في كشف اللقاء لا يكون اختيار افتراضي إلا إذا
 كانت له بيئة واحدة؛ عند تعدد البيئات تظهر قائمة الاختيار.
@@ -111,7 +111,7 @@ Django (`GroupAdmin` في `participants/admin.py`) يستخدم `filter_horizont
 
 ## تحويل الحضور إلى نقاط
 
-الموديلات (`CircleAttendance`, `MeetingAttendance`, `WeeklyActivityAttendance`,
+الموديلات ذات النقاط (`CircleAttendance`, `MeetingAttendance`, `WeeklyActivityAttendance`,
 `TaskSubmission`) **لا تطبّق أي نقاط في `save()` ولا عبر signals**. تحويل
 الحضور إلى عملات يحدث **صراحةً في الـ Views** عبر دالة واحدة
 `apply_points_delta` (`participants/views.py`) وقت إرسال المشرف للنموذج. كل
@@ -121,6 +121,10 @@ View يحسب الفرق (`new_points - old_points`) ويطبّقه مرة وا�
 راجع [`points-system.md`](points-system.md) للتفاصيل الرقمية والتقنية الكاملة.
 يحمل كل صف، عند توفره، `event_date` لتاريخ الحدث و`created_at` المستقل لوقت
 تسجيله الفعلي؛ لا يُستبدل أحدهما بالآخر.
+
+`EliteTripAttendance` ليس ضمن هذا المسار عمدًا: يحفظ حالة رحلة النخبة فقط
+(`present`/`excused`/`absent`/`not_nominated`) ولا يستدعي
+`apply_points_delta` أو ينشئ `PointsLedgerEntry` أو يغيّر أرصدة الطالب.
 
 ## قاعدة البيانات
 
@@ -171,11 +175,12 @@ View يحسب الفرق (`new_points - old_points`) ويطبّقه مرة وا�
 ## سجل الهجرات (Migrations)
 
 - `accounts`: 3 هجرات (آخرها `0003_user_must_set_password_passwordresetrequest`).
-- `participants`: **20 هجرة**، آخرها `0020_points_event_date` بعد
-  `0019_task_points_once`. أضافت `0018` نموذجي `MeetingNote` و
+- `participants`: **22 هجرة**، آخرها `0022_elite_trip_attendance` بعد
+  `0021_task_submission_revision_note` و`0020_points_event_date`. أضافت `0018` نموذجي `MeetingNote` و
   `TaskReviewPermission`، وأضافت `0019` علامة `TaskSubmission.points_awarded`
   وأضافت `0020` حقل `PointsLedgerEntry.event_date` الاختياري بلا ملء رجعي
-  للسجلات القديمة.
+  للسجلات القديمة، وأضافت `0021` ملاحظة إعادة المهمة، و`0022` جدول تحضير
+  رحلة النخبة المستقل بلا ترحيل بيانات أو عملات.
 - `0019` تتضمن هجرة بيانات فعلية (`RunPython`) لكنها لا تطابق العناوين أو
   أوصاف السجل ولا تقرأ دفتر النقاط: التسليم المقبول القديم يصبح `True`، وكل
   تسليم تاريخي معلّق أو مرفوض يصبح `NULL` (قرار تاريخي غير مؤكد). التسليمات

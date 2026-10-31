@@ -658,6 +658,58 @@ class WeeklyActivityAttendance(models.Model):
         return f"{self.participant.user.full_name} - {self.date}"
 
 
+class EliteTripAttendance(models.Model):
+    """Data-only elite-trip preparation, deliberately separate from rewards."""
+
+    class Status(models.TextChoices):
+        PRESENT = "present", "حاضر"
+        EXCUSED = "excused", "معتذر"
+        ABSENT = "absent", "غائب"
+        NOT_NOMINATED = "not_nominated", "غير مرشح"
+
+    participant = models.ForeignKey(
+        Participant,
+        on_delete=models.CASCADE,
+        related_name="elite_trip_attendances",
+        verbose_name="المشارك",
+    )
+    date = models.DateField(verbose_name="تاريخ التحضير")
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.ABSENT,
+        verbose_name="حالة التحضير",
+    )
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        limit_choices_to={"role": Role.GROUP_SUPERVISOR},
+        verbose_name="سجّله",
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الإنشاء")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="آخر تحديث")
+
+    class Meta:
+        verbose_name = "تحضير رحلة النخبة"
+        verbose_name_plural = "تحضيرات رحلة النخبة"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["participant", "date"],
+                name="unique_elite_trip_attendance_per_day",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(
+                    status__in=["present", "excused", "absent", "not_nominated"]
+                ),
+                name="elite_trip_status_is_valid",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.participant.user.full_name} - {self.date} - {self.get_status_display()}"
+
+
 class TaskReviewPermission(models.Model):
     """Explicit, revocable delegation; never grants task-management access."""
     supervisor = models.OneToOneField(

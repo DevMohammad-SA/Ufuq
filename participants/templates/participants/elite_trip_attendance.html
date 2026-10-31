@@ -1,0 +1,144 @@
+{% extends "participants/app_base.html" %}
+{% load static %}
+
+{% block title %}تحضير رحلة النخبة — رحّال{% endblock %}
+
+{% block extra_style %}
+<style>
+  .elite-trip-stats{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 var(--s3)}
+  .elite-trip-stat{flex:1 1 130px;min-width:130px;padding:12px 14px;border:1px solid #e6ddca;border-radius:var(--r-sm);background:#fffaf0}
+  .elite-trip-stat__label{display:block;color:var(--slate);font:700 12px var(--font-ui)}
+  .elite-trip-stat__value{display:block;margin-top:3px;color:var(--asphalt);font:800 22px var(--font-display);font-variant-numeric:tabular-nums}
+  .attendance-roster table.roster .status-col{min-width:85px;text-align:center}
+  .attendance-roster .status-radio{width:21px;height:21px;margin:0;accent-color:var(--gold-ink);cursor:pointer}
+</style>
+{% endblock %}
+
+{% block content %}
+  <link rel="stylesheet" href="{% static 'css/attendance-roster.css' %}">
+
+  <div class="attendance-roster attendance-roster--elite-trip" data-roster-kind="elite-trip">
+    <p class="welcome-note">مرحبًا، {{ request.user.full_name }}</p>
+    <h1 class="page-title">تحضير رحلة النخبة</h1>
+    <p class="page-sub">
+      {% if group %}بيئة <b>{{ group.name }}</b> · {% endif %}سجّل حالة كل طالب لأغراض الحفظ والإحصاء فقط. لا يضيف هذا التحضير أي نقاط أو أميال.
+    </p>
+
+    {% include "participants/_attendance_messages.html" %}
+
+    <section class="card roster-card">
+      <h2>كشف رحلة النخبة{% if group %} — بيئة {{ group.name }}{% endif %}</h2>
+
+      <form class="date-bar roster-filters" method="get" action="{% url 'participants:elite_trip_attendance' %}">
+        <div class="field">
+          <label for="elite-trip-date">تاريخ التحضير</label>
+          <input type="date" id="elite-trip-date" name="date" value="{{ selected_date|date:'Y-m-d' }}">
+        </div>
+
+        {% if show_group_selector %}
+          <div class="field">
+            <label for="elite-trip-group">البيئة</label>
+            <select id="elite-trip-group" name="group">
+              <option value="">— اختر البيئة —</option>
+              {% for available_group in all_groups %}
+                <option value="{{ available_group.id }}"{% if group and available_group.id == group.id %} selected{% endif %}>{{ available_group.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        {% elif group %}
+          <input type="hidden" name="group" value="{{ group.id }}">
+        {% endif %}
+
+        <button type="submit" class="btn-inline">عرض</button>
+      </form>
+
+      {% if attendance_error %}
+        <div class="roster-alert" role="alert">{{ attendance_error }}</div>
+      {% endif %}
+
+      {% if not group %}
+        <p class="empty-note">لا توجد بيئة مرتبطة بحسابك بعد. تواصل مع الإدارة لربط بيئتك قبل بدء التحضير.</p>
+      {% else %}
+        <div class="elite-trip-stats" aria-label="إحصاءات تحضير رحلة النخبة">
+          <div class="elite-trip-stat"><span class="elite-trip-stat__label">إجمالي الطلاب</span><strong class="elite-trip-stat__value">{{ statistics.total }}</strong></div>
+          <div class="elite-trip-stat"><span class="elite-trip-stat__label">سجلات محفوظة</span><strong class="elite-trip-stat__value">{{ statistics.recorded }}</strong></div>
+          <div class="elite-trip-stat"><span class="elite-trip-stat__label">حاضر</span><strong class="elite-trip-stat__value">{{ statistics.present }}</strong></div>
+          <div class="elite-trip-stat"><span class="elite-trip-stat__label">معتذر</span><strong class="elite-trip-stat__value">{{ statistics.excused }}</strong></div>
+          <div class="elite-trip-stat"><span class="elite-trip-stat__label">غائب</span><strong class="elite-trip-stat__value">{{ statistics.absent }}</strong></div>
+          <div class="elite-trip-stat"><span class="elite-trip-stat__label">غير مرشح</span><strong class="elite-trip-stat__value">{{ statistics.not_nominated }}</strong></div>
+        </div>
+        <p class="empty-note">الإحصاءات تعرض السجلات المحفوظة لهذا التاريخ؛ لا تدخل الحالة الافتراضية في أي عدد قبل الحفظ.</p>
+
+        {% if roster %}
+          <div class="roster-tools">
+            <label class="sr-only" for="roster-search">البحث في المشاركين</label>
+            <input type="search" id="roster-search" class="roster-search" placeholder="ابحث بالاسم أو رقم الهوية…" autocomplete="off">
+            <button type="button" class="roster-data-toggle" id="student-data-toggle"
+                    aria-controls="roster-table" aria-expanded="false"
+                    data-show-label="إظهار بيانات الطلاب" data-hide-label="إخفاء بيانات الطلاب">
+              إظهار بيانات الطلاب
+            </button>
+          </div>
+
+          <form method="post" action="{% url 'participants:elite_trip_attendance' %}">
+            {% csrf_token %}
+            <input type="hidden" name="date" value="{{ selected_date|date:'Y-m-d' }}">
+            <input type="hidden" name="group" value="{{ group.id }}">
+
+            <div class="roster-scroll">
+              <table class="roster" id="roster-table">
+                <thead>
+                  <tr>
+                    <th class="sortable roster-name-head" data-sort="text" data-col="0" scope="col">الاسم الكامل<span class="sort-arrow" aria-hidden="true"></span></th>
+                    <th class="status-col" scope="col">حاضر</th>
+                    <th class="status-col" scope="col">معتذر</th>
+                    <th class="status-col" scope="col">غائب</th>
+                    <th class="status-col" scope="col">غير مرشح</th>
+                    <th class="student-extra" hidden scope="col">رقم الهوية</th>
+                    <th class="student-extra" hidden scope="col">رقم الجوال</th>
+                    <th class="student-extra" hidden scope="col">المرحلة الدراسية</th>
+                    <th class="student-extra sortable" hidden data-sort="number" data-col="8" scope="col">الأميال<span class="sort-arrow" aria-hidden="true"></span></th>
+                    <th class="student-extra sortable" hidden data-sort="number" data-col="9" scope="col">النقاط<span class="sort-arrow" aria-hidden="true"></span></th>
+                  </tr>
+                </thead>
+                <tbody id="roster-body">
+                  {% for entry in roster %}
+                    <tr data-search="{{ entry.participant.user.full_name|default:''|lower }} {{ entry.participant.user.national_id|default:''|lower }}">
+                      <td class="student-name-cell" data-sort-value="{{ entry.participant.user.full_name|default:'' }}">
+                        <div class="student-name-line">
+                          <a class="student-name-link" href="{% url 'participants:student_detail' pk=entry.participant.pk %}" aria-label="فتح ملف {{ entry.participant.user.full_name|default:'المشارك' }}">{{ entry.participant.user.full_name|default:"—" }}</a>
+                        </div>
+                      </td>
+                      {% for value, label in status_choices %}
+                        <td class="check-cell">
+                          <input class="status-radio" type="radio" id="elite-trip-{{ value }}-{{ entry.participant.id }}" name="status_{{ entry.participant.id }}" value="{{ value }}"{% if entry.status == value %} checked{% endif %}>
+                          <label class="sr-only" for="elite-trip-{{ value }}-{{ entry.participant.id }}">{{ label }} لـ {{ entry.participant.user.full_name|default:'المشارك' }}</label>
+                        </td>
+                      {% endfor %}
+                      <td class="student-extra" hidden>{{ entry.participant.user.national_id|default:"—" }}</td>
+                      <td class="student-extra" hidden dir="ltr">{{ entry.participant.phone|default:"—" }}</td>
+                      <td class="student-extra" hidden>{{ entry.participant.get_academic_stage_display|default:"—" }}</td>
+                      <td class="student-extra num-cell" hidden data-sort-value="{{ entry.participant.miles|default_if_none:'' }}">{{ entry.participant.miles }}</td>
+                      <td class="student-extra num-cell" hidden data-sort-value="{{ entry.participant.points|default_if_none:'' }}">{{ entry.participant.points }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            <p class="empty-note" id="roster-empty" hidden>لا توجد نتائج مطابقة للبحث.</p>
+
+            <div class="save-bar">
+              <button type="submit" class="btn">حفظ تحضير رحلة النخبة</button>
+            </div>
+          </form>
+        {% else %}
+          <p class="empty-note">لا يوجد مشاركون نشطون في هذه البيئة حتى الآن.</p>
+        {% endif %}
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/attendance-roster.js' %}" defer></script>
+{% endblock %}

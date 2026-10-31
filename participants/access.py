@@ -26,6 +26,11 @@ def can_manage_tasks(user):
     return user.role in (Role.GENERAL_SUPERVISOR, Role.SUPERADMIN)
 
 
+def can_prepare_elite_trip(user):
+    """Elite-trip preparation is deliberately limited to active group supervisors."""
+    return user.is_active and user.role == Role.GROUP_SUPERVISOR
+
+
 def can_review_task_submissions(user):
     if can_manage_tasks(user):
         return True

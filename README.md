@@ -76,12 +76,16 @@ Full permission matrix: [`docs/roles-and-permissions.md`](docs/roles-and-permiss
 Every item below maps to a real view and URL — see
 [`docs/features.md`](docs/features.md) for the view/template of each.
 
-- **Attendance, three independent kinds**, each a bulk roster with a date
+- **Attendance, three reward-bearing workflows**, each a bulk roster with a date
   picker: the weekly gathering (group supervisor, own environment), the Quran
   circle (attendance + achievement scored separately), and the weekly
-  activity. Re‑submitting a roster applies only the delta, so it never
-  double‑awards. A roster template shows success only after its atomic save
+  activity. Re-submitting a roster applies only the delta, so it never
+  double-awards. A roster template shows success only after its atomic save
   completes, including the selected date.
+- **Elite-trip preparation**: a separate, group-supervisor-only roster for
+  assigned environments, with mutually exclusive present / excused / absent /
+  not-nominated statuses and per-status counts. It persists data and statistics
+  only: no balance, points-ledger, or elite-indicator mutation.
 - **Weekly tasks**: several can be open in parallel; each is created inactive
   and shown only once a supervisor activates it, then drops out by itself at
   its due date. Submission formats are free checkboxes (PDF / image / audio /

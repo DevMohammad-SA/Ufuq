@@ -67,5 +67,6 @@ class StudentFeaturesUpgradeTests(TransactionTestCase):
             self.assertEqual(new.get_model("participants", "PointsResetSnapshot").objects.get(participant_id=student.pk).points_before_reset, 60)
             self.assertFalse(new.get_model("participants", "MeetingNote").objects.exists())
             self.assertFalse(new.get_model("participants", "TaskReviewPermission").objects.exists())
+            self.assertFalse(new.get_model("participants", "EliteTripAttendance").objects.exists())
         finally:
             MigrationExecutor(connection).migrate(latest)

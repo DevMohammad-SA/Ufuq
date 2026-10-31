@@ -90,6 +90,26 @@
 - الكشوف الثلاثة تستهدف المشاركين النشطين افتراضيًا؛ تعطيل حساب المشارك لا
   يحذف صفوف حضوره السابقة.
 
+## تحضير رحلة النخبة (حفظ وإحصاء فقط)
+
+- **View:** `EliteTripAttendanceView` (`participants/views.py`) — المسار
+  `participants:elite_trip_attendance` (`elite-trip-attendance/`).
+- **القالب:** `participants/elite_trip_attendance.html`.
+- **الصلاحية:** لمشرف البيئة النشط فقط؛ يختار من بيئاته المسندة فقط عند تعددها.
+  المشرف العام والنظام والمشارك يُرفضون خادميًا حتى بطلب مباشر، ومعرّف بيئة
+  خارج الإسناد ينتهي بـ404.
+- لكل طالب نشط في البيئة والتاريخ المختار حالة متبادلة واحدة: حاضر، معتذر،
+  غائب، أو غير مرشح. تحفظ الصفحة في `EliteTripAttendance` وتعرض إجمالي الطلاب
+  والسجلات المحفوظة وعدد كل حالة؛ صفوف الواجهة الافتراضية لا تدخل الإحصاء قبل
+  حفظها. إعادة الحفظ تعدّل صف الطالب/التاريخ نفسه.
+- الحفظ ذري ورسالة النجاح لا تظهر إلا بعد اكتماله وتذكر التاريخ المختار. لا
+  يستدعي `apply_points_delta`، ولا ينشئ سجلًا في `PointsLedgerEntry`، ولا يغير
+  النقاط أو الأميال أو النقاط الشرائية أو مؤشر رحلة النخبة القائم.
+- يرفض الخادم تاريخ POST المفقود أو غير الصالح، أو أكثر من حالة مرسلة لطالب
+  واحد، أو أي قيمة خارج الحالات الأربع قبل كتابة أي سجل. حقل `recorded_by`
+  يمثل آخر مشرف حفظ الحالة؛ والسجل يعرض ضمن بيئة الطالب الحالية مثل كشوف
+  الحضور القائمة، لا كلقطة بيئة تاريخية.
+
 ## استيراد المشاركين من إكسل (مشرف عام)
 
 - **View:** `ParticipantImportView` (`participants/views.py`) — المسار
@@ -457,6 +477,7 @@
 | `students/<int:pk>/restore/` | `participants:participant_restore` |
 | `quran-circle/` | `participants:quran_circle_attendance` |
 | `weekly-activity/` **(جديد)** | `participants:weekly_activity_attendance` |
+| `elite-trip-attendance/` **(جديد)** | `participants:elite_trip_attendance` |
 | `import/` | `participants:import_participants` |
 | `add-participant/` **(جديد)** | `participants:add_participant` |
 | `general-supervisor/dashboard/` | `participants:general_supervisor_dashboard` |

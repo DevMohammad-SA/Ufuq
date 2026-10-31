@@ -11,7 +11,7 @@
 | القيمة المخزنة | التسمية العربية | الوصف |
 |----------------|-----------------|-------|
 | `participant` | مشارك | الناشئ/الشاب المشارك في البرنامج. له صف `Participant` مرتبط، ويدخل برقم الهوية + كلمة مرور. |
-| `group_supervisor` | مشرف بيئة | مسؤول عن بيئة واحدة أو أكثر (`Group`، منذ تحويل `Group.supervisor` إلى `ManyToManyField` — راجع [`models.md`](models.md)). يسجّل الحضور لبيئاته، ويرى بياناتها وتقاريرها وطلبات متجرها. يراجع تسليمات طلابها بعد تفويض صريح من المشرف العام فقط؛ الافتراضي اطلاع فقط. |
+| `group_supervisor` | مشرف بيئة | مسؤول عن بيئة واحدة أو أكثر (`Group`، منذ تحويل `Group.supervisor` إلى `ManyToManyField` — راجع [`models.md`](models.md)). يسجّل الحضور وتحضير رحلة النخبة لبيئاته، ويرى بياناتها وتقاريرها وطلبات متجرها. يراجع تسليمات طلابها بعد تفويض صريح من المشرف العام فقط؛ الافتراضي اطلاع فقط. |
 | `general_supervisor` | مشرف عام | مسؤول على مستوى البرنامج كامله: المهام الأسبوعية، المتجر، الاستيراد، إضافة مشارك مفرد، النقاط الإضافية، تصفير النقاط، سجل النقاط الكامل، كل البيئات، ومنح/سحب تفويض مشرف البيئة لمراجعة المهام، وتعديل بيانات المشاركين وإدارة حسابات مشرفي البيئة/العامة ودورة حياة حسابات المشاركين من واجهة رحّال. |
 | `superadmin` | مشرف النظام | يدير البرنامج والمهام والمتجر ويصل إلى أدمن Django (`is_staff`/`is_superuser`)، ويصل أيضًا إلى واجهة إدارة الحسابات ودورة حياة المشاركين دون أن تكون حسابات النظام/الأدمن أهدافًا فيها. لا يدير تفويض مراجعة المهام ولا يرى ملاحظات اللقاء الخاصة؛ هاتان الصلاحيتان مقصورتان عمدًا على المشرف العام (والملاحظات يراها مشرف البيئة أيضًا). |
 
@@ -51,6 +51,7 @@
 | `StudentDetailView` **(غير موسوم بعد)** | `student_detail` | `role in (GROUP_SUPERVISOR, GENERAL_SUPERVISOR, SUPERADMIN)` — يجري التقييد قبل جلب الطالب بالمعرّف |
 | `QuranCircleAttendanceView` | `quran_circle_attendance` | `role in (GROUP_SUPERVISOR, GENERAL_SUPERVISOR, SUPERADMIN)` |
 | `WeeklyActivityAttendanceView` **(جديد)** | `weekly_activity_attendance` | `role in (GROUP_SUPERVISOR, GENERAL_SUPERVISOR, SUPERADMIN)` |
+| `EliteTripAttendanceView` **(جديد)** | `elite_trip_attendance` | `is_active=True` و`role == GROUP_SUPERVISOR` فقط؛ بيئاته المسندة فقط، وحفظ بيانات/إحصاء بلا نقاط |
 | `ParticipantImportView` | `import_participants` | `role in (GENERAL_SUPERVISOR, SUPERADMIN)` |
 | `AddParticipantView` **(جديد)** | `add_participant` | `role in (GENERAL_SUPERVISOR, SUPERADMIN)` — **لا** يشمل `GROUP_SUPERVISOR` (راجع الملاحظة أدناه) |
 | `GeneralSupervisorDashboardView` | `general_supervisor_dashboard` | `role in (GENERAL_SUPERVISOR, SUPERADMIN)` |
@@ -109,7 +110,8 @@
 - **مشرف البيئة**: تستخدم صفحات التقرير وملف الطالب ومراجعة المهام وإدارة
   المتجر `allowed_groups()`/`scoped_participants()`، فتشمل **كل بيئاته المسندة**
   ولا تقبل نطاقًا خارجها. وكذلك تستخدم واجهات كشف اللقاء وفعالية الأسبوع
-  وسجل النقاط وبيانات المشاركين وتصدير PDF النطاق نفسه؛ يتجاهل PDF أسماء
+  وتحضير رحلة النخبة وسجل النقاط وبيانات المشاركين وتصدير PDF النطاق نفسه؛
+  يتجاهل PDF أسماء
   البيئات الممررة من مشرف البيئة بدل أن توسّع النطاق، ثم يعرض كل بيئاته
   المسندة.
 - **المشرف العام / النظام**: يريان كل البيئات ويختاران البيئة بحرية حيثما

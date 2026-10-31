@@ -73,6 +73,7 @@
 | `store_management` | طلبات المتجر | `participants:store_management` | `store` | لا |
 | `quran` | الحلقة القرآنية | `participants:quran_circle_attendance` | `students` | نعم |
 | `weekly_activity` | فعالية الأسبوع | `participants:weekly_activity_attendance` | `students` | نعم |
+| `elite_trip` | تحضير رحلة النخبة | `participants:elite_trip_attendance` | `students` | لا |
 | `data` | بيانات المشاركين | `participants:participants_data` | `students` | لا |
 | `student_report` | تقرير الطلاب التفصيلي | `participants:student_report` | `students` | لا |
 | `points_ledger` | سجل النقاط | `participants:points_ledger` | `points` | لا |
@@ -84,6 +85,8 @@
 > «مهام طلاب البيئة» تعرض تسليمات طلاب بيئاته المسندة فقط؛ القبول والرفض
 > وإعادة المهمة للتعديل تتطلب تفويضًا صريحًا من المشرف العام. «طلبات المتجر» عرض فقط لمشرف البيئة،
 > وأي POST مُلفّق منها يُرفض بـ403، فلا تعتمد على غياب الأزرار كحماية.
+> «رحلة النخبة» كشف مستقل لمشرف البيئة فقط، يسجل حاضر/معتذر/غائب/غير مرشح
+> لطلابه وإحصاءاتها؛ لا يمنح نقاطًا ولا يظهر في قائمة المشرف العام أو النظام.
 
 **مشرف عام / مشرف النظام:**
 

@@ -35,6 +35,7 @@ from .forms import (
 from .models import (
     AcademicStage,
     CircleAttendance,
+    EliteTripAttendance,
     Group,
     MeetingAttendance,
     Participant,
@@ -310,6 +311,14 @@ def build_navbar(user, active_key):
                 "students",
                 True,
             ),
+            *([(
+                "elite_trip",
+                "تحضير رحلة النخبة",
+                "participants:elite_trip_attendance",
+                ICON_ACTIVITY,
+                "students",
+                False,
+            )] if user.is_active else []),
             (
                 "data",
                 "بيانات المشاركين",
@@ -1202,6 +1211,181 @@ class WeeklyActivityAttendanceView(LoginRequiredMixin, UserPassesTestMixin, Temp
             f"?date={selected_date.isoformat()}&group={group.id}"
         )
         return redirect(redirect_url)
+
+
+class EliteTripAttendanceView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+    """Data-only preparation for the elite trip, scoped to group supervisors."""
+
+    template_name = "participants/elite_trip_attendance.html"
+    login_url = "accounts:login_supervisor"
+
+    def test_func(self):
+        from .access import can_prepare_elite_trip
+        return can_prepare_elite_trip(self.request.user)
+
+    @staticmethod
+    def parse_selected_date(raw):
+        if not raw:
+            return None
+        try:
+            return datetime.date.fromisoformat(raw)
+        except ValueError:
+            return None
+
+    def get_selected_date(self):
+        raw = self.request.POST.get("date") or self.request.GET.get("date")
+        return self.parse_selected_date(raw) or datetime.date.today()
+
+    def get_selected_group(self):
+        from .access import attendance_group
+        return attendance_group(self.request)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        selected_date = self.get_selected_date()
+        group = self.get_selected_group()
+        from .access import allowed_groups
+
+        context["selected_date"] = selected_date
+        context["group"] = group
+        context["all_groups"] = allowed_groups(self.request.user)
+        context["show_group_selector"] = context["all_groups"].count() > 1
+        context["status_choices"] = EliteTripAttendance.Status.choices
+        context["navbar_items"] = build_navbar(self.request.user, "elite_trip")
+        context["statistics"] = {
+            "total": 0,
+            "recorded": 0,
+            "present": 0,
+            "excused": 0,
+            "absent": 0,
+            "not_nominated": 0,
+        }
+
+        if not group:
+            context["roster"] = []
+            return context
+
+        participants = list(
+            Participant.objects.filter(
+                group=group,
+                user__is_active=True,
+                user__role=Role.PARTICIPANT,
+            ).select_related("user")
+        )
+        existing_records = {
+            record.participant_id: record
+            for record in EliteTripAttendance.objects.filter(
+                participant_id__in=[participant.id for participant in participants],
+                date=selected_date,
+            )
+        }
+        status_counts = {
+            value: 0 for value, _label in EliteTripAttendance.Status.choices
+        }
+        for record in existing_records.values():
+            if record.status in status_counts:
+                status_counts[record.status] += 1
+        context["statistics"] = {
+            "total": len(participants),
+            "recorded": len(existing_records),
+            **status_counts,
+        }
+        context["roster"] = [
+            {
+                "participant": participant,
+                # As in the other rosters, an unsaved row is displayed as absent;
+                # statistics only count database records, not this UI default.
+                "status": existing_records.get(participant.id).status
+                if participant.id in existing_records
+                else EliteTripAttendance.Status.ABSENT,
+            }
+            for participant in participants
+        ]
+        return context
+
+    def render_to_response(self, context, **response_kwargs):
+        response = super().render_to_response(context, **response_kwargs)
+        patch_cache_control(response, private=True, no_store=True)
+        return response
+
+    def post(self, request, *args, **kwargs):
+        selected_date = self.parse_selected_date(request.POST.get("date"))
+        if selected_date is None:
+            return self.render_to_response(
+                self.get_context_data(
+                    attendance_error="أدخل تاريخ تحضير صحيحًا قبل الحفظ."
+                ),
+                status=400,
+            )
+        group = self.get_selected_group()
+        if not group:
+            return self.get(request, *args, **kwargs)
+
+        participant_ids = set(
+            Participant.objects.filter(
+                group=group,
+                user__is_active=True,
+                user__role=Role.PARTICIPANT,
+            ).values_list("id", flat=True)
+        )
+        valid_statuses = {
+            value for value, _label in EliteTripAttendance.Status.choices
+        }
+        requested_statuses = {}
+        for participant_id in participant_ids:
+            values = request.POST.getlist(f"status_{participant_id}")
+            if not values:
+                requested_statuses[participant_id] = EliteTripAttendance.Status.ABSENT
+            elif len(values) == 1 and values[0] in valid_statuses:
+                requested_statuses[participant_id] = values[0]
+            else:
+                requested_statuses[participant_id] = None
+        if any(status not in valid_statuses for status in requested_statuses.values()):
+            return self.render_to_response(
+                self.get_context_data(
+                    attendance_error="حالة التحضير غير صالحة. حدّث الصفحة واختر إحدى الحالات المتاحة."
+                ),
+                status=400,
+            )
+
+        # Lock each active participant first. This serializes competing saves for
+        # the same student/date before the unique constraint is reached.
+        with transaction.atomic():
+            for participant_id in sorted(participant_ids):
+                participant = Participant.objects.select_for_update(of=("self",)).filter(
+                    pk=participant_id,
+                    group=group,
+                    user__is_active=True,
+                    user__role=Role.PARTICIPANT,
+                ).first()
+                if participant is None:
+                    continue
+
+                record = EliteTripAttendance.objects.select_for_update().filter(
+                    participant_id=participant.id,
+                    date=selected_date,
+                ).first()
+                if record:
+                    record.status = requested_statuses[participant_id]
+                    record.recorded_by = request.user
+                    record.save(update_fields=["status", "recorded_by"])
+                else:
+                    EliteTripAttendance.objects.create(
+                        participant=participant,
+                        date=selected_date,
+                        status=requested_statuses[participant_id],
+                        recorded_by=request.user,
+                    )
+
+        # Deliberately no apply_points_delta call and no PointsLedgerEntry write.
+        messages.success(
+            request,
+            f"تم حفظ تحضير رحلة النخبة بتاريخ {selected_date:%Y/%m/%d} بنجاح.",
+        )
+        return redirect(
+            f"{reverse('participants:elite_trip_attendance')}"
+            f"?date={selected_date.isoformat()}&group={group.pk}"
+        )
 
 
 # ---------------------------------------------------------------------------
