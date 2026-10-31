@@ -136,15 +136,15 @@
 | `participant` | `FK(Participant, on_delete=CASCADE, related_name="elite_trip_attendances")` | الطالب في بيئة مشرفه المسندة. |
 | `date` | `DateField` | تاريخ التحضير المختار. |
 | `status` | `CharField(max_length=20, choices=Status.choices, default="absent")` | حالة واحدة متبادلة: `present` (حاضر)، `excused` (معتذر)، `absent` (غائب)، أو `not_nominated` (غير مرشح). |
-| `recorded_by` | `FK(AUTH_USER_MODEL, on_delete=SET_NULL, null=True, limit_choices_to={"role": GROUP_SUPERVISOR})` | مشرف البيئة الذي حفظ آخر حالة. |
+| `recorded_by` | `FK(AUTH_USER_MODEL, on_delete=SET_NULL, null=True, limit_choices_to={"role__in": [GROUP_SUPERVISOR, GENERAL_SUPERVISOR]})` | المشرف العام أو مشرف البيئة الذي حفظ آخر حالة. |
 | `created_at` / `updated_at` | `DateTimeField(auto_now_add=True)` / `DateTimeField(auto_now=True)` | وقت إنشاء السجل وآخر حفظ له. |
 
 `Meta.constraints`: `UniqueConstraint(fields=["participant", "date"],
 name="unique_elite_trip_attendance_per_day")` — صف واحد فقط لكل طالب وتاريخ؛
 إعادة حفظ الكشف تعدّل هذا الصف ولا تنشئ تكرارًا. ويمنع
 `CheckConstraint(name="elite_trip_status_is_valid")` أي قيمة حالة خارج
-الخيارات الأربع حتى خارج واجهة النموذج. يضيفه المسار المخصص لمشرف البيئة
-النشط فقط داخل معاملة ذرية، ولا يوجد في `save()` أو signals أي استدعاء لـ
+الخيارات الأربع حتى خارج واجهة النموذج. يضيفه المسار المخصص لمشرف البيئة أو
+المشرف العام النشط داخل معاملة ذرية، ولا يوجد في `save()` أو signals أي استدعاء لـ
 `apply_points_delta` أو كتابة في `PointsLedgerEntry`. نطاق العرض يتبع بيئة
 المشارك الحالية، مثل كشوف الحضور القائمة؛ لا يحمل هذا السجل لقطة بيئة تاريخية.
 تُقفل صفوف المشاركين بترتيب ثابت قبل الحفظ، فتسلسل الطلبات المتزامنة ويحافظ

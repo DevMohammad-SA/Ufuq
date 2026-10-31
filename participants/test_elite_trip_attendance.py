@@ -229,8 +229,55 @@ class EliteTripAttendanceTests(TestCase):
         )
         self.assertFalse(EliteTripAttendance.objects.exists())
 
-    def test_other_roles_are_forbidden_and_link_is_only_for_group_supervisor(self):
-        for user in [self.general, self.system, self.first_student.user]:
+    def test_general_supervisor_can_select_any_group_and_save_without_points(self):
+        selected_date = datetime.date(2026, 11, 4)
+        self.client.force_login(self.general)
+        response = self.client.get(self.url, {"group": self.foreign_group.pk})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["group"], self.foreign_group)
+        self.assertTrue(response.context["show_group_selector"])
+        self.assertEqual(
+            {group.pk for group in response.context["all_groups"]},
+            {self.first_group.pk, self.second_group.pk, self.foreign_group.pk},
+        )
+        self.assertEqual(
+            [entry["participant"].pk for entry in response.context["roster"]],
+            [self.foreign_student.pk],
+        )
+        before = (
+            self.foreign_student.points,
+            self.foreign_student.miles,
+            self.foreign_student.purchase_points,
+        )
+        saved = self.client.post(
+            self.url,
+            {
+                "group": self.foreign_group.pk,
+                "date": selected_date.isoformat(),
+                f"status_{self.foreign_student.pk}": EliteTripAttendance.Status.EXCUSED,
+            },
+        )
+        self.assertEqual(saved.status_code, 302)
+        record = EliteTripAttendance.objects.get(
+            participant=self.foreign_student,
+            date=selected_date,
+        )
+        self.assertEqual(record.recorded_by, self.general)
+        self.assertEqual(record.status, EliteTripAttendance.Status.EXCUSED)
+        self.foreign_student.refresh_from_db()
+        self.assertEqual(
+            (
+                self.foreign_student.points,
+                self.foreign_student.miles,
+                self.foreign_student.purchase_points,
+            ),
+            before,
+        )
+        self.assertFalse(PointsLedgerEntry.objects.exists())
+        self.assertIn("elite_trip", [item["key"] for item in build_navbar(self.general, "elite_trip")])
+
+    def test_system_and_participant_are_forbidden_and_do_not_receive_the_link(self):
+        for user in [self.system, self.first_student.user]:
             self.client.force_login(user)
             self.assertEqual(self.client.get(self.url).status_code, 403)
             self.assertNotIn("elite_trip", [item["key"] for item in build_navbar(user, "home")])

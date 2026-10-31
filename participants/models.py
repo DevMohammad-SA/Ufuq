@@ -684,7 +684,9 @@ class EliteTripAttendance(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
-        limit_choices_to={"role": Role.GROUP_SUPERVISOR},
+        limit_choices_to={
+            "role__in": [Role.GROUP_SUPERVISOR, Role.GENERAL_SUPERVISOR]
+        },
         verbose_name="سجّله",
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الإنشاء")

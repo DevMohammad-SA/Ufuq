@@ -418,6 +418,14 @@ def build_navbar(user, active_key):
                 "students",
                 False,
             ),
+            *([(
+                "elite_trip",
+                "تحضير رحلة النخبة",
+                "participants:elite_trip_attendance",
+                ICON_ACTIVITY,
+                "students",
+                False,
+            )] if user.role == Role.GENERAL_SUPERVISOR and user.is_active else []),
             (
                 "data",
                 "بيانات المشاركين",
@@ -1214,7 +1222,7 @@ class WeeklyActivityAttendanceView(LoginRequiredMixin, UserPassesTestMixin, Temp
 
 
 class EliteTripAttendanceView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
-    """Data-only preparation for the elite trip, scoped to group supervisors."""
+    """Data-only elite-trip preparation for active group/general supervisors."""
 
     template_name = "participants/elite_trip_attendance.html"
     login_url = "accounts:login_supervisor"
@@ -1250,6 +1258,9 @@ class EliteTripAttendanceView(LoginRequiredMixin, UserPassesTestMixin, TemplateV
         context["group"] = group
         context["all_groups"] = allowed_groups(self.request.user)
         context["show_group_selector"] = context["all_groups"].count() > 1
+        context["is_group_supervisor"] = (
+            self.request.user.role == Role.GROUP_SUPERVISOR
+        )
         context["status_choices"] = EliteTripAttendance.Status.choices
         context["navbar_items"] = build_navbar(self.request.user, "elite_trip")
         context["statistics"] = {

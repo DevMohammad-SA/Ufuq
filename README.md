@@ -66,7 +66,7 @@ Defined in `accounts/models.py` (`Role`):
 | --- | --- | --- |
 | `participant` | مشارك | Logs in with **national ID + password**. Personal dashboard (with an embedded points ledger and the elite‑trip indicator), submission page listing **every open weekly task**, store. |
 | `group_supervisor` | مشرف بيئة | Records attendance and views data, reports, task submissions, and store orders for **all assigned environments**. Task review is view-only unless a general supervisor delegates it. |
-| `general_supervisor` | مشرف عام | Program‑wide: Excel import, single‑participant add form, weekly-task management and editing, store management, manual extra‑points grants, points reset, full points ledger, all environments, task-review delegation, and Rahhal-front-end management of participant data and supervisor accounts. |
+| `general_supervisor` | مشرف عام | Program‑wide: Excel import, single‑participant add form, weekly-task management and editing, store management, manual extra‑points grants, points reset, full points ledger, elite-trip preparation in any environment, all environments, task-review delegation, and Rahhal-front-end management of participant data and supervisor accounts. |
 | `superadmin` | مشرف النظام | Program-wide management plus Django admin (`is_staff`/`is_superuser`) and access to the front-end account-management screens. It does not manage group-supervisor task-review delegation or view private meeting notes. |
 
 Full permission matrix: [`docs/roles-and-permissions.md`](docs/roles-and-permissions.md).
@@ -82,10 +82,11 @@ Every item below maps to a real view and URL — see
   activity. Re-submitting a roster applies only the delta, so it never
   double-awards. A roster template shows success only after its atomic save
   completes, including the selected date.
-- **Elite-trip preparation**: a separate, group-supervisor-only roster for
-  assigned environments, with mutually exclusive present / excused / absent /
-  not-nominated statuses and per-status counts. It persists data and statistics
-  only: no balance, points-ledger, or elite-indicator mutation.
+- **Elite-trip preparation**: a separate roster for group supervisors in their
+  assigned environments and general supervisors in any selected environment,
+  with mutually exclusive present / excused / absent / not-nominated statuses
+  and per-status counts. It persists data and statistics only: no balance,
+  points-ledger, or elite-indicator mutation; superadmins cannot access it.
 - **Weekly tasks**: several can be open in parallel; each is created inactive
   and shown only once a supervisor activates it, then drops out by itself at
   its due date. Submission formats are free checkboxes (PDF / image / audio /

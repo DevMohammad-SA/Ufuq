@@ -57,7 +57,11 @@
       {% endif %}
 
       {% if not group %}
-        <p class="empty-note">لا توجد بيئة مرتبطة بحسابك بعد. تواصل مع الإدارة لربط بيئتك قبل بدء التحضير.</p>
+        {% if is_group_supervisor %}
+          <p class="empty-note">لا توجد بيئة مرتبطة بحسابك بعد. تواصل مع الإدارة لربط بيئتك قبل بدء التحضير.</p>
+        {% else %}
+          <p class="empty-note">اختر بيئة من القائمة لعرض كشف تحضير رحلة النخبة.</p>
+        {% endif %}
       {% else %}
         <div class="elite-trip-stats" aria-label="إحصاءات تحضير رحلة النخبة">
           <div class="elite-trip-stat"><span class="elite-trip-stat__label">إجمالي الطلاب</span><strong class="elite-trip-stat__value">{{ statistics.total }}</strong></div>
