@@ -66,7 +66,7 @@
 | `SupervisorListView` | `supervisor_list` | `role in (GENERAL_SUPERVISOR, SUPERADMIN)`؛ للحسابات النشطة فقط |
 | `SupervisorFormView` | `supervisor_add` / `supervisor_edit` | `role in (GENERAL_SUPERVISOR, SUPERADMIN)`؛ هدف التعديل مشرف بيئة/عام غير موظف وغير أدمن ولا يملك صف `Participant` |
 | `SupervisorDeleteView` | `supervisor_delete` | `role in (GENERAL_SUPERVISOR, SUPERADMIN)`؛ لا يقبل حذف الحساب الذاتي، وينفّذ تعطيلًا ناعمًا مؤكدًا بدل حذف الصف |
-| `WeeklyTaskReviewView` | `weekly_task_review` | `role in (GROUP_SUPERVISOR, GENERAL_SUPERVISOR, SUPERADMIN)`؛ مشرف البيئة يرى تسليمات طلاب بيئاته فقط، وقبول/رفضها/إعادتها للتعديل مشروط بتفويض فعّال، بينما إنشاء المهمة وتعديلها وتفعيلها وإعادة فتحها للعام/النظام |
+| `WeeklyTaskReviewView` | `weekly_task_review` | `role in (GROUP_SUPERVISOR, GENERAL_SUPERVISOR, SUPERADMIN)`؛ مشرف البيئة يرى تسليمات طلاب بيئاته فقط، وقبول/رفض التسليم المعلّق مشروط بتفويض فعّال ويظل متاحًا بعد موعد الطالب. الإعادة للتعديل مشروطة بالتفويض وبقاء المهمة نشطة وفي موعدها، بينما إنشاء المهمة وتعديلها وتفعيلها وإعادة فتحها للعام/النظام |
 | `TaskReviewPermissionsView` **(غير موسوم بعد)** | `task_review_permissions` | `role == GENERAL_SUPERVISOR` فقط — يمنح أو يسحب تفويض مشرف البيئة |
 | `TaskSubmissionView` | `task_submission` | `role == PARTICIPANT` — يقبل الرفع لمهمة نشطة ضمن موعدها، أو إعادة فتح إدارية صريحة لنفس التسليم بعد الموعد؛ راجع [`weekly-tasks.md`](weekly-tasks.md) |
 | `TasksArchiveView` | `tasks_archive` | `role in (GENERAL_SUPERVISOR, SUPERADMIN)` |
@@ -162,7 +162,9 @@
 - لا ينشأ لمشرف البيئة تفويض افتراضي. يظل قادرًا على معاينة مهام وتسليمات
   طلاب بيئاته المسندة، بلا إنشاء/تعديل/تفعيل/إعادة فتح.
 - المشرف العام وحده يفعّل أو يلغي صف `TaskReviewPermission` لمشرف بيئة؛
-  التفويض لا يوسّع نطاق الطلاب بل يسمح فقط بالقبول والرفض وإعادة المهمة للتعديل ضمن النطاق الموجود.
+  التفويض لا يوسّع نطاق الطلاب بل يسمح بالقبول والرفض لأي تسليم معلّق ضمن
+  النطاق الموجود، حتى بعد موعده. ويسمح بالإعادة للتعديل فقط قبل الموعد ومع
+  بقاء المهمة نشطة، لأنها تتطلب رفع الطالب مرة أخرى.
 - يعيد `WeeklyTaskReviewView.post()` قفل وفحص `enabled=True` داخل معاملة عند
   كل قبول أو رفض أو إعادة للتعديل. لذلك يسري الإلغاء على الطلب اللاحق حتى لو بقيت صفحة المراجع
   مفتوحة.

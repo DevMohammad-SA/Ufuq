@@ -179,8 +179,10 @@ def get_notification_counts(user):
     counts = {}
 
     if user.role in (Role.GENERAL_SUPERVISOR, Role.SUPERADMIN):
+        # The due date closes participant uploads, not a supervisor's duty to
+        # decide a submission that was already received.  Count every pending
+        # review, including one whose task expired or was later deactivated.
         counts["tasks"] = TaskSubmission.objects.filter(
-            task__in=WeeklyTask.get_active_tasks(),
             status=TaskSubmission.Status.PENDING,
         ).count()
         counts["store_management"] = StoreOrder.objects.filter(
@@ -2128,10 +2130,20 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
                     instance=edit_task,
                     auto_id=f"edit_task_{edit_task.pk}_%s",
                 )
-        tasks = (
-            WeeklyTask.get_active_tasks() if context["can_manage_tasks"]
-            else WeeklyTask.objects.all().order_by("-created_at")
-        )
+        if context["can_manage_tasks"]:
+            # A due date controls *student upload availability*.  It must not
+            # make an already-received, pending submission disappear from the
+            # reviewer.  Keep normally open tasks, then append exactly the
+            # tasks that still need a decision in this user's allowed scope.
+            pending_task_ids = scoped_submissions(self.request.user).filter(
+                status=TaskSubmission.Status.PENDING,
+            ).values("task_id")
+            tasks = (
+                WeeklyTask.get_active_tasks()
+                | WeeklyTask.objects.filter(pk__in=pending_task_ids)
+            ).distinct().order_by("due_date", "-created_at")
+        else:
+            tasks = WeeklyTask.objects.all().order_by("-created_at")
         raw_task = self.request.GET.get("task")
         if raw_task:
             if not raw_task.isdecimal():

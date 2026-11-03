@@ -154,13 +154,23 @@ th{color:var(--slate); font-weight:600; font-size:12px}
   background:var(--sand);
   width:140px;
 }
-.rejection-note{
-  font-family:var(--font-ui);
-  font-size:12px;
-  color:var(--slate);
-  margin:4px 0 0;
-}
-.return-note-input{
+	.rejection-note{
+	  font-family:var(--font-ui);
+	  font-size:12px;
+	  color:var(--slate);
+	  margin:4px 0 0;
+	}
+	.review-deadline-note{
+	  font-family:var(--font-ui);
+	  font-size:13px;
+	  color:var(--slate);
+	  background:var(--sand);
+	  border-inline-start:3px solid var(--gold);
+	  border-radius:var(--r-sm);
+	  padding:8px 10px;
+	  margin:var(--s1) 0 0;
+	}
+	.return-note-input{
   border:1.5px solid var(--line);
   border-radius:var(--r-sm);
   padding:6px 10px;
@@ -412,18 +422,23 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
       <div class="task-header">
         <div>
           <div class="current-task-title">{{ entry.task.title }}</div>
-          <div class="current-task-meta">
-            موعد التسليم: {{ entry.task.due_date }}
-            · الصيغة المطلوبة: {{ entry.task.get_allowed_formats_display }}
-          </div>
-          <p class="current-task-desc">{{ entry.task.description }}</p>
-        </div>
+	          <div class="current-task-meta">
+	            موعد التسليم: {{ entry.task.due_date }}
+	            · الصيغة المطلوبة: {{ entry.task.get_allowed_formats_display }}
+	          </div>
+	          <p class="current-task-desc">{{ entry.task.description }}</p>
+	          {% if entry.task.is_past_due %}
+	            <p class="review-deadline-note">انتهى موعد رفع الطالب. تبقى التسليمات المعلّقة أدناه قابلة للقبول أو الرفض، ولا يمكن إعادتها للتعديل لأنها تتطلب رفعًا جديدًا.</p>
+	          {% elif not entry.task.is_active %}
+	            <p class="review-deadline-note">المهمة غير نشطة لرفع الطلاب، لكن يمكنك حسم أي تسليم معلّق موجود أدناه.</p>
+	          {% endif %}
+	        </div>
         {% if can_manage_tasks %}
         <form method="post" class="task-toggle-form">
           {% csrf_token %}
           <input type="hidden" name="action" value="toggle_active">
           <input type="hidden" name="task_id" value="{{ entry.task.id }}">
-          <button type="submit" class="btn-inline">تعطيل هذه المهمة</button>
+          <button type="submit" class="btn-inline">{% if entry.task.is_active %}تعطيل{% else %}تفعيل{% endif %} هذه المهمة</button>
         </form>
         {% endif %}
       </div>
@@ -536,13 +551,15 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
                           <input type="text" name="rejection_reason" placeholder="سبب الرفض (اختياري)" class="reject-reason-input">
                           <button type="submit" class="btn btn-reject btn-sm">رفض</button>
                         </form>
-                        <form method="post" class="return-form">
-                          {% csrf_token %}
-                          <input type="hidden" name="action" value="return_for_revision">
-                          <input type="hidden" name="submission_id" value="{{ submission.id }}">
-                          <textarea name="revision_note" class="return-note-input" rows="2" maxlength="2000" required aria-label="ملاحظة التعديل" placeholder="ملاحظة التعديل (مطلوبة)"></textarea>
-                          <button type="submit" class="btn btn-return btn-sm">إعادة للتعديل</button>
-                        </form>
+	                        {% if entry.task.is_active and not entry.task.is_past_due %}
+	                          <form method="post" class="return-form">
+	                            {% csrf_token %}
+	                            <input type="hidden" name="action" value="return_for_revision">
+	                            <input type="hidden" name="submission_id" value="{{ submission.id }}">
+	                            <textarea name="revision_note" class="return-note-input" rows="2" maxlength="2000" required aria-label="ملاحظة التعديل" placeholder="ملاحظة التعديل (مطلوبة)"></textarea>
+	                            <button type="submit" class="btn btn-return btn-sm">إعادة للتعديل</button>
+	                          </form>
+	                        {% endif %}
                       </div>
                     {% else %}
                       —
@@ -560,7 +577,7 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
     </section>
   {% empty %}
     <section class="card">
-      <p class="empty-note">لا توجد مهام نشطة حاليًا.</p>
+	      <p class="empty-note">لا توجد مهام نشطة أو تسليمات معلّقة للمراجعة حاليًا.</p>
     </section>
   {% endfor %}
 
