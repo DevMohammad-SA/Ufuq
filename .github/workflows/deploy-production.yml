@@ -44,5 +44,7 @@ jobs:
             -i "$HOME/.ssh/ufuq_deploy_key" \
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=20 \
             "$SERVER_USER@$SERVER_HOST" \
             '/home/mohammad/scripts/deploy-ufuq.sh'
