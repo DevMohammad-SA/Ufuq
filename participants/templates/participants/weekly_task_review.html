@@ -266,53 +266,14 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
 }
 .btn-inline:hover{border-color:var(--asphalt)}
 
-/* معاينة الملف داخل نافذة منبثقة */
-.modal-overlay{
-  position:fixed;
-  inset:0;
-  background:rgba(43,47,51,.7);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  z-index:100;
-  padding:var(--s3);
-}
-.modal-overlay[hidden]{display:none}
-.modal-box{
-  background:#fff;
-  border-radius:var(--r-md);
-  padding:var(--s3);
-  max-width:90vw;
-  max-height:90vh;
-  overflow:auto;
-  position:relative;
-}
-.modal-close{
-  position:absolute;
-  top:10px;
-  left:10px;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  background:var(--asphalt);
-  color:#fff;
-  border:none;
-  border-radius:50%;
-  width:32px;
-  height:32px;
-  cursor:pointer;
-}
-.modal-close:hover{background:#1f2225}
-#modal-content{margin-top:28px}
-#modal-content img,
-#modal-content video{max-width:80vw; max-height:75vh; display:block}
-#modal-content iframe{width:80vw; height:75vh; border:none}
-#modal-content audio{width:min(80vw,420px); display:block}
-#modal-content p{font-family:var(--font-ui); font-size:14px; color:var(--slate); margin:0}
 {% endblock %}
 
 {% block content %}
+  <link rel="stylesheet" href="{% static 'css/task-review-preview.css' %}">
   <h1 class="page-title">المهام الأسبوعية</h1>
+  {% for message in messages %}
+    <p class="task-review-message task-review-message-{{ message.tags }}" role="status">{{ message }}</p>
+  {% endfor %}
   {% if can_manage_tasks %}
     <p class="page-sub">إنشاء مهام الأسبوع وتعديلها وتفعيلها ومراجعة تسليمات المشاركين.</p>
   {% else %}
@@ -418,7 +379,7 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
   {% endif %}
 
   {% for entry in tasks_with_submissions %}
-    <section class="card">
+    <section class="card task-review-card" data-task="{{ entry.task.id }}">
       <div class="task-header">
         <div>
           <div class="current-task-title">{{ entry.task.title }}</div>
@@ -443,8 +404,7 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
         {% endif %}
       </div>
 
-      <h3>التسليمات</h3>
-      {% if entry.submissions %}
+      <h3>من سلّموا <span class="list-count" data-count="submitted">{{ entry.submissions|length }}</span></h3>
         {% if entry.group_names|length > 1 %}
           <div class="group-filter-bar">
             <div class="group-filter-actions">
@@ -461,6 +421,7 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
             </div>
           </div>
         {% endif %}
+      {% if entry.submissions %}
         <div class="table-scroll">
           <table class="submissions-table" data-task="{{ entry.task.id }}">
             <thead>
@@ -475,26 +436,22 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
             </thead>
             <tbody class="submissions-body" data-task="{{ entry.task.id }}">
               {% for submission in entry.submissions %}
-                <tr data-group="{{ submission.participant.group.name|default:'' }}">
+                <tr data-group="{{ submission.participant.group.name|default:'' }}" data-submission="{{ submission.id }}">
                   <td><a class="file-link" href="{% url 'participants:student_detail' submission.participant.pk %}">{{ submission.participant.user.full_name }}</a></td>
                   <td>{{ submission.participant.group.name|default:"—" }}</td>
                   <td>{{ submission.submitted_at }}</td>
                   <td>
-                    {% if submission.file %}
                       <div class="file-actions">
-                        <a class="file-link" href="{{ submission.file.url }}" target="_blank">تحميل</a>
+                        {% if submission.file %}<a class="file-link" href="{{ submission.file.url }}" target="_blank" rel="noopener">تحميل</a>{% endif %}
                         <button type="button" class="btn-inline preview-btn"
-                                data-url="{{ submission.file.url }}"
-                                data-type="{{ submission.get_submitted_format }}">معاينة</button>
-                        {% if submission.text_content %}
-                          <button type="button" class="btn-inline text-preview-btn"
-                                  data-content="{{ submission.text_content }}">عرض النص</button>
-                        {% endif %}
+                                aria-haspopup="dialog" aria-controls="preview-modal"
+                                data-url="{% if submission.file %}{{ submission.file.url }}{% endif %}"
+                                data-type="{{ submission.get_submitted_format }}"
+                                data-content="{{ submission.text_content }}"
+                                data-name="{{ submission.participant.user.full_name }}"
+                                data-title="{{ entry.task.title }}"
+                                data-status="{{ submission.get_status_display }}">{% if submission.file %}معاينة{% else %}عرض النص{% endif %}</button>
                       </div>
-                    {% else %}
-                      <button type="button" class="btn-inline text-preview-btn"
-                              data-content="{{ submission.text_content }}">عرض النص</button>
-                    {% endif %}
                   </td>
                   <td>
                     {% if submission.status == "pending" %}
@@ -523,7 +480,7 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
                         {% if submission.points_awarded is None and not can_manage_tasks %}
                           <span class="rejection-note">تسليم قديم: يلزم تحقق المشرف العام من صرف النقاط قبل القبول.</span>
                         {% else %}
-                        <form method="post">
+                        <form method="post" class="accept-form">
                           {% csrf_token %}
                           <input type="hidden" name="action" value="accept">
                           <input type="hidden" name="submission_id" value="{{ submission.id }}">
@@ -548,7 +505,7 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
                           {% csrf_token %}
                           <input type="hidden" name="action" value="reject">
                           <input type="hidden" name="submission_id" value="{{ submission.id }}">
-                          <input type="text" name="rejection_reason" placeholder="سبب الرفض (اختياري)" class="reject-reason-input">
+                          <input type="text" name="rejection_reason" aria-label="سبب الرفض (اختياري)" placeholder="سبب الرفض (اختياري)" class="reject-reason-input">
                           <button type="submit" class="btn btn-reject btn-sm">رفض</button>
                         </form>
 	                        {% if entry.task.is_active and not entry.task.is_past_due %}
@@ -574,6 +531,21 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
       {% else %}
         <p class="empty-note">لا توجد تسليمات بعد لهذه المهمة.</p>
       {% endif %}
+      <p class="task-filter-empty" data-empty="submitted" hidden>لا توجد تسليمات في البيئات المحددة.</p>
+
+      <h3>من لم يسلّموا <span class="list-count" data-count="not-submitted">{{ entry.not_submitted|length }}</span></h3>
+      <p class="task-list-hint">الطلاب النشطون في النطاق المسموح؛ التسليم المعاد للتعديل أو المعاد رفعه محسوب ضمن من سلّموا.</p>
+      <ul class="not-submitted-list" data-task="{{ entry.task.id }}">
+        {% for participant in entry.not_submitted %}
+          <li data-group="{{ participant.group.name|default:'' }}" data-participant="{{ participant.pk }}">
+            <a class="file-link" href="{% url 'participants:student_detail' participant.pk %}">{{ participant.user.full_name }}</a>
+            <span>{{ participant.group.name|default:"—" }}</span>
+          </li>
+        {% empty %}
+          <li class="empty-note">لا يوجد طلاب نشطون لم يسلّموا في النطاق المسموح.</li>
+        {% endfor %}
+      </ul>
+      <p class="task-filter-empty" data-empty="not-submitted" hidden>لا يوجد طلاب لم يسلّموا في البيئات المحددة.</p>
     </section>
   {% empty %}
     <section class="card">
@@ -631,176 +603,23 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
   </section>
   {% endif %}
 
-  <div id="preview-modal" class="modal-overlay" hidden>
-    <div class="modal-box">
-      <button type="button" class="modal-close" id="modal-close-btn" aria-label="إغلاق">
+  <dialog id="preview-modal" class="task-preview-dialog" role="dialog" aria-modal="true"
+          aria-labelledby="preview-title" aria-describedby="preview-help" dir="rtl">
+    <header class="task-preview-header">
+      <h2 id="preview-title">معاينة التسليم</h2>
+      <button type="button" class="btn-inline" id="modal-close-btn" aria-label="إغلاق المعاينة" autofocus>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg>
       </button>
+    </header>
+    <p id="preview-help">يمكن معاينة الملف والنص معًا. أدوات القرار تظهر للتسليم المعلّق وللمراجع المخوّل فقط؛ تُرسل إلى نموذج التصحيح نفسه وتظهر النتيجة بعد تحميل الصفحة.</p>
+    <p id="preview-status" role="status" aria-live="polite"></p>
+    <div class="task-preview-layout">
       <div id="modal-content"></div>
+      <aside id="modal-review-actions" aria-label="قرار مراجعة التسليم"></aside>
     </div>
-  </div>
+  </dialog>
 {% endblock %}
 
 {% block scripts %}
-<script>
-(function () {
-  var modal = document.getElementById("preview-modal");
-  var content = document.getElementById("modal-content");
-  var closeBtn = document.getElementById("modal-close-btn");
-  if (!modal || !content || !closeBtn) return;
-
-  function openPreview(url, type) {
-    content.innerHTML = "";
-    var el;
-    if (type === "image") {
-      el = document.createElement("img");
-      el.src = url;
-      el.alt = "معاينة الملف";
-    } else if (type === "pdf") {
-      el = document.createElement("iframe");
-      el.src = url;
-    } else if (type === "video") {
-      el = document.createElement("video");
-      el.src = url;
-      el.controls = true;
-    } else if (type === "audio") {
-      el = document.createElement("audio");
-      el.src = url;
-      el.controls = true;
-    } else {
-      el = document.createElement("p");
-      el.textContent = "لا يمكن معاينة هذا النوع من الملفات.";
-    }
-    content.appendChild(el);
-    modal.hidden = false;
-  }
-
-  function closePreview() {
-    modal.hidden = true;
-    content.innerHTML = "";  // يوقف تشغيل الفيديو/الصوت عند الإغلاق
-  }
-
-  document.querySelectorAll(".preview-btn").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      openPreview(btn.getAttribute("data-url"), btn.getAttribute("data-type"));
-    });
-  });
-
-  document.querySelectorAll(".text-preview-btn").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      content.innerHTML = "";
-      var pre = document.createElement("pre");
-      pre.style.whiteSpace = "pre-wrap";
-      pre.style.fontFamily = "var(--font-ui)";
-      pre.style.fontSize = "14px";
-      pre.style.color = "var(--asphalt)";
-      pre.style.margin = "0";
-      pre.style.maxWidth = "70vw";
-      pre.textContent = btn.getAttribute("data-content");
-      content.appendChild(pre);
-      modal.hidden = false;
-    });
-  });
-
-  closeBtn.addEventListener("click", closePreview);
-  modal.addEventListener("click", function (e) {
-    if (e.target === modal) closePreview();  // إغلاق بالضغط خارج المحتوى
-  });
-  document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape" && !modal.hidden) closePreview();
-  });
-})();
-</script>
-
-<script>
-(function () {
-  // فلتر البيئات متعدد الاختيار + الفرز بالضغط على رأس العمود، مكرر لكل
-  // جدول تسليمات مستقل (واحد لكل مهمة نشطة) عبر data-task فريد.
-  document.querySelectorAll(".submissions-table").forEach(function (table) {
-    var taskId = table.getAttribute("data-task");
-    var tbody = table.querySelector(".submissions-body[data-task='" + taskId + "']");
-    if (!tbody) return;
-
-    var groupCheckboxes = document.querySelectorAll(".group-filter-checkbox[data-task='" + taskId + "']");
-    var selectAllBtn = document.querySelector(".group-filter-all[data-task='" + taskId + "']");
-    var selectNoneBtn = document.querySelector(".group-filter-none[data-task='" + taskId + "']");
-
-    function getSelectedGroups() {
-      var selected = [];
-      groupCheckboxes.forEach(function (cb) {
-        if (cb.checked) selected.push(cb.value);
-      });
-      return selected;
-    }
-
-    function applyFilters() {
-      var selectedGroups = getSelectedGroups();
-      var groupFilterActive = groupCheckboxes.length > 0;
-      Array.prototype.forEach.call(tbody.querySelectorAll("tr"), function (row) {
-        var matchesGroup = !groupFilterActive
-          || selectedGroups.indexOf(row.getAttribute("data-group") || "") !== -1;
-        row.hidden = !matchesGroup;
-      });
-    }
-
-    groupCheckboxes.forEach(function (cb) {
-      cb.addEventListener("change", applyFilters);
-    });
-
-    if (selectAllBtn) {
-      selectAllBtn.addEventListener("click", function () {
-        groupCheckboxes.forEach(function (cb) { cb.checked = true; });
-        applyFilters();
-      });
-    }
-
-    if (selectNoneBtn) {
-      selectNoneBtn.addEventListener("click", function () {
-        groupCheckboxes.forEach(function (cb) { cb.checked = false; });
-        applyFilters();
-      });
-    }
-
-    var currentSort = { col: null, dir: null };
-
-    function getCellValue(row, colIndex, type) {
-      var cell = row.children[colIndex];
-      var text = cell ? cell.textContent.trim() : "";
-      if (type === "number") {
-        var n = parseFloat(text.replace(/[^\d.-]/g, ""));
-        return isNaN(n) ? -Infinity : n;
-      }
-      return text.toLocaleLowerCase("ar");
-    }
-
-    table.querySelectorAll("th.sortable").forEach(function (header) {
-      header.addEventListener("click", function () {
-        var colIndex = parseInt(header.getAttribute("data-col"), 10);
-        var type = header.getAttribute("data-sort");
-
-        var dir = "asc";
-        if (currentSort.col === colIndex && currentSort.dir === "asc") {
-          dir = "desc";
-        }
-        currentSort = { col: colIndex, dir: dir };
-
-        table.querySelectorAll("th.sortable").forEach(function (h) {
-          h.classList.remove("sort-asc", "sort-desc");
-        });
-        header.classList.add(dir === "asc" ? "sort-asc" : "sort-desc");
-
-        var rows = Array.prototype.slice.call(tbody.querySelectorAll("tr"));
-        rows.sort(function (a, b) {
-          var va = getCellValue(a, colIndex, type);
-          var vb = getCellValue(b, colIndex, type);
-          if (va < vb) return dir === "asc" ? -1 : 1;
-          if (va > vb) return dir === "asc" ? 1 : -1;
-          return 0;
-        });
-        rows.forEach(function (row) { tbody.appendChild(row); });
-      });
-    });
-  });
-})();
-</script>
+<script src="{% static 'js/task-review-preview.js' %}" defer></script>
 {% endblock %}

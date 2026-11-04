@@ -1,8 +1,10 @@
-/* جداول التحضير والحلقة: عناصر مشتركة ومحكومة بالنطاق .attendance-roster فقط. */
+/* كشوف اللقاء والحلقة وفعالية الأسبوع، محكومة بالنطاق .attendance-roster فقط. */
 .attendance-roster{
   --roster-surface:#fffefa;
   --roster-soft:#fbf8f0;
   --roster-focus:rgba(199,154,59,.26);
+  min-width:0;
+  max-width:100%;
 }
 
 .attendance-roster .roster-card{
@@ -28,6 +30,8 @@
   display:flex;
   flex-direction:column;
   gap:4px;
+  min-width:0;
+  max-width:100%;
 }
 
 .attendance-roster .date-bar label{
@@ -38,6 +42,8 @@
 
 .attendance-roster .date-bar input[type="date"],
 .attendance-roster .date-bar select{
+  min-width:0;
+  max-width:100%;
   min-height:42px;
   padding:8px 12px;
   color:var(--asphalt);
@@ -75,7 +81,10 @@
 .attendance-roster .roster-search:focus-visible,
 .attendance-roster .attendance-note summary:focus-visible,
 .attendance-roster .student-name-link:focus-visible,
-.attendance-roster .select-all:focus-visible{
+.attendance-roster .select-all:focus-visible,
+.attendance-roster th.sortable:focus-visible,
+.attendance-roster .note-save-button:focus-visible,
+.attendance-roster .save-bar .btn:focus-visible{
   outline:3px solid var(--roster-focus);
   outline-offset:2px;
 }
@@ -120,6 +129,8 @@
 }
 
 .attendance-roster .roster-scroll{
+  width:100%;
+  max-width:560px;
   overflow-x:auto;
   overscroll-behavior-inline:contain;
   border:1px solid #eee5d5;
@@ -129,7 +140,8 @@
 
 .attendance-roster table.roster{
   width:100%;
-  min-width:610px;
+  min-width:0;
+  table-layout:fixed;
   border-collapse:collapse;
   background:#fff;
   color:var(--asphalt);
@@ -137,11 +149,30 @@
   font-size:14px;
 }
 
+/* لا نعرّف col للأعمدة المخفية؛ لا تحجز عرضاً في التخطيط المضغوط. */
+.attendance-roster .roster-col-name{width:36%}
+.attendance-roster .roster-col-check{width:32%}
+.attendance-roster--with-notes .roster-col-name{width:32%}
+.attendance-roster--with-notes .roster-col-check{width:20%}
+.attendance-roster .roster-col-note{width:28%}
+.attendance-roster--activity .roster-col-name{width:40%}
+.attendance-roster--activity .roster-col-check{width:60%}
+
+/* عند إظهار البيانات فقط يُسمح بتمرير داخل الكشف، لا الصفحة. */
+.attendance-roster.student-data-visible .roster-scroll{max-width:100%}
+.attendance-roster.student-data-visible table.roster{min-width:1000px}
+.attendance-roster--activity.student-data-visible table.roster{min-width:660px}
+.attendance-roster.student-data-visible .roster-col-name{width:160px}
+.attendance-roster.student-data-visible .roster-col-check{width:88px}
+.attendance-roster.student-data-visible .roster-col-note{width:150px}
+
 .attendance-roster table.roster th,
 .attendance-roster table.roster td{
-  padding:9px 10px;
+  padding:8px 6px;
   text-align:right;
   vertical-align:middle;
+  white-space:normal;
+  overflow-wrap:anywhere;
   border-bottom:1px solid #efe8da;
 }
 
@@ -175,7 +206,7 @@
 
 .attendance-roster .roster-name-head,
 .attendance-roster .student-name-cell{
-  min-width:255px;
+  min-width:0;
 }
 
 .attendance-roster .student-name-cell{
@@ -184,13 +215,18 @@
 }
 
 .attendance-roster .student-name-line{
-  min-height:27px;
-  padding-inline-end:66px;
+  min-height:44px;
   display:flex;
   align-items:center;
 }
 
 .attendance-roster .student-name-link{
+  display:block;
+  min-width:0;
+  max-width:100%;
+  padding-block:5px;
+  white-space:normal;
+  overflow-wrap:anywhere;
   color:var(--asphalt);
   font-family:var(--font-display);
   font-weight:800;
@@ -205,23 +241,22 @@
   text-underline-offset:3px;
 }
 
-/* زر الملاحظة بجوار الاسم، بينما حقلها يبقى تحت الاسم داخل الخلية نفسها. */
+/* الملاحظات عمود مستقل بعد التحضير، ولا تُحشر داخل عمود الاسم. */
 .attendance-roster .attendance-note{
   position:relative;
-  margin:2px 0 0;
+  min-width:0;
 }
 
 .attendance-roster .attendance-note > summary{
-  position:absolute;
-  inset-inline-end:0;
-  top:-29px;
-  display:inline-flex;
+  display:flex;
+  min-height:44px;
   align-items:center;
-  gap:5px;
+  justify-content:center;
+  padding:4px 0;
   list-style:none;
   color:var(--gold-ink);
   font-family:var(--font-ui);
-  font-size:11px;
+  font-size:12px;
   font-weight:800;
   cursor:pointer;
   user-select:none;
@@ -231,16 +266,10 @@
   display:none;
 }
 
-.attendance-roster .attendance-note > summary::before{
-  content:"";
-  width:7px;
-  height:7px;
-  border:1.5px solid currentColor;
-  border-radius:50%;
-}
-
-.attendance-roster .attendance-note[open] > summary::before{
-  background:currentColor;
+.attendance-roster .attendance-note[open] > summary{
+  color:var(--asphalt);
+  background:var(--gold-soft);
+  border-radius:6px;
 }
 
 .attendance-roster .attendance-note__panel{
@@ -258,9 +287,11 @@
 .attendance-roster .attendance-note__panel textarea{
   display:block;
   width:100%;
+  min-width:0;
+  max-width:100%;
   min-height:54px;
   resize:vertical;
-  padding:7px 9px;
+  padding:7px 5px;
   color:var(--asphalt);
   background:#fffdf8;
   border:1px solid #decfae;
@@ -283,7 +314,18 @@
 }
 
 .attendance-roster table.roster .check-col{
-  min-width:94px;
+  min-width:0;
+}
+
+.attendance-roster .roster-check-label{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:44px;
+  min-height:44px;
+  max-width:100%;
+  cursor:pointer;
+  touch-action:manipulation;
 }
 
 .attendance-roster table.roster .num-cell{
@@ -306,9 +348,10 @@
 
 .attendance-roster .select-all{
   display:block;
-  width:max-content;
+  width:100%;
+  min-height:36px;
   margin:4px auto 0;
-  padding:0;
+  padding:4px 0;
   border:0;
   color:var(--gold-ink);
   background:transparent;
@@ -319,6 +362,8 @@
   text-decoration:underline;
   text-underline-offset:2px;
   cursor:pointer;
+  touch-action:manipulation;
+  overflow-wrap:anywhere;
 }
 
 .attendance-roster th.sortable{
@@ -386,7 +431,20 @@
 
 @media (max-width:620px){
   .attendance-roster .roster-card{
-    padding:var(--s2);
+    padding:12px;
+  }
+
+  .attendance-roster table.roster{
+    font-size:13px;
+  }
+
+  .attendance-roster table.roster th,
+  .attendance-roster table.roster td{
+    padding:8px 4px;
+  }
+
+  .attendance-roster table.roster thead th{
+    font-size:11px;
   }
 
   .attendance-roster .roster-tools{
@@ -406,15 +464,13 @@
   .attendance-roster .roster-data-toggle{
     width:100%;
   }
-
-  .attendance-roster table.roster{
-    min-width:575px;
-  }
 }
 
 .attendance-roster .note-save-button{
-  margin-top:6px;padding:5px 10px;border:1px solid #d7bd83;border-radius:7px;
-  background:#fffaf0;color:var(--gold-ink);font:600 11px var(--font-ui);cursor:pointer;
+  width:100%;min-height:44px;margin-top:6px;padding:5px 4px;
+  border:1px solid #d7bd83;border-radius:7px;
+  background:#fffaf0;color:var(--gold-ink);font:600 11px/1.5 var(--font-ui);
+  cursor:pointer;white-space:normal;overflow-wrap:anywhere;
 }
 .attendance-roster .note-save-button:disabled{opacity:.6;cursor:wait}
 .attendance-roster .note-save-status{display:block;margin-top:5px;color:var(--slate);font:11px/1.6 var(--font-ui)}

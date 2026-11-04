@@ -29,6 +29,7 @@
     var currentSort = { column: null, direction: null };
 
     function toggleStudentData(show) {
+      root.classList.toggle("student-data-visible", show);
       toArray(table.querySelectorAll(".student-extra")).forEach(function (cell) {
         cell.hidden = !show;
       });
@@ -41,6 +42,7 @@
     }
 
     if (dataToggle) {
+      toggleStudentData(false);
       dataToggle.addEventListener("click", function () {
         toggleStudentData(dataToggle.getAttribute("aria-expanded") !== "true");
       });
@@ -146,6 +148,12 @@
           return 0;
         });
         rows.forEach(function (row) { tbody.appendChild(row); });
+      });
+      header.addEventListener("keydown", function (event) {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          header.click();
+        }
       });
     });
   }

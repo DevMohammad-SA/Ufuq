@@ -1,5 +1,5 @@
 {% extends "participants/app_base.html" %}
-{% load static %}
+{% load static l10n %}
 
 {% block title %}لوحتي — رحّال{% endblock %}
 
@@ -160,6 +160,7 @@
 {% endblock %}
 
 {% block content %}
+  <link rel="stylesheet" href="{% static 'css/elite-competition.css' %}">
   <h1 class="page-title">هلا، {{ participant.user.full_name|default:"رحّالنا" }} 👋</h1>
 
   <div class="currency-grid">
@@ -173,10 +174,71 @@
     </div>
   </div>
 
-  {% if elite_status %}
+  {% if elite_competition %}
+    <section class="elite-competition{% if not elite_competition.qualified %} elite-competition--outside{% endif %}" dir="rtl" aria-labelledby="elite-competition-heading">
+      <h2 class="elite-competition__heading" id="elite-competition-heading">موقعك في منافسة رحلة النخبة</h2>
+      <p class="elite-competition__status">{% if elite_competition.qualified %}أنت ضمن المرشحين لرحلة النخبة{% else %}أنت خارج أعلى {{ elite_competition.limit }} حاليًا{% endif %}</p>
+
+      <dl class="elite-competition__stats">
+        <div class="elite-competition__stat">
+          <dt>ترتيبك الحالي في بيئتك</dt>
+          <dd><bdi>{{ elite_competition.rank|unlocalize }}</bdi></dd>
+        </div>
+        <div class="elite-competition__stat">
+          <dt>المنافسون النشطون في بيئتك</dt>
+          <dd><bdi>{{ elite_competition.total|unlocalize }}</bdi> <small>بمن فيهم أنت</small></dd>
+        </div>
+        <div class="elite-competition__stat elite-competition__stat--difference">
+          <dt>{% if elite_competition.difference_kind == 'gap' %}فارق النقاط إلى المركز 20{% elif elite_competition.difference_kind == 'margin' %}هامش نقاطك عن المركز 21{% else %}مقارنة النقاط عند الحد{% endif %}</dt>
+          <dd>{% if elite_competition.difference != None %}<bdi>{{ elite_competition.difference|unlocalize }}</bdi> <small>نقطة</small>{% else %}لا مقارنة{% endif %}</dd>
+        </div>
+      </dl>
+
+      <svg class="elite-competition__definitions" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <symbol id="elite-generic-rider" viewBox="0 0 40 40">
+            <circle cx="21" cy="8" r="3" />
+            <path d="M20 12l-3 7 7 3M18 14l8 2 3-4M9 22h15l4-6 6 3-3 6h-5l-3 8M20 25l-1 8M11 25l-2 8M10 22l-5-4" />
+          </symbol>
+        </defs>
+      </svg>
+      <div class="elite-competition__plot" role="img" aria-label="ترتيبك {{ elite_competition.rank|unlocalize }} من {{ elite_competition.total|unlocalize }} منافس نشط؛ حد الترشيح أعلى {{ elite_competition.limit }}. يبدأ الترتيب من اليمين." aria-describedby="elite-competition-cutoff elite-competition-caption">
+        <div class="elite-competition__course" aria-hidden="true">
+          <div class="elite-competition__track"></div>
+          <div class="elite-competition__qualified-zone" style="width:{{ elite_competition.cutoff_percent|unlocalize }}%"></div>
+          <div class="elite-competition__cutoff" style="inset-inline-start:{{ elite_competition.cutoff_percent|unlocalize }}%"></div>
+          {% for position in elite_competition.marker_positions %}
+            <span class="elite-competition__rider" style="inset-inline-start:{{ position|unlocalize }}%"><svg viewBox="0 0 40 40" focusable="false"><use href="#elite-generic-rider" /></svg></span>
+          {% endfor %}
+          <span class="elite-competition__me" style="inset-inline-start:{{ elite_competition.position_percent|unlocalize }}%">
+            <span class="elite-competition__me-label">أنت / {{ elite_competition.rank|unlocalize }}</span>
+            <svg viewBox="0 0 40 40" focusable="false"><use href="#elite-generic-rider" /></svg>
+          </span>
+        </div>
+        <div class="elite-competition__axis" aria-hidden="true">
+          <span>المركز 1</span>
+          <span>نهاية الترتيب</span>
+        </div>
+      </div>
+      <p class="elite-competition__cutoff-note" id="elite-competition-cutoff"><span class="elite-competition__cutoff-key" aria-hidden="true"></span><span>حد الترشيح: أعلى {{ elite_competition.limit }}{% if elite_competition.total <= elite_competition.limit %} — جميع المنافسين النشطين ضمن الحد، والخط عند نهاية الشريط.{% else %} — الخط يفصل نطاق الترشيح عن بقية الترتيب.{% endif %}</span></p>
+      {% if elite_competition.difference == 0 %}
+        <p class="elite-competition__note elite-competition__tie">فارق النقاط عند الحد هو 0. {% if elite_competition.qualified %}أنت داخل أعلى 20 حاليًا وفق مرجّح التعادل الثابت.{% else %}التعادل في النقاط لا يعني دخول أعلى 20؛ أنت خارجها حاليًا وفق مرجّح التعادل الثابت.{% endif %} عند تساوي النقاط يُقدَّم المعرّف الأسبق؛ لا تُعرض معرّفات الطلاب، والترتيب قابل للتغيّر مع تحديث النقاط.</p>
+      {% elif elite_competition.difference == None %}
+        <p class="elite-competition__note">عدد المنافسين النشطين أقل من 21، لذلك لا يوجد فارق نقاط للمقارنة عند الحد.</p>
+      {% else %}
+        <p class="elite-competition__note">الفارق من النقاط الحالية فقط، وليس عدد نقاط يضمن الترشيح؛ يتغيّر ترتيبك مع تغيّر نقاط المنافسة.</p>
+      {% endif %}
+      <p class="elite-competition__note" id="elite-competition-caption">الموقع على الشريط بحسب ترتيب النقاط، وليس الأميال. الفرسان رموز توضيحية عامة وليست تمثيلًا لطلاب محددين؛ لا تُعرض أسماء المنافسين أو هوياتهم أو نقاطهم.</p>
+    </section>
+  {% elif elite_status %}
     <section class="elite-card elite-{{ elite_status.eliteStatus }}">
       <div class="label">مؤشر رحلة النخبة 🧭</div>
       <div class="elite-message">{{ elite_status.message }}</div>
+    </section>
+  {% else %}
+    <section class="elite-competition" aria-labelledby="elite-competition-heading">
+      <h2 class="elite-competition__heading" id="elite-competition-heading">موقعك في منافسة رحلة النخبة</h2>
+      <p class="elite-competition__note">{% if not participant.group_id %}سيظهر موقعك في المنافسة بعد إسنادك إلى بيئة.{% else %}لا تتوفر بيانات منافسة لحسابك حاليًا.{% endif %}</p>
     </section>
   {% endif %}
 

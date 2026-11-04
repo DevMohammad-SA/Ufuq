@@ -67,10 +67,15 @@
           <input type="hidden" name="group" value="{{ group.id }}">
 
           <div class="roster-scroll">
-            <table class="roster" id="roster-table">
+            <table class="roster" id="roster-table" dir="rtl">
+              <colgroup>
+                <col class="roster-col-name">
+                <col class="roster-col-check">
+                <col class="roster-col-check">
+              </colgroup>
               <thead>
                 <tr>
-                  <th class="sortable roster-name-head" data-sort="text" data-col="0" scope="col">الاسم الكامل<span class="sort-arrow" aria-hidden="true"></span></th>
+                  <th class="sortable roster-name-head" data-sort="text" data-col="0" scope="col" tabindex="0" aria-sort="none">الاسم الكامل<span class="sort-arrow" aria-hidden="true"></span></th>
                   <th class="check-col" scope="col">
                     حضور الحلقة
                     <button type="button" class="select-all" data-target="attended" aria-label="تحديد كل المشاركين لحضور الحلقة">تحديد الكل</button>
@@ -82,8 +87,8 @@
                   <th class="student-extra" hidden scope="col">رقم الهوية</th>
                   <th class="student-extra" hidden scope="col">رقم الجوال</th>
                   <th class="student-extra" hidden scope="col">المرحلة الدراسية</th>
-                  <th class="student-extra sortable" hidden data-sort="number" data-col="6" scope="col">الأميال<span class="sort-arrow" aria-hidden="true"></span></th>
-                  <th class="student-extra sortable" hidden data-sort="number" data-col="7" scope="col">النقاط<span class="sort-arrow" aria-hidden="true"></span></th>
+                  <th class="student-extra sortable" hidden data-sort="number" data-col="6" scope="col" tabindex="0" aria-sort="none">الأميال<span class="sort-arrow" aria-hidden="true"></span></th>
+                  <th class="student-extra sortable" hidden data-sort="number" data-col="7" scope="col" tabindex="0" aria-sort="none">النقاط<span class="sort-arrow" aria-hidden="true"></span></th>
                 </tr>
               </thead>
               <tbody id="roster-body">
@@ -95,23 +100,18 @@
                           {{ entry.participant.user.full_name|default:"—" }}
                         </a>
                       </div>
-                      {% if can_view_notes %}
-                        <details class="attendance-note">
-                          <summary aria-label="إظهار أو إخفاء ملاحظة {{ entry.participant.user.full_name|default:'المشارك' }}">ملاحظة</summary>
-                          <div class="attendance-note__panel">
-                            <label for="note-{{ entry.participant.id }}">ملاحظة للطالب</label>
-                            <textarea id="note-{{ entry.participant.id }}" name="note_{{ entry.participant.id }}" maxlength="2000" rows="2" placeholder="أضف ملاحظة مختصرة عند الحاجة">{{ entry.note|default_if_none:"" }}</textarea>
-                          </div>
-                        </details>
-                      {% endif %}
                     </td>
                     <td class="check-cell">
-                      <input class="roster-checkbox" type="checkbox" id="circle-attended-{{ entry.participant.id }}" data-col="attended" name="attended_{{ entry.participant.id }}"{% if entry.attended %} checked{% endif %}>
-                      <label class="sr-only" for="circle-attended-{{ entry.participant.id }}">تسجيل حضور الحلقة لـ {{ entry.participant.user.full_name|default:'المشارك' }}</label>
+                      <label class="roster-check-label" for="circle-attended-{{ entry.participant.id }}">
+                        <input class="roster-checkbox" type="checkbox" id="circle-attended-{{ entry.participant.id }}" data-col="attended" name="attended_{{ entry.participant.id }}"{% if entry.attended %} checked{% endif %}>
+                        <span class="sr-only">تسجيل حضور الحلقة لـ {{ entry.participant.user.full_name|default:'المشارك' }}</span>
+                      </label>
                     </td>
                     <td class="check-cell">
-                      <input class="roster-checkbox" type="checkbox" id="circle-achieved-{{ entry.participant.id }}" data-col="achieved" name="achieved_{{ entry.participant.id }}"{% if entry.achieved %} checked{% endif %}>
-                      <label class="sr-only" for="circle-achieved-{{ entry.participant.id }}">تسجيل إنجاز الحلقة لـ {{ entry.participant.user.full_name|default:'المشارك' }}</label>
+                      <label class="roster-check-label" for="circle-achieved-{{ entry.participant.id }}">
+                        <input class="roster-checkbox" type="checkbox" id="circle-achieved-{{ entry.participant.id }}" data-col="achieved" name="achieved_{{ entry.participant.id }}"{% if entry.achieved %} checked{% endif %}>
+                        <span class="sr-only">تسجيل إنجاز الحلقة لـ {{ entry.participant.user.full_name|default:'المشارك' }}</span>
+                      </label>
                     </td>
                     <td class="student-extra" hidden>{{ entry.participant.user.national_id|default:"—" }}</td>
                     <td class="student-extra" hidden dir="ltr">{{ entry.participant.phone|default:"—" }}</td>

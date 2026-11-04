@@ -1,0 +1,46 @@
+/* Rank-based, RTL competition. Riders are decorative, never individual records. */
+.elite-competition{
+  margin-top:var(--s3);
+  padding:var(--s3);
+  background:#fff;
+  border:1px solid var(--line);
+  border-inline-start:4px solid var(--gold-ink);
+  border-radius:var(--r-md);
+  min-width:0;
+  direction:rtl;
+}
+.elite-competition--outside{border-inline-start-color:var(--slate)}
+.elite-competition__heading{margin:0 0 6px;font-size:18px;font-weight:800}
+.elite-competition__status{margin:0;color:var(--gold-ink);font-family:var(--font-ui);font-size:14px;font-weight:700}
+.elite-competition--outside .elite-competition__status{color:var(--asphalt)}
+.elite-competition__stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:20px 0 0}
+.elite-competition__stat{background:var(--sand);border-radius:var(--r-sm);padding:12px;min-width:0}
+.elite-competition__stat dt{font-family:var(--font-ui);font-size:12px;color:var(--slate)}
+.elite-competition__stat dd{margin:6px 0 0;font-family:var(--font-display);font-size:28px;font-weight:800;line-height:1.2;color:var(--asphalt);font-variant-numeric:tabular-nums}
+.elite-competition__stat small{font-family:var(--font-ui);font-size:12px;font-weight:400;color:var(--slate)}
+.elite-competition__stat--difference dd{font-size:20px}
+.elite-competition__plot{margin:20px 24px 0}
+.elite-competition__course{position:relative;height:112px}
+.elite-competition__track{position:absolute;inset-inline:0;top:57px;height:10px;border-radius:99px;background:var(--line)}
+.elite-competition__qualified-zone{position:absolute;inset-inline-start:0;top:57px;height:10px;border-radius:99px;background:var(--gold-soft)}
+.elite-competition__cutoff{position:absolute;top:43px;height:52px;border-inline-start:3px solid var(--gold-ink);transform:translateX(50%)}
+.elite-competition__rider{position:absolute;top:72px;transform:translateX(50%);color:var(--slate);opacity:.75}
+.elite-competition__rider svg{display:block;width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.elite-competition__me{position:absolute;top:0;transform:translateX(50%);display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--asphalt);z-index:1}
+.elite-competition__me-label{font-family:var(--font-ui);font-size:12px;font-weight:700;white-space:nowrap}
+.elite-competition__me svg{display:block;box-sizing:border-box;width:40px;height:40px;border-radius:50%;padding:3px;background:var(--asphalt);fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;outline:3px solid var(--gold)}
+.elite-competition__axis{display:flex;justify-content:space-between;gap:12px;font-family:var(--font-ui);font-size:12px;color:var(--slate)}
+.elite-competition__axis span:last-child{text-align:end}
+.elite-competition__cutoff-note{display:flex;align-items:flex-start;gap:8px;margin:14px 0 0;font-family:var(--font-ui);font-size:13px;color:var(--asphalt)}
+.elite-competition__cutoff-key{flex:0 0 3px;height:20px;background:var(--gold-ink);border-radius:2px}
+.elite-competition__note{margin:12px 0 0;font-family:var(--font-ui);font-size:13px;line-height:1.8;color:var(--slate)}
+.elite-competition__tie{background:var(--sand);border-radius:var(--r-sm);padding:10px 12px;color:var(--asphalt)}
+.elite-competition__definitions{position:absolute;width:0;height:0;overflow:hidden}
+@media(max-width:480px){
+  .elite-competition{padding:16px}
+  .elite-competition__stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .elite-competition__stat--difference{grid-column:1/-1}
+  .elite-competition__stat{padding:10px}
+  .elite-competition__plot{margin-inline:22px}
+  .elite-competition__rider svg{width:21px;height:21px}
+}

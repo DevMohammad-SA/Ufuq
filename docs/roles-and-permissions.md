@@ -45,7 +45,7 @@
 | View | المسار (`name`) | `test_func()` — من يُسمح له |
 |------|------------------|------------------------------|
 | `HomeView` | `home` (في `config/urls.py`) | **عام** — `TemplateView` بلا أي mixin؛ صفحة الهبوط لا تتطلب دخولًا |
-| `ParticipantDashboardView` | `dashboard` | `LoginRequiredMixin` فقط (بدون `test_func`) — أي مستخدم مسجّل، لكن الصفحة تصل لـ `request.user.participant` فورًا فتتعطّل بـ `RelatedObjectDoesNotExist` لغير المشاركين |
+| `ParticipantDashboardView` | `dashboard` | `role == PARTICIPANT` و`is_active=True` — تعرض بيانات الطالب وترتيبه فقط، وترفض أدوار المشرفين قبل تحميل سياق المشارك |
 | `SupervisorDashboardView` | `supervisor_dashboard` | `role in (GROUP_SUPERVISOR, GENERAL_SUPERVISOR, SUPERADMIN)`؛ مشرف البيئة مقيد ببيئاته المسندة والبقية يختارون أي بيئة |
 | `StudentReportView` **(غير موسوم بعد)** | `student_report` | `role in (GROUP_SUPERVISOR, GENERAL_SUPERVISOR, SUPERADMIN)` — تقرير قراءة فقط؛ مشرف البيئة يرى كل بيئاته المسندة |
 | `StudentDetailView` **(غير موسوم بعد)** | `student_detail` | `role in (GROUP_SUPERVISOR, GENERAL_SUPERVISOR, SUPERADMIN)` — يجري التقييد قبل جلب الطالب بالمعرّف |

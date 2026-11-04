@@ -567,9 +567,12 @@ class HomeView(TemplateView):
         return context
 
 
-class ParticipantDashboardView(LoginRequiredMixin, TemplateView):
+class ParticipantDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
     template_name = "participants/participant_dashboard.html"
     login_url = "accounts:login_participant"
+
+    def test_func(self):
+        return self.request.user.is_active and self.request.user.role == Role.PARTICIPANT
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -591,6 +594,9 @@ class ParticipantDashboardView(LoginRequiredMixin, TemplateView):
         # environment. No other participant's rank, points, or name is
         # exposed — see get_elite_status().
         context["elite_status"] = self.get_elite_status(participant)
+
+        from .competition import build_elite_competition
+        context["elite_competition"] = build_elite_competition(participant)
 
         context["points_ledger"] = participant.points_ledger_entries.filter(points_delta__gt=0)[:50]
 
@@ -2114,7 +2120,10 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        from .access import can_manage_tasks, can_review_task_submissions, scoped_submissions
+        from .access import (
+            can_manage_tasks, can_review_task_submissions,
+            scoped_participants, scoped_submissions,
+        )
         context["can_manage_tasks"] = can_manage_tasks(self.request.user)
         context["can_review_submissions"] = can_review_task_submissions(self.request.user)
         if context["can_manage_tasks"]:
@@ -2152,17 +2161,33 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
             tasks = WeeklyTask.objects.filter(pk=raw_task)
 
         tasks_with_submissions = []
-        all_group_names = set()
+        tasks = list(tasks)
+        # Evaluate the active roster once; a returned/re-uploaded submission
+        # still counts as submitted, irrespective of status or award history.
+        available_participants = list(
+            scoped_participants(self.request.user).filter(user__is_active=True)
+            .select_related("user", "group").order_by("user__full_name", "pk")
+        )
+        submissions_by_task = {task.pk: [] for task in tasks}
+        for submission in scoped_submissions(self.request.user).filter(
+            task_id__in=submissions_by_task,
+        ).select_related("participant__user", "participant__group").order_by("-submitted_at", "-pk"):
+            submissions_by_task[submission.task_id].append(submission)
         for task in tasks:
-            submissions = scoped_submissions(self.request.user).filter(task=task).select_related(
-                "participant__user", "participant__group"
-            ).order_by("-submitted_at")
+            submissions = submissions_by_task[task.pk]
+            submitted_ids = {s.participant_id for s in submissions}
+            not_submitted = [
+                p for p in available_participants if p.pk not in submitted_ids
+            ]
             group_names = sorted(
                 {s.participant.group.name for s in submissions if s.participant.group}
+                | {p.group.name for p in not_submitted if p.group}
             )
-            all_group_names.update(group_names)
             tasks_with_submissions.append(
-                {"task": task, "submissions": submissions, "group_names": group_names}
+                {
+                    "task": task, "submissions": submissions,
+                    "not_submitted": not_submitted, "group_names": group_names,
+                }
             )
         context["tasks_with_submissions"] = tasks_with_submissions
         context["all_tasks"] = WeeklyTask.objects.all().order_by("-created_at")
@@ -2221,7 +2246,8 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
                 if not may_manage and not TaskReviewPermission.objects.select_for_update().filter(
                     supervisor=request.user, enabled=True,
                 ).first():
-                    raise PermissionDenied("التصحيح غير مفعّل لك من المشرف العام.")
+                    messages.error(request, "لم يُحفظ القرار: التصحيح غير مفعّل لك من المشرف العام أو أُلغي تفويضك. يمكنك المعاينة فقط.")
+                    return self.render_to_response(self.get_context_data(), status=403)
                 submission_id = request.POST.get("submission_id", "")
                 if not submission_id.isdecimal():
                     raise Http404("تسليم غير متاح")
@@ -2229,6 +2255,7 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
                     scoped_submissions(request.user).select_for_update(), pk=submission_id,
                 )
                 if submission.status != TaskSubmission.Status.PENDING:
+                    messages.warning(request, "لم يُحفظ قرار جديد: هذا التسليم لم يعد قيد المراجعة. حدّث الصفحة للاطلاع على حالته.")
                     return redirect("participants:weekly_task_review")
 
                 if action == "return_for_revision":
@@ -2249,7 +2276,8 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
                 else:
                     if action == "accept" and submission.points_awarded is None:
                         if not may_manage:
-                            raise PermissionDenied("هذا التسليم قديم ويحتاج تحقق المشرف العام من نقاطه قبل القبول.")
+                            messages.error(request, "لم يُحفظ القبول: هذا التسليم قديم ويحتاج تحقق المشرف العام من نقاطه قبل القبول.")
+                            return self.render_to_response(self.get_context_data(), status=403)
                         historical_award = request.POST.get("historical_award")
                         if historical_award not in ("already_awarded", "not_awarded"):
                             messages.error(request, "تحقق أولًا هل صُرفت نقاط هذا التسليم القديم، ثم حدد القرار قبل القبول.")
@@ -2290,6 +2318,10 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
                     )
                     submission.points_awarded = True
                     submission.save(update_fields=["points_awarded"])
+                if action == "accept":
+                    messages.success(request, "تم قبول التسليم كمتميز." if is_featured else "تم قبول التسليم.")
+                elif action == "reject":
+                    messages.success(request, "تم رفض التسليم وحفظ سبب الرفض إن وُجد، دون منح نقاط.")
 
         return redirect("participants:weekly_task_review")
 
