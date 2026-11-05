@@ -20,6 +20,8 @@ class CompetitionPageIntegrationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context['elite_competition']['rank'], 2)
         self.assertEqual(response.context['elite_competition']['total'], 2)
+        self.assertEqual(response.context['elite_competition']['limit'], 10)
+        self.assertContains(response, 'حد الترشيح: أعلى 10')
         self.assertContains(response, 'elite-competition')
         self.assertNotContains(response, 'اسم المنافس السري')
         self.assertNotContains(response, 'private_rival')
@@ -46,3 +48,38 @@ class CompetitionPageIntegrationTests(TestCase):
         self.user.save(update_fields=['is_active'])
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 302)
+
+    def test_real_page_qualifies_tenth_but_not_eleventh_with_matching_statuses(self):
+        for index in range(9):
+            rival = User.objects.create_user(
+                username=f'private_top10_{index}', full_name=f'منافس مخفي {index}',
+                password='synthetic-password', role=Role.PARTICIPANT, must_set_password=False,
+            )
+            Participant.objects.create(user=rival, group=self.group, points=100 + index)
+        self.client.force_login(self.user)
+        response = self.client.get(self.url)
+        data = response.context['elite_competition']
+        self.assertEqual(data['rank'], 11)
+        self.assertEqual(data['limit'], 10)
+        self.assertFalse(data['qualified'])
+        self.assertEqual(data['difference'], 90 - 70)
+        self.assertEqual(response.context['elite_status']['eliteStatus'], 'not_qualified')
+        self.assertEqual(response.context['elite_status']['difference'], data['difference'])
+        self.assertContains(response, 'أنت خارج أعلى 10 حاليًا')
+        self.assertContains(response, 'فارق النقاط إلى المركز 10')
+
+        self.student.points = 95
+        self.student.save(update_fields=['points'])
+        response = self.client.get(self.url)
+        data = response.context['elite_competition']
+        self.assertEqual(data['rank'], 10)
+        self.assertTrue(data['qualified'])
+        self.assertEqual(data['difference'], 95 - 90)
+        self.assertEqual(response.context['elite_status']['eliteStatus'], 'qualified')
+        self.assertEqual(response.context['elite_status']['difference'], data['difference'])
+        self.assertContains(response, 'هامش نقاطك عن المركز 11')
+        self.assertContains(response, 'حد الترشيح: أعلى 10')
+        self.assertNotContains(response, 'أعلى 20')
+        self.assertNotContains(response, 'المركز 20')
+        self.assertNotContains(response, 'المركز 21')
+        self.assertNotContains(response, 'منافس مخفي')

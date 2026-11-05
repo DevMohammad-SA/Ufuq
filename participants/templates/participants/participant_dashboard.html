@@ -189,7 +189,7 @@
           <dd><bdi>{{ elite_competition.total|unlocalize }}</bdi> <small>بمن فيهم أنت</small></dd>
         </div>
         <div class="elite-competition__stat elite-competition__stat--difference">
-          <dt>{% if elite_competition.difference_kind == 'gap' %}فارق النقاط إلى المركز 20{% elif elite_competition.difference_kind == 'margin' %}هامش نقاطك عن المركز 21{% else %}مقارنة النقاط عند الحد{% endif %}</dt>
+          <dt>{% if elite_competition.difference_kind == 'gap' %}فارق النقاط إلى المركز {{ elite_competition.limit|unlocalize }}{% elif elite_competition.difference_kind == 'margin' %}هامش نقاطك عن المركز {{ elite_competition.limit|add:"1"|unlocalize }}{% else %}مقارنة النقاط عند الحد{% endif %}</dt>
           <dd>{% if elite_competition.difference != None %}<bdi>{{ elite_competition.difference|unlocalize }}</bdi> <small>نقطة</small>{% else %}لا مقارنة{% endif %}</dd>
         </div>
       </dl>
@@ -222,9 +222,9 @@
       </div>
       <p class="elite-competition__cutoff-note" id="elite-competition-cutoff"><span class="elite-competition__cutoff-key" aria-hidden="true"></span><span>حد الترشيح: أعلى {{ elite_competition.limit }}{% if elite_competition.total <= elite_competition.limit %} — جميع المنافسين النشطين ضمن الحد، والخط عند نهاية الشريط.{% else %} — الخط يفصل نطاق الترشيح عن بقية الترتيب.{% endif %}</span></p>
       {% if elite_competition.difference == 0 %}
-        <p class="elite-competition__note elite-competition__tie">فارق النقاط عند الحد هو 0. {% if elite_competition.qualified %}أنت داخل أعلى 20 حاليًا وفق مرجّح التعادل الثابت.{% else %}التعادل في النقاط لا يعني دخول أعلى 20؛ أنت خارجها حاليًا وفق مرجّح التعادل الثابت.{% endif %} عند تساوي النقاط يُقدَّم المعرّف الأسبق؛ لا تُعرض معرّفات الطلاب، والترتيب قابل للتغيّر مع تحديث النقاط.</p>
+        <p class="elite-competition__note elite-competition__tie">فارق النقاط عند الحد هو 0. {% if elite_competition.qualified %}أنت داخل أعلى {{ elite_competition.limit }} حاليًا وفق مرجّح التعادل الثابت.{% else %}التعادل في النقاط لا يعني دخول أعلى {{ elite_competition.limit }}؛ أنت خارجها حاليًا وفق مرجّح التعادل الثابت.{% endif %} عند تساوي النقاط يُقدَّم المعرّف الأسبق؛ لا تُعرض معرّفات الطلاب، والترتيب قابل للتغيّر مع تحديث النقاط.</p>
       {% elif elite_competition.difference == None %}
-        <p class="elite-competition__note">عدد المنافسين النشطين أقل من 21، لذلك لا يوجد فارق نقاط للمقارنة عند الحد.</p>
+        <p class="elite-competition__note">عدد المنافسين النشطين لا يتجاوز حد الترشيح ({{ elite_competition.limit }})، لذلك لا يوجد فارق نقاط للمقارنة عند الحد.</p>
       {% else %}
         <p class="elite-competition__note">الفارق من النقاط الحالية فقط، وليس عدد نقاط يضمن الترشيح؛ يتغيّر ترتيبك مع تغيّر نقاط المنافسة.</p>
       {% endif %}

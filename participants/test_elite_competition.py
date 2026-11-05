@@ -10,7 +10,7 @@ from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 
 from accounts.models import Role, User
-from .competition import GENERIC_RIDER_POSITIONS, build_elite_competition
+from .competition import ELITE_LIMIT, GENERIC_RIDER_POSITIONS, build_elite_competition
 from .models import Group, Participant, PointsLedgerEntry, PointsResetSnapshot
 from .views import ParticipantDashboardView
 
@@ -99,70 +99,73 @@ class EliteCompetitionTests(TestCase):
     def test_exact_gap_and_margin_match_the_existing_elite_status(self):
         ranking = self.make_ranking()
         view = ParticipantDashboardView()
-        for rank in (1, 6, 7, 10, 20, 21, 22, 24):
+        self.assertEqual(ELITE_LIMIT, 10)
+        for rank in (1, 6, 7, 10, 11, 15, 20, 21, 22, 24):
             with self.subTest(rank=rank):
                 student = ranking[rank - 1]
                 old = view.get_elite_status(student)
                 before = dict(old)
                 data = build_elite_competition(student)
+                self.assertEqual(data["limit"], 10)
                 self.assertEqual(data["difference"], old["difference"])
                 self.assertEqual(data["qualified"], old["eliteStatus"] == "qualified")
-                self.assertEqual(data["difference_kind"], "margin" if rank <= 20 else "gap")
+                self.assertEqual(data["qualified"], rank <= 10)
+                self.assertEqual(data["difference_kind"], "margin" if rank <= 10 else "gap")
                 expected = (
-                    student.points - ranking[20].points
-                    if rank <= 20 else ranking[19].points - student.points
+                    student.points - ranking[10].points
+                    if rank <= 10 else ranking[9].points - student.points
                 )
                 self.assertEqual(data["difference"], expected)
                 _, context = self.render_dashboard(student, data, old)
                 self.assertIs(context["elite_status"], old)
                 self.assertEqual(old, before)
 
-    def test_rank_twenty_one_zero_gap_does_not_claim_nomination_or_guaranteed_points(self):
-        ranking = [self.make_participant(55) for _ in range(21)]
-        data = build_elite_competition(ranking[20])
-        self.assertEqual(data["rank"], 21)
+    def test_rank_eleven_zero_gap_does_not_claim_nomination_or_guaranteed_points(self):
+        ranking = [self.make_participant(55) for _ in range(11)]
+        data = build_elite_competition(ranking[10])
+        self.assertEqual(data["rank"], 11)
         self.assertFalse(data["qualified"])
         self.assertEqual(data["difference"], 0)
         self.assertEqual(data["difference_kind"], "gap")
-        old = ParticipantDashboardView().get_elite_status(ranking[20])
-        html, _ = self.render_dashboard(ranking[20], data, old)
-        self.assertIn("أنت خارج أعلى 20 حاليًا", html)
-        self.assertIn("التعادل في النقاط لا يعني دخول أعلى 20", html)
+        old = ParticipantDashboardView().get_elite_status(ranking[10])
+        html, _ = self.render_dashboard(ranking[10], data, old)
+        self.assertIn("أنت خارج أعلى 10 حاليًا", html)
+        self.assertIn("التعادل في النقاط لا يعني دخول أعلى 10", html)
         self.assertIn("المعرّف الأسبق", html)
         self.assertNotIn(old["message"], html)
         self.assertNotIn("نقطة واحدة تضمن", html)
         self.assertNotIn("أنت ضمن المرشحين لرحلة النخبة", html)
 
-    def test_rank_twenty_zero_margin_is_qualified_but_not_safe_from_tie_changes(self):
-        ranking = [self.make_participant(55) for _ in range(21)]
-        data = build_elite_competition(ranking[19])
-        self.assertEqual(data["rank"], 20)
+    def test_rank_ten_zero_margin_is_qualified_but_not_safe_from_tie_changes(self):
+        ranking = [self.make_participant(55) for _ in range(11)]
+        data = build_elite_competition(ranking[9])
+        self.assertEqual(data["rank"], 10)
         self.assertTrue(data["qualified"])
         self.assertEqual(data["difference"], 0)
         self.assertEqual(data["difference_kind"], "margin")
-        html, _ = self.render_dashboard(ranking[19], data)
-        self.assertIn("أنت داخل أعلى 20 حاليًا وفق مرجّح التعادل الثابت", html)
+        html, _ = self.render_dashboard(ranking[9], data)
+        self.assertIn("أنت داخل أعلى 10 حاليًا وفق مرجّح التعادل الثابت", html)
         self.assertIn("الترتيب قابل للتغيّر", html)
-        self.assertIn("هامش نقاطك عن المركز 21", html)
+        self.assertIn("هامش نقاطك عن المركز 11", html)
 
     def test_all_zero_points_still_use_id_ascending_and_rank_positions(self):
         ranking = [self.make_participant(0) for _ in range(22)]
-        for rank in (1, 10, 20, 21, 22):
+        for rank in (1, 10, 11, 15, 20, 21, 22):
             with self.subTest(rank=rank):
                 data = build_elite_competition(ranking[rank - 1])
                 self.assertEqual(data["rank"], rank)
                 self.assertEqual(data["difference"], 0)
-                self.assertEqual(data["qualified"], rank <= 20)
+                self.assertEqual(data["qualified"], rank <= 10)
                 self.assertAlmostEqual(data["position_percent"], rank / 22 * 100, places=5)
                 self.assertEqual(data, build_elite_competition(ranking[rank - 1]))
 
     def test_inactive_competitors_and_other_environment_do_not_affect_rank_or_count(self):
-        ranking = self.make_ranking(20)
+        ranking = self.make_ranking(10)
         self.make_participant(999999, active=False)
         self.make_participant(888888, group=self.other_group)
         data = build_elite_competition(ranking[-1])
-        self.assertEqual(data["rank"], 20)
-        self.assertEqual(data["total"], 20)
+        self.assertEqual(data["rank"], 10)
+        self.assertEqual(data["total"], 10)
         self.assertTrue(data["qualified"])
         self.assertIsNone(data["difference"])
         self.assertIsNone(data["difference_kind"])
@@ -170,7 +173,7 @@ class EliteCompetitionTests(TestCase):
         self.assertIsNone(ParticipantDashboardView().get_elite_status(ranking[-1])["difference"])
 
     def test_small_groups_have_no_comparison_and_limit_at_end(self):
-        for total in (1, 6, 7, 10, 20):
+        for total in (1, 6, 7, 10):
             with self.subTest(total=total):
                 group = Group.objects.create(name=f"مجموعة صغيرة {total}")
                 ranking = [self.make_participant(index, group=group) for index in range(total)]
@@ -211,17 +214,21 @@ class EliteCompetitionTests(TestCase):
         html, _ = self.render_dashboard(inactive, None)
         self.assertIn("لا تتوفر بيانات منافسة لحسابك حاليًا", html)
 
-    def test_cutoff_line_is_twenty_over_total_and_student_uses_rank_over_total(self):
+    def test_cutoff_line_is_ten_over_total_and_student_uses_rank_over_total(self):
         ranking = self.make_ranking(24)
-        data = build_elite_competition(ranking[20])
-        self.assertAlmostEqual(data["cutoff_percent"], 20 / 24 * 100, places=5)
-        self.assertAlmostEqual(data["position_percent"], 21 / 24 * 100, places=5)
-        html, _ = self.render_dashboard(ranking[20], data)
+        data = build_elite_competition(ranking[10])
+        self.assertAlmostEqual(data["cutoff_percent"], 10 / 24 * 100, places=5)
+        self.assertAlmostEqual(data["position_percent"], 11 / 24 * 100, places=5)
+        html, _ = self.render_dashboard(ranking[10], data)
         markup = CompetitionMarkup(html)
         self.assertEqual(markup.matching("elite-competition__cutoff")[0]["style"], f'inset-inline-start:{data["cutoff_percent"]}%')
         self.assertEqual(markup.matching("elite-competition__me")[0]["style"], f'inset-inline-start:{data["position_percent"]}%')
         self.assertIn("يبدأ الترتيب من اليمين", html)
-        self.assertIn("حد الترشيح: أعلى 20", html)
+        self.assertIn("حد الترشيح: أعلى 10", html)
+        self.assertIn("فارق النقاط إلى المركز 10", html)
+        self.assertNotIn("المركز 20", html)
+        self.assertNotIn("المركز 21", html)
+        self.assertNotIn("أعلى 20", html)
 
     def test_current_points_change_rank_and_no_miles_or_snapshots_are_consulted(self):
         ranking = self.make_ranking()
@@ -265,12 +272,12 @@ class EliteCompetitionTests(TestCase):
         self.assertIn("الفرسان رموز توضيحية عامة", html)
 
     def test_other_students_cutoff_points_are_not_rendered_or_returned(self):
-        ranking = self.make_ranking(19)
+        ranking = self.make_ranking(9)
         cutoff = self.make_participant(981357)
         student = self.make_participant(940123)
         Participant.objects.filter(pk__in=[row.pk for row in ranking]).update(points=999999)
         data = build_elite_competition(student)
-        self.assertEqual(data["rank"], 21)
+        self.assertEqual(data["rank"], 11)
         self.assertEqual(data["difference"], cutoff.points - student.points)
         html, _ = self.render_dashboard(student, data)
         encoded = json.dumps(data)
@@ -338,3 +345,14 @@ class EliteCompetitionTests(TestCase):
         self.assertIn(f'width:{data["cutoff_percent"]}%', html)
         self.assertNotIn("inset-inline-start:25,", html)
         self.assertIn('href="/static/css/elite-competition.css"', html)
+
+    def test_eleven_students_create_the_first_real_cutoff_comparison(self):
+        ranking = self.make_ranking(11)
+        for rank in (10, 11):
+            with self.subTest(rank=rank):
+                student = ranking[rank - 1]
+                data = build_elite_competition(student)
+                self.assertEqual(data["qualified"], rank == 10)
+                self.assertEqual(data["difference"], ranking[9].points - ranking[10].points)
+                self.assertEqual(data["difference"], ParticipantDashboardView().get_elite_status(student)["difference"])
+                self.assertAlmostEqual(data["cutoff_percent"], 10 / 11 * 100, places=5)

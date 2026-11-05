@@ -590,7 +590,7 @@ class ParticipantDashboardView(LoginRequiredMixin, UserPassesTestMixin, Template
 
         # Elite-trip ("رحلة النخبة") indicator: a per-request, never-stored
         # message telling the participant only their distance to / safety
-        # margin from the 20-seat nomination cutoff inside their own
+        # margin from the shared nomination cutoff inside their own
         # environment. No other participant's rank, points, or name is
         # exposed — see get_elite_status().
         context["elite_status"] = self.get_elite_status(participant)
@@ -616,6 +616,8 @@ class ParticipantDashboardView(LoginRequiredMixin, UserPassesTestMixin, Template
         Everything is recomputed here on every page load — no value is
         persisted.
         """
+        from .competition import ELITE_LIMIT
+
         if participant.group is None:
             return None
 
@@ -637,34 +639,34 @@ class ParticipantDashboardView(LoginRequiredMixin, UserPassesTestMixin, Template
         if participant_index is None:
             return None
 
-        rank = participant_index + 1  # 1-indexed, matching the spec's "المركز 20/21"
+        rank = participant_index + 1  # The shared cutoff uses 1-indexed ranks.
 
         def points_at_rank(target_rank):
             if target_rank < 1 or target_rank > len(group_ranking):
                 return None
             return group_ranking[target_rank - 1][1]
 
-        if rank > 20:
-            rank_20_points = points_at_rank(20)
-            if rank_20_points is None:
+        if rank > ELITE_LIMIT:
+            cutoff_points = points_at_rank(ELITE_LIMIT)
+            if cutoff_points is None:
                 return None
-            difference = rank_20_points - participant.points
+            difference = cutoff_points - participant.points
             return {
                 "eliteStatus": "not_qualified",
                 "difference": difference,
                 "message": f"باقي عليك {difference} نقطة توصل رحلة النخبة 🚀",
             }
         else:
-            rank_21_points = points_at_rank(21)
-            if rank_21_points is None:
-                # Fewer than 21 participants in the group — everyone within
-                # the top 20 is safely qualified with no one to compare against.
+            next_rank_points = points_at_rank(ELITE_LIMIT + 1)
+            if next_rank_points is None:
+                # There is no participant outside the qualification limit
+                # to compare against in this environment.
                 return {
                     "eliteStatus": "qualified",
                     "difference": None,
                     "message": "أنت ضمن المرشحين لرحلة النخبة",
                 }
-            difference = participant.points - rank_21_points
+            difference = participant.points - next_rank_points
             return {
                 "eliteStatus": "qualified",
                 "difference": difference,

@@ -5,7 +5,7 @@ from django.db.models import Count, Q
 from .models import Participant
 
 
-ELITE_LIMIT = 20
+ELITE_LIMIT = 10
 # Decorative positions, not ranks or records of any other participants.
 GENERIC_RIDER_POSITIONS = (10, 27, 44, 61, 78, 94)
 
@@ -20,9 +20,9 @@ def build_elite_competition(participant):
     Context contract (all JSON-safe, no participant records or identifiers):
       rank, total, limit: integers (total includes the requesting student).
       qualified: bool; difference: int or None.
-      difference_kind: "gap", "margin", or None when total is below 21.
+      difference_kind: "gap", "margin", or None when total is at most ELITE_LIMIT.
       position_percent: float, rank / total * 100 from the RTL start.
-      cutoff_percent: float, min(20, total) / total * 100.
+      cutoff_percent: float, min(ELITE_LIMIT, total) / total * 100.
       marker_positions: at most six decorative integer percentages, not people.
 
     Three bounded queries at most: own current points, aggregate rank/count,
