@@ -8,6 +8,7 @@ import openpyxl
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.core.exceptions import PermissionDenied
+from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
 from django.db.models import Avg, Count, Max, Min, ProtectedError, Q
 from django.db.models.functions import TruncSecond
@@ -2422,26 +2423,34 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
 
 class TaskSubmissionView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
     template_name = "participants/task_submission_form.html"
+    login_url = "accounts:login_participant"
 
     def test_func(self):
-        return self.request.user.role == Role.PARTICIPANT
+        return self.request.user.is_active and self.request.user.role == Role.PARTICIPANT
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         participant = self.request.user.participant
 
-        submissions_by_task = {
-            s.task_id: s
-            for s in TaskSubmission.objects.filter(participant=participant)
-        }
-
-        reopened_task_ids = TaskSubmission.objects.filter(
-            participant=participant, reopened_for_resubmission=True
+        own_submissions = TaskSubmission.objects.filter(participant=participant)
+        active_tasks = list(WeeklyTask.get_active_tasks().order_by("due_date", "pk"))
+        active_task_ids = [task.pk for task in active_tasks]
+        reopened_task_ids = own_submissions.filter(
+            reopened_for_resubmission=True,
         ).values("task_id")
-        visible_tasks = (
-            WeeklyTask.get_active_tasks()
-            | WeeklyTask.objects.filter(pk__in=reopened_task_ids)
-        ).distinct().order_by("due_date")
+        # The currently active tasks remain above older, individually reopened
+        # tasks, even when the latter have an earlier deadline.
+        visible_tasks = active_tasks + list(
+            WeeklyTask.objects.filter(pk__in=reopened_task_ids)
+            .exclude(pk__in=active_task_ids).order_by("due_date", "pk")
+        )
+        visible_task_ids = [task.pk for task in visible_tasks]
+        submissions_by_task = {
+            submission.task_id: submission
+            for submission in own_submissions.filter(
+                task_id__in=visible_task_ids,
+            ).select_related("task")
+        }
 
         tasks_data = []
         for task in visible_tasks:
@@ -2466,8 +2475,21 @@ class TaskSubmissionView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
                 }
             )
         context["tasks_data"] = tasks_data
+        # Archive only this account's saved submissions, not the program-wide
+        # task archive. Rows shown above are excluded to avoid duplicate previews.
+        history = own_submissions.exclude(task_id__in=visible_task_ids).select_related(
+            "task",
+        ).order_by("-submitted_at", "-pk")
+        context["submission_history"] = Paginator(history, 10).get_page(
+            self.request.GET.get("history_page"),
+        )
         context["navbar_items"] = build_navbar(self.request.user, "tasks")
         return context
+
+    def render_to_response(self, context, **response_kwargs):
+        response = super().render_to_response(context, **response_kwargs)
+        patch_cache_control(response, private=True, no_store=True)
+        return response
 
     @transaction.atomic
     def post(self, request, *args, **kwargs):

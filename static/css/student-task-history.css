@@ -1,0 +1,421 @@
+.student-tasks {
+  min-width: 0;
+  font-family: var(--font-display);
+  overflow-wrap: anywhere;
+}
+
+.student-task-section {
+  margin-top: var(--s3);
+}
+
+.student-section-heading {
+  margin: 0;
+  padding-inline-start: 12px;
+  border-inline-start: 3px solid var(--gold);
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.6;
+  scroll-margin-top: calc(var(--topbar-h) + 16px);
+}
+
+.student-task-section--history {
+  margin-top: var(--s4);
+  padding-top: var(--s3);
+  border-top: 1px solid var(--line);
+}
+
+.student-tasks .student-task-card {
+  min-width: 0;
+  margin-top: var(--s2);
+  box-shadow: 0 2px 8px rgba(43, 47, 51, .03);
+}
+
+.student-task-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-bottom: 12px;
+}
+
+.student-task-title {
+  flex: 1 1 220px;
+  min-width: 0;
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.student-tasks .student-task-description {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.student-tasks .task-meta {
+  margin-bottom: var(--s2);
+  font-family: var(--font-display);
+  font-size: 13px;
+  color: var(--slate);
+}
+
+.student-tasks .task-meta b {
+  color: var(--asphalt);
+}
+
+.student-task-dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 28px;
+  margin: 0 0 var(--s2);
+  padding: 12px;
+  border-radius: var(--r-sm);
+  background: var(--sand);
+  font-size: 13px;
+}
+
+.student-task-dates > div {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.student-task-dates dt {
+  color: var(--slate);
+}
+
+.student-task-dates dd {
+  margin: 2px 0 0;
+  color: var(--asphalt);
+  font-weight: 700;
+}
+
+.student-tasks .status-pill {
+  display: inline-block;
+  max-width: 100%;
+  border-radius: 99px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.student-tasks .status-pending,
+.student-tasks .status-featured {
+  background: var(--gold-soft);
+  color: var(--gold-ink);
+}
+
+.student-tasks .status-featured {
+  border: 1px solid var(--gold);
+}
+
+.student-tasks .status-accepted {
+  background: #E4EFE5;
+  color: var(--done);
+}
+
+.student-tasks .status-rejected {
+  background: #FBEEEA;
+  color: var(--alert);
+}
+
+.student-tasks .status-returned {
+  background: #E9F0F6;
+  color: #36566F;
+}
+
+.student-tasks .student-review-note {
+  margin: 0 0 var(--s2);
+  padding: 10px 12px;
+  border-inline-start: 3px solid var(--gold);
+  border-radius: var(--r-sm);
+  background: var(--sand);
+  color: var(--asphalt);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.student-tasks .info-note .student-review-note {
+  margin: 8px 0 0;
+}
+
+.student-submission-preview {
+  min-width: 0;
+  margin: var(--s2) 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: #fff;
+}
+
+.student-submission-preview > summary,
+.student-task-description-details > summary {
+  min-height: 44px;
+  padding: 10px 12px;
+  color: var(--gold-ink);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.student-submission-preview > summary:hover,
+.student-task-description-details > summary:hover {
+  background: var(--sand);
+}
+
+.student-submission-preview[open] > summary {
+  border-bottom: 1px solid var(--line);
+  background: var(--sand);
+}
+
+.student-task-description-details {
+  margin-bottom: var(--s2);
+}
+
+.student-task-description-details > .student-task-description {
+  padding: 8px 12px;
+}
+
+.student-submission-preview-body {
+  min-width: 0;
+  padding: 14px;
+}
+
+.student-submission-preview-body img,
+.student-submission-preview-body video {
+  display: block;
+  max-width: 100%;
+  max-height: 460px;
+  height: auto;
+  margin-inline: auto;
+  object-fit: contain;
+  border-radius: var(--r-sm);
+  background: var(--sand);
+}
+
+.student-submission-preview-body audio {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.student-submission-pdf {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: 440px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--sand);
+}
+
+.student-tasks .student-preview-hint {
+  margin: 10px 0;
+  font-size: 13px;
+}
+
+.student-submission-file-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.student-submission-file-actions a,
+.student-history-page-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  max-width: 100%;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--sand);
+  color: var(--gold-ink);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  text-align: center;
+}
+
+.student-submission-file-actions a:hover,
+.student-history-page-link:hover {
+  border-color: var(--gold);
+  background: var(--gold-soft);
+}
+
+.student-submission-text-heading {
+  margin: var(--s2) 0 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.student-submission-text {
+  max-width: 100%;
+  margin: 0;
+  padding: 12px;
+  border-radius: var(--r-sm);
+  background: var(--sand);
+  color: var(--asphalt);
+  font: 14px/1.8 var(--font-display);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  text-align: start;
+}
+
+.student-tasks .student-submitted-note {
+  margin: 0;
+  color: var(--done);
+  font-size: 13px;
+}
+
+.student-tasks .field {
+  min-width: 0;
+  margin-bottom: var(--s2);
+}
+
+.student-tasks .field label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--asphalt);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.student-tasks .field input[type="file"],
+.student-tasks .field textarea,
+.student-tasks .field select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--sand);
+  color: var(--asphalt);
+  font: 14px var(--font-display);
+}
+
+.student-tasks .field input[type="file"] {
+  border-style: dashed;
+}
+
+.student-tasks .field input[type="file"]::file-selector-button {
+  min-height: 44px;
+  max-width: 100%;
+  margin-inline-end: 8px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: #fff;
+  color: var(--asphalt);
+  font: inherit;
+  cursor: pointer;
+}
+
+.student-tasks .field textarea {
+  resize: vertical;
+}
+
+.student-tasks .errors {
+  margin-top: 4px;
+  color: var(--alert);
+  font-size: 13px;
+}
+
+.student-tasks .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 44px;
+  margin-top: var(--s2);
+  padding: 12px 18px;
+  border: none;
+  border-radius: 99px;
+  background: var(--asphalt);
+  color: #fff;
+  font: 700 15px var(--font-display);
+  cursor: pointer;
+}
+
+.student-tasks .btn:hover {
+  background: #1F2225;
+}
+
+.student-tasks .warn-note,
+.student-tasks .info-note,
+.student-tasks .form-message {
+  margin-bottom: var(--s2);
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  font-size: 14px;
+}
+
+.student-tasks .warn-note,
+.student-tasks .form-message--error {
+  border-color: var(--alert);
+  background: #FBEEEA;
+  color: var(--alert);
+}
+
+.student-tasks .info-note {
+  border-color: var(--gold);
+  background: var(--gold-soft);
+  color: var(--gold-ink);
+}
+
+.student-history-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin-top: var(--s3);
+}
+
+.student-history-page-position {
+  color: var(--slate);
+  font-size: 13px;
+}
+
+.student-tasks :focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 3px;
+}
+
+@media (max-width: 600px) {
+  .student-tasks .student-task-card {
+    padding: var(--s2);
+  }
+
+  .student-section-heading {
+    font-size: 18px;
+    scroll-margin-top: 16px;
+  }
+
+  .student-task-title {
+    flex-basis: 100%;
+    font-size: 17px;
+  }
+
+  .student-submission-preview-body {
+    padding: 10px;
+  }
+
+  .student-submission-pdf {
+    height: 320px;
+  }
+}
+
+.student-tasks .card p,
+.student-tasks .page-sub,
+.student-tasks .empty-note {
+  font-family: var(--font-display);
+}

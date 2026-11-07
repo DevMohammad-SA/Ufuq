@@ -68,7 +68,7 @@
 | `SupervisorDeleteView` | `supervisor_delete` | `role in (GENERAL_SUPERVISOR, SUPERADMIN)`؛ لا يقبل حذف الحساب الذاتي، وينفّذ تعطيلًا ناعمًا مؤكدًا بدل حذف الصف |
 | `WeeklyTaskReviewView` | `weekly_task_review` | `role in (GROUP_SUPERVISOR, GENERAL_SUPERVISOR, SUPERADMIN)`؛ مشرف البيئة يرى تسليمات طلاب بيئاته فقط، وقبول/رفض التسليم المعلّق مشروط بتفويض فعّال ويظل متاحًا بعد موعد الطالب. الإعادة للتعديل مشروطة بالتفويض وبقاء المهمة نشطة وفي موعدها، بينما إنشاء المهمة وتعديلها وتفعيلها وإعادة فتحها للعام/النظام |
 | `TaskReviewPermissionsView` **(غير موسوم بعد)** | `task_review_permissions` | `role == GENERAL_SUPERVISOR` فقط — يمنح أو يسحب تفويض مشرف البيئة |
-| `TaskSubmissionView` | `task_submission` | `role == PARTICIPANT` — يقبل الرفع لمهمة نشطة ضمن موعدها، أو إعادة فتح إدارية صريحة لنفس التسليم بعد الموعد؛ راجع [`weekly-tasks.md`](weekly-tasks.md) |
+| `TaskSubmissionView` | `task_submission` | `role == PARTICIPANT` و`is_active=True`؛ الحالية وأرشيف تسليماته ومعاينتها من صاحب الحساب فقط. يقبل الرفع لمهمة نشطة ضمن موعدها، أو إعادة فتح إدارية صريحة لنفس التسليم بعد الموعد؛ الأرشيف لا يفتح الرفع. راجع [`weekly-tasks.md`](weekly-tasks.md) |
 | `TasksArchiveView` | `tasks_archive` | `role in (GENERAL_SUPERVISOR, SUPERADMIN)` |
 | `StoreView` | `store` | `role == PARTICIPANT` |
 | `StoreManagementView` | `store_management` | `role in (GROUP_SUPERVISOR, GENERAL_SUPERVISOR, SUPERADMIN)`؛ مشرف البيئة يطالع طلبات بيئاته فقط، وكل POST منه 403؛ الإدارة/الإكمال/الاسترجاع للمشرف العام أو النظام |

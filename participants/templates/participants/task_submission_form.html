@@ -4,225 +4,187 @@
 {% block title %}المهام الأسبوعية — رحّال{% endblock %}
 
 {% block extra_style %}
-.wrap{max-width:640px}
-
-.task-meta{
-  font-family:var(--font-ui);
-  font-size:13px;
-  color:var(--slate);
-  margin-bottom:var(--s2);
-}
-.task-meta b{color:var(--asphalt)}
-
-.field{margin-bottom:var(--s2)}
-.field label{
-  display:block;
-  font-family:var(--font-ui);
-  font-size:13px;
-  font-weight:600;
-  color:var(--asphalt);
-  margin-bottom:6px;
-}
-.field input[type="file"]{
-  width:100%;
-  border:1.5px dashed var(--line);
-  border-radius:var(--r-sm);
-  padding:14px 12px;
-  font-family:var(--font-ui);
-  font-size:14px;
-  color:var(--asphalt);
-  background:var(--sand);
-}
-.field textarea{
-  width:100%;
-  border:1.5px solid var(--line);
-  border-radius:var(--r-sm);
-  padding:10px 12px;
-  font-family:var(--font-ui);
-  font-size:14px;
-  color:var(--asphalt);
-  background:var(--sand);
-}
-.field .errors{
-  font-family:var(--font-ui);
-  font-size:12px;
-  color:var(--alert);
-  margin-top:4px;
-}
-
-.btn{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  gap:8px;
-  width:100%;
-  border:none;
-  cursor:pointer;
-  background:var(--asphalt);
-  color:#fff;
-  font-family:var(--font-display);
-  font-weight:700;
-  font-size:15px;
-  padding:12px 18px;
-  border-radius:99px;
-  margin-top:var(--s2);
-  text-decoration:none;
-}
-.btn:hover{background:#1f2225}
-
-.status-pill{
-  display:inline-block;
-  border-radius:99px;
-  padding:4px 12px;
-  font-size:12px;
-  font-weight:700;
-}
-.status-pending{background:var(--gold-soft); color:var(--gold-ink)}
-.status-accepted{background:#E4EFE5; color:var(--done)}
-.status-rejected{background:#FBEEEA; color:var(--alert)}
-.status-returned{background:#E9F0F6; color:#36566F}
-.rejection-note{
-  font-family:var(--font-ui);
-  font-size:13px;
-  color:var(--slate);
-  margin:6px 0 0;
-}
-
-.warn-note{
-  background:#FBEEEA;
-  border:1px solid var(--alert);
-  border-radius:var(--r-sm);
-  padding:12px 14px;
-  font-family:var(--font-ui);
-  font-size:13px;
-  color:var(--alert);
-}
-
-.info-note{
-  background:var(--gold-soft);
-  border:1px solid var(--gold-ink);
-  border-radius:var(--r-sm);
-  padding:12px 14px;
-  font-family:var(--font-ui);
-  font-size:13px;
-  color:var(--gold-ink);
-  margin-bottom:var(--s2);
-}
-
-.form-message{
-  border-radius:var(--r-sm);
-  padding:12px 14px;
-  font-family:var(--font-ui);
-  font-size:13px;
-  margin-bottom:var(--s2);
-}
-.form-message--error{background:#FBEEEA; border:1px solid var(--alert); color:var(--alert)}
+.wrap{width:100%;max-width:800px}
 {% endblock %}
 
 {% block content %}
-  <h1 class="page-title">المهام الأسبوعية</h1>
+  <link rel="stylesheet" href="{% static 'css/student-task-history.css' %}">
+  <div class="student-tasks">
+    <h1 class="page-title">المهام الأسبوعية</h1>
+    <p class="page-sub">مهامك الحالية وتسليماتك السابقة في مكان واحد.</p>
 
-  {% if messages %}
-    {% for message in messages %}
-      <div class="form-message form-message--{{ message.tags }}">{{ message }}</div>
-    {% endfor %}
-  {% endif %}
+    {% if messages %}
+      {% for message in messages %}
+        <div class="form-message form-message--{{ message.tags }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
 
-  {% for entry in tasks_data %}
-    <section class="card">
-      {% with task=entry.task existing_submission=entry.existing_submission form=entry.form %}
-        {% if existing_submission and not existing_submission.reopened_for_resubmission and existing_submission.status != "returned" %}
-          <h2>{{ task.title }}</h2>
-          {% if existing_submission.file and existing_submission.text_content %}
-            <p>تم تسليم ملفك ونصك لهذي المهمة بتاريخ {{ existing_submission.submitted_at }} ✅</p>
-            <p class="task-meta" style="white-space:pre-wrap">{{ existing_submission.text_content }}</p>
-          {% elif existing_submission.file %}
-            <p>تم رفع ملفك لهذي المهمة بتاريخ {{ existing_submission.submitted_at }} ✅</p>
-          {% else %}
-            <p>تم تسليم النص التالي لهذي المهمة بتاريخ {{ existing_submission.submitted_at }} ✅</p>
-            <p class="task-meta" style="white-space:pre-wrap">{{ existing_submission.text_content }}</p>
-          {% endif %}
-          {% if existing_submission.status == "pending" %}
-            <span class="status-pill status-pending">قيد المراجعة ⏳</span>
-          {% elif existing_submission.status == "accepted" %}
-            <span class="status-pill status-accepted">مقبولة ✅</span>
-          {% else %}
-            <span class="status-pill status-rejected">مرفوضة ❌</span>
-            {% if existing_submission.rejection_reason %}
-              <p class="rejection-note">السبب: {{ existing_submission.rejection_reason }}</p>
-            {% endif %}
-          {% endif %}
-
-        {% elif not existing_submission and task.is_past_due %}
-          <h2>{{ task.title }}</h2>
-          <div class="warn-note">خلص موعد تسليم هذي المهمة ⏰</div>
-
-        {% else %}
-          <h2>{{ task.title }}</h2>
-          {% if existing_submission and existing_submission.status == "returned" %}
-            <div class="info-note">
-              أعاد المشرف المهمة للتعديل. عدّل تسليمك وأرسله قبل موعد المهمة الأصلي.
-              {% if existing_submission.revision_note %}<br><b>ملاحظة المشرف:</b> {{ existing_submission.revision_note }}{% endif %}
+    <section id="student-current-tasks" class="student-task-section" aria-labelledby="student-current-tasks-heading">
+      <h2 id="student-current-tasks-heading" class="student-section-heading">مهامك الحالية</h2>
+      {% for entry in tasks_data %}
+        {% with task=entry.task existing_submission=entry.existing_submission form=entry.form %}
+          <article class="card student-task-card">
+            <header class="student-task-card-header">
+              <h3 class="student-task-title">{{ task.title }}</h3>
+              {% if existing_submission %}
+                {% if existing_submission.status == "pending" %}
+                  <span class="status-pill status-pending">قيد المراجعة</span>
+                {% elif existing_submission.status == "accepted" %}
+                  {% if existing_submission.is_featured %}
+                    <span class="status-pill status-featured">متميزة</span>
+                  {% else %}
+                    <span class="status-pill status-accepted">مقبولة</span>
+                  {% endif %}
+                {% elif existing_submission.status == "rejected" %}
+                  <span class="status-pill status-rejected">مرفوضة</span>
+                {% elif existing_submission.status == "returned" %}
+                  <span class="status-pill status-returned">مُعادة للتعديل</span>
+                {% endif %}
+              {% endif %}
+            </header>
+            <p class="student-task-description">{{ task.description }}</p>
+            <div class="task-meta">
+              موعد التسليم: <b><time datetime="{{ task.due_date|date:'Y-m-d' }}">{{ task.due_date|date:"j F Y" }}</time></b>
+              · الصيغ المسموحة: <b>{{ task.get_allowed_formats_display }}</b>
+              {% if "pdf" in task.get_allowed_formats_list %}· PDF حتى <b>10 ميجابايت</b>{% endif %}
+              {% if "audio" in task.get_allowed_formats_list %}· صوت حتى <b>15 ميجابايت</b>{% endif %}
+              {% if "video" in task.get_allowed_formats_list %}· فيديو حتى <b>50 ميجابايت</b>{% endif %}
             </div>
-          {% elif existing_submission and existing_submission.reopened_for_resubmission %}
-            <div class="info-note">المشرف فتح لك تسليم هذي المهمة من جديد 🔓 تقدر ترفع تسليم جديد الحين.</div>
-          {% endif %}
-          <p>{{ task.description }}</p>
-          <div class="task-meta">
-            موعد التسليم: <b>{{ task.due_date }}</b>
-            · الصيغ المسموحة: <b>{{ task.get_allowed_formats_display }}</b>
-            {% if "pdf" in task.get_allowed_formats_list %}· PDF حتى <b>10 ميجابايت</b>{% endif %}
-            {% if "audio" in task.get_allowed_formats_list %}· صوت حتى <b>15 ميجابايت</b>{% endif %}
-            {% if "video" in task.get_allowed_formats_list %}· فيديو حتى <b>50 ميجابايت</b>{% endif %}
-          </div>
 
-          {% if form.non_field_errors %}<div class="errors">{{ form.non_field_errors|join:"، " }}</div>{% endif %}
-
-          <form method="post" enctype="multipart/form-data">
-            {% csrf_token %}
-            <input type="hidden" name="task_id" value="{{ task.id }}">
-            {% if task.require_all_formats %}
-              <p class="task-meta">هذه المهمة تتطلب تقديم كل الصيغ التالية معًا: {{ task.get_allowed_formats_display }}</p>
-              {% if task.has_text_format %}
-                <div class="field">
-                  <label for="{{ form.text_content.id_for_label }}">المحتوى النصي</label>
-                  {{ form.text_content }}
-                  {% if form.text_content.errors %}<div class="errors">{{ form.text_content.errors|join:"، " }}</div>{% endif %}
-                </div>
+            {% if existing_submission %}
+              <p class="task-meta">تاريخ التسليم: <time datetime="{{ existing_submission.submitted_at|date:'c' }}">{{ existing_submission.submitted_at|date:"j F Y، H:i" }}</time></p>
+              {% if existing_submission.status == "rejected" and existing_submission.rejection_reason %}
+                <p class="student-review-note"><b>سبب الرفض:</b> {{ existing_submission.rejection_reason }}</p>
               {% endif %}
-              {% if task.has_file_formats %}
-                <div class="field">
-                  <label for="{{ form.file.id_for_label }}">الملف</label>
-                  {{ form.file }}
-                  {% if form.file.errors %}<div class="errors">{{ form.file.errors|join:"، " }}</div>{% endif %}
-                </div>
-              {% endif %}
-            {% else %}
-              <p class="task-meta">اختر إحدى الصيغ التالية وقدّمها: {{ task.get_allowed_formats_display }}</p>
-              <div class="field">
-                <label for="{{ form.chosen_format.id_for_label }}">اختر الصيغة</label>
-                {{ form.chosen_format }}
-                {% if form.chosen_format.errors %}<div class="errors">{{ form.chosen_format.errors|join:"، " }}</div>{% endif %}
-              </div>
-              <div class="field">
-                <label for="{{ form.file.id_for_label }}">الملف (إن اخترت صيغة ملف)</label>
-                {{ form.file }}
-                {% if form.file.errors %}<div class="errors">{{ form.file.errors|join:"، " }}</div>{% endif %}
-              </div>
-              <div class="field">
-                <label for="{{ form.text_content.id_for_label }}">المحتوى النصي (إن اخترت صيغة النص)</label>
-                {{ form.text_content }}
-                {% if form.text_content.errors %}<div class="errors">{{ form.text_content.errors|join:"، " }}</div>{% endif %}
-              </div>
+              {% include "participants/_student_submission_preview.html" with submission=existing_submission only %}
             {% endif %}
-            <button type="submit" class="btn">{% if existing_submission and existing_submission.status == "returned" %}إعادة إرسال المهمة{% else %}تسليم المهمة{% endif %}</button>
-          </form>
-        {% endif %}
-      {% endwith %}
+
+            {% if existing_submission and not existing_submission.reopened_for_resubmission and existing_submission.status != "returned" %}
+              <p class="student-submitted-note">تم تسليم هذه المهمة.</p>
+            {% elif not existing_submission and task.is_past_due %}
+              <div class="warn-note">انتهى موعد تسليم هذه المهمة.</div>
+            {% else %}
+              {% if existing_submission and existing_submission.status == "returned" %}
+                <div class="info-note">
+                  أعاد المشرف المهمة للتعديل. عدّل تسليمك وأرسله قبل موعد المهمة الأصلي.
+                  {% if existing_submission.revision_note %}<p class="student-review-note"><b>ملاحظة المشرف:</b> {{ existing_submission.revision_note }}</p>{% endif %}
+                </div>
+              {% elif existing_submission and existing_submission.reopened_for_resubmission %}
+                <div class="info-note">فتح المشرف لك تسليم هذه المهمة من جديد. يمكنك إرسال تسليم جديد الآن.</div>
+              {% endif %}
+
+              {% if form.non_field_errors %}<div class="errors">{{ form.non_field_errors|join:"، " }}</div>{% endif %}
+
+              <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <input type="hidden" name="task_id" value="{{ task.id }}">
+                {% if task.require_all_formats %}
+                  <p class="task-meta">هذه المهمة تتطلب تقديم كل الصيغ التالية معًا: {{ task.get_allowed_formats_display }}</p>
+                  {% if task.has_text_format %}
+                    <div class="field">
+                      <label for="{{ form.text_content.id_for_label }}">المحتوى النصي</label>
+                      {{ form.text_content }}
+                      {% if form.text_content.errors %}<div class="errors">{{ form.text_content.errors|join:"، " }}</div>{% endif %}
+                    </div>
+                  {% endif %}
+                  {% if task.has_file_formats %}
+                    <div class="field">
+                      <label for="{{ form.file.id_for_label }}">الملف</label>
+                      {{ form.file }}
+                      {% if form.file.errors %}<div class="errors">{{ form.file.errors|join:"، " }}</div>{% endif %}
+                    </div>
+                  {% endif %}
+                {% else %}
+                  <p class="task-meta">اختر إحدى الصيغ التالية وقدّمها: {{ task.get_allowed_formats_display }}</p>
+                  <div class="field">
+                    <label for="{{ form.chosen_format.id_for_label }}">اختر الصيغة</label>
+                    {{ form.chosen_format }}
+                    {% if form.chosen_format.errors %}<div class="errors">{{ form.chosen_format.errors|join:"، " }}</div>{% endif %}
+                  </div>
+                  <div class="field">
+                    <label for="{{ form.file.id_for_label }}">الملف (إن اخترت صيغة ملف)</label>
+                    {{ form.file }}
+                    {% if form.file.errors %}<div class="errors">{{ form.file.errors|join:"، " }}</div>{% endif %}
+                  </div>
+                  <div class="field">
+                    <label for="{{ form.text_content.id_for_label }}">المحتوى النصي (إن اخترت صيغة النص)</label>
+                    {{ form.text_content }}
+                    {% if form.text_content.errors %}<div class="errors">{{ form.text_content.errors|join:"، " }}</div>{% endif %}
+                  </div>
+                {% endif %}
+                <button type="submit" class="btn">{% if existing_submission and existing_submission.status == "returned" %}إعادة إرسال المهمة{% else %}تسليم المهمة{% endif %}</button>
+              </form>
+            {% endif %}
+          </article>
+        {% endwith %}
+      {% empty %}
+        <div class="card student-task-card">
+          <p class="empty-note">لا توجد مهام نشطة حاليًا.</p>
+        </div>
+      {% endfor %}
     </section>
-  {% empty %}
-    <section class="card">
-      <p class="empty-note">ما فيه مهام نشطة حاليًا 📭</p>
+
+    <section class="student-task-section student-task-section--history" aria-labelledby="student-task-history">
+      <h2 id="student-task-history" class="student-section-heading">مهامي السابقة</h2>
+      {% for submission in submission_history %}
+        <article class="card student-task-card student-task-card--history">
+          <header class="student-task-card-header">
+            <h3 class="student-task-title">{{ submission.task.title }}</h3>
+            {% if submission.status == "pending" %}
+              <span class="status-pill status-pending">قيد المراجعة</span>
+            {% elif submission.status == "accepted" %}
+              {% if submission.is_featured %}
+                <span class="status-pill status-featured">متميزة</span>
+              {% else %}
+                <span class="status-pill status-accepted">مقبولة</span>
+              {% endif %}
+            {% elif submission.status == "rejected" %}
+              <span class="status-pill status-rejected">مرفوضة</span>
+            {% elif submission.status == "returned" %}
+              <span class="status-pill status-returned">مُعادة للتعديل</span>
+            {% endif %}
+          </header>
+          <p class="student-task-description">{{ submission.task.description|truncatechars:300 }}</p>
+          {% if submission.task.description|length > 300 %}
+            <details class="student-task-description-details">
+              <summary>وصف المهمة كاملًا</summary>
+              <p class="student-task-description">{{ submission.task.description }}</p>
+            </details>
+          {% endif %}
+          <dl class="student-task-dates">
+            <div>
+              <dt>تاريخ التسليم</dt>
+              <dd><time datetime="{{ submission.submitted_at|date:'c' }}">{{ submission.submitted_at|date:"j F Y، H:i" }}</time></dd>
+            </div>
+            <div>
+              <dt>موعد المهمة</dt>
+              <dd><time datetime="{{ submission.task.due_date|date:'Y-m-d' }}">{{ submission.task.due_date|date:"j F Y" }}</time></dd>
+            </div>
+          </dl>
+          {% if submission.status == "rejected" and submission.rejection_reason %}
+            <p class="student-review-note"><b>سبب الرفض:</b> {{ submission.rejection_reason }}</p>
+          {% elif submission.status == "returned" and submission.revision_note %}
+            <p class="student-review-note"><b>ملاحظة المشرف:</b> {{ submission.revision_note }}</p>
+          {% endif %}
+          {% include "participants/_student_submission_preview.html" with submission=submission only %}
+        </article>
+      {% empty %}
+        <div class="card student-task-card">
+          <p class="empty-note">لم تسلّم مهام سابقة بعد.</p>
+        </div>
+      {% endfor %}
+
+      {% if submission_history.has_other_pages %}
+        <nav class="student-history-pagination" aria-label="صفحات مهامي السابقة">
+          {% if submission_history.has_previous %}
+            <a href="?history_page={{ submission_history.previous_page_number }}#student-task-history" class="student-history-page-link" rel="prev">السابقة</a>
+          {% endif %}
+          <span class="student-history-page-position" aria-current="page">صفحة {{ submission_history.number }} من {{ submission_history.paginator.num_pages }}</span>
+          {% if submission_history.has_next %}
+            <a href="?history_page={{ submission_history.next_page_number }}#student-task-history" class="student-history-page-link" rel="next">التالية</a>
+          {% endif %}
+        </nav>
+      {% endif %}
     </section>
-  {% endfor %}
+  </div>
 {% endblock %}

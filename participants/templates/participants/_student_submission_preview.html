@@ -1,0 +1,36 @@
+<details class="student-submission-preview">
+  <summary>معاينة تسليمي</summary>
+  <div class="student-submission-preview-body">
+    {% if submission.file %}
+      {% with submitted_format=submission.get_submitted_format %}
+        {% if submitted_format == "image" %}
+          <img class="student-submission-image" src="{{ submission.file.url }}" alt="تسليمي لمهمة {{ submission.task.title }}" loading="lazy">
+        {% elif submitted_format == "pdf" %}
+          <iframe class="student-submission-pdf" src="{{ submission.file.url }}" title="معاينة تسليمي بصيغة PDF لمهمة {{ submission.task.title }}" loading="lazy" referrerpolicy="no-referrer"></iframe>
+          <p class="student-preview-hint">إذا لم تظهر معاينة PDF، يمكنك فتح الملف أو تحميله أدناه.</p>
+        {% elif submitted_format == "audio" %}
+          <audio controls preload="none" src="{{ submission.file.url }}" aria-label="تسليمي الصوتي لمهمة {{ submission.task.title }}">
+            <a href="{{ submission.file.url }}" target="_blank" rel="noopener noreferrer">فتح الملف الصوتي</a>
+          </audio>
+        {% elif submitted_format == "video" %}
+          <video controls preload="none" src="{{ submission.file.url }}" aria-label="تسليمي بالفيديو لمهمة {{ submission.task.title }}" playsinline>
+            <a href="{{ submission.file.url }}" target="_blank" rel="noopener noreferrer">فتح ملف الفيديو</a>
+          </video>
+        {% else %}
+          <p class="student-preview-hint">لا تتوفر معاينة لهذه الصيغة. يمكنك فتح الملف أو تحميله.</p>
+        {% endif %}
+      {% endwith %}
+      <div class="student-submission-file-actions">
+        <a href="{{ submission.file.url }}" target="_blank" rel="noopener noreferrer">فتح الملف</a>
+        <a href="{{ submission.file.url }}" target="_blank" rel="noopener noreferrer" download>تحميل الملف</a>
+      </div>
+    {% endif %}
+    {% if submission.text_content %}
+      <h4 class="student-submission-text-heading">النص الذي سلّمته</h4>
+      <pre class="student-submission-text">{{ submission.text_content }}</pre>
+    {% endif %}
+    {% if not submission.file and not submission.text_content %}
+      <p class="student-preview-hint">لا يوجد ملف أو نص محفوظ لهذا التسليم.</p>
+    {% endif %}
+  </div>
+</details>
