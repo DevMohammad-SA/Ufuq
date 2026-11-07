@@ -6,6 +6,8 @@ __pycache__/
 .env.docker
 db.sqlite3
 media/
+# Keep host-side database/media backups out of the application image.
+backups/
 staticfiles/
 node_modules/
 *.md
