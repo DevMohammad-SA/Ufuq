@@ -13,7 +13,8 @@
 .elite-competition__heading{margin:0 0 6px;font-size:18px;font-weight:800}
 .elite-competition__status{margin:0;color:var(--gold-ink);font-family:var(--font-ui);font-size:14px;font-weight:700}
 .elite-competition--outside .elite-competition__status{color:var(--asphalt)}
-.elite-competition__stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:20px 0 0}
+.elite-competition__stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:20px 0 0}
+.elite-competition__stats--single{grid-template-columns:1fr}
 .elite-competition__stat{background:var(--sand);border-radius:var(--r-sm);padding:12px;min-width:0}
 .elite-competition__stat dt{font-family:var(--font-ui);font-size:12px;color:var(--slate)}
 .elite-competition__stat dd{margin:6px 0 0;font-family:var(--font-display);font-size:28px;font-weight:800;line-height:1.2;color:var(--asphalt);font-variant-numeric:tabular-nums}
@@ -38,8 +39,7 @@
 .elite-competition__definitions{position:absolute;width:0;height:0;overflow:hidden}
 @media(max-width:480px){
   .elite-competition{padding:16px}
-  .elite-competition__stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-  .elite-competition__stat--difference{grid-column:1/-1}
+  .elite-competition__stats{gap:8px}
   .elite-competition__stat{padding:10px}
   .elite-competition__plot{margin-inline:22px}
   .elite-competition__rider svg{width:21px;height:21px}

@@ -654,7 +654,7 @@ class ParticipantDashboardView(LoginRequiredMixin, UserPassesTestMixin, Template
             return {
                 "eliteStatus": "not_qualified",
                 "difference": difference,
-                "message": f"باقي عليك {difference} نقطة توصل رحلة النخبة 🚀",
+                "message": f"لست ضمن المرشحين لرحلة النخبة حاليًا. فارقك عن خط الترشيح {difference} نقطة؛ اجتهد واحصد المزيد من الأميال.",
             }
         else:
             next_rank_points = points_at_rank(ELITE_LIMIT + 1)
@@ -664,13 +664,13 @@ class ParticipantDashboardView(LoginRequiredMixin, UserPassesTestMixin, Template
                 return {
                     "eliteStatus": "qualified",
                     "difference": None,
-                    "message": "أنت ضمن المرشحين لرحلة النخبة",
+                    "message": "أنت ضمن المرشحين لرحلة النخبة حاليًا. واصل إنجازك!",
                 }
             difference = participant.points - next_rank_points
             return {
                 "eliteStatus": "qualified",
                 "difference": difference,
-                "message": f"متقدم بـ{difference} نقطة، حافظ على مكانك 💪",
+                "message": f"أنت ضمن المرشحين لرحلة النخبة حاليًا. متقدم عن خط الخروج من الترشيح بـ{difference} نقطة؛ حافظ على تقدّمك.",
             }
 
     def _build_range(self, queryset, participant):

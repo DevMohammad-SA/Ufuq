@@ -177,21 +177,19 @@
   {% if elite_competition %}
     <section class="elite-competition{% if not elite_competition.qualified %} elite-competition--outside{% endif %}" dir="rtl" aria-labelledby="elite-competition-heading">
       <h2 class="elite-competition__heading" id="elite-competition-heading">موقعك في منافسة رحلة النخبة</h2>
-      <p class="elite-competition__status">{% if elite_competition.qualified %}أنت ضمن المرشحين لرحلة النخبة{% else %}أنت خارج أعلى {{ elite_competition.limit }} حاليًا{% endif %}</p>
+      <p class="elite-competition__status">{% if elite_competition.qualified %}أنت ضمن المرشحين لرحلة النخبة حاليًا.{% else %}لست ضمن المرشحين لرحلة النخبة حاليًا.{% endif %}</p>
 
-      <dl class="elite-competition__stats">
+      <dl class="elite-competition__stats{% if elite_competition.difference == None %} elite-competition__stats--single{% endif %}">
         <div class="elite-competition__stat">
-          <dt>ترتيبك الحالي في بيئتك</dt>
+          <dt>ترتيبك في بيئتك</dt>
           <dd><bdi>{{ elite_competition.rank|unlocalize }}</bdi></dd>
         </div>
-        <div class="elite-competition__stat">
-          <dt>المنافسون النشطون في بيئتك</dt>
-          <dd><bdi>{{ elite_competition.total|unlocalize }}</bdi> <small>بمن فيهم أنت</small></dd>
-        </div>
+        {% if elite_competition.difference != None %}
         <div class="elite-competition__stat elite-competition__stat--difference">
-          <dt>{% if elite_competition.difference_kind == 'gap' %}فارق النقاط إلى المركز {{ elite_competition.limit|unlocalize }}{% elif elite_competition.difference_kind == 'margin' %}هامش نقاطك عن المركز {{ elite_competition.limit|add:"1"|unlocalize }}{% else %}مقارنة النقاط عند الحد{% endif %}</dt>
-          <dd>{% if elite_competition.difference != None %}<bdi>{{ elite_competition.difference|unlocalize }}</bdi> <small>نقطة</small>{% else %}لا مقارنة{% endif %}</dd>
+          <dt>{% if elite_competition.difference_kind == 'gap' %}نقاط تفصلك عن خط الترشيح{% else %}تقدّمك عن خط الخروج من الترشيح{% endif %}</dt>
+          <dd><bdi>{{ elite_competition.difference|unlocalize }}</bdi> <small>نقطة</small></dd>
         </div>
+        {% endif %}
       </dl>
 
       <svg class="elite-competition__definitions" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
@@ -202,7 +200,7 @@
           </symbol>
         </defs>
       </svg>
-      <div class="elite-competition__plot" role="img" aria-label="ترتيبك {{ elite_competition.rank|unlocalize }} من {{ elite_competition.total|unlocalize }} منافس نشط؛ حد الترشيح أعلى {{ elite_competition.limit }}. يبدأ الترتيب من اليمين." aria-describedby="elite-competition-cutoff elite-competition-caption">
+      <div class="elite-competition__plot" role="img" aria-label="ترتيبك في بيئتك {{ elite_competition.rank|unlocalize }}؛ {% if elite_competition.qualified %}ضمن المرشحين حاليًا{% else %}لست ضمن المرشحين حاليًا{% endif %}. يبدأ الترتيب من اليمين." aria-describedby="elite-competition-cutoff elite-competition-caption">
         <div class="elite-competition__course" aria-hidden="true">
           <div class="elite-competition__track"></div>
           <div class="elite-competition__qualified-zone" style="width:{{ elite_competition.cutoff_percent|unlocalize }}%"></div>
@@ -220,15 +218,11 @@
           <span>نهاية الترتيب</span>
         </div>
       </div>
-      <p class="elite-competition__cutoff-note" id="elite-competition-cutoff"><span class="elite-competition__cutoff-key" aria-hidden="true"></span><span>حد الترشيح: أعلى {{ elite_competition.limit }}{% if elite_competition.total <= elite_competition.limit %} — جميع المنافسين النشطين ضمن الحد، والخط عند نهاية الشريط.{% else %} — الخط يفصل نطاق الترشيح عن بقية الترتيب.{% endif %}</span></p>
+      <p class="elite-competition__cutoff-note" id="elite-competition-cutoff"><span class="elite-competition__cutoff-key" aria-hidden="true"></span><span>خط الترشيح</span></p>
       {% if elite_competition.difference == 0 %}
-        <p class="elite-competition__note elite-competition__tie">فارق النقاط عند الحد هو 0. {% if elite_competition.qualified %}أنت داخل أعلى {{ elite_competition.limit }} حاليًا وفق مرجّح التعادل الثابت.{% else %}التعادل في النقاط لا يعني دخول أعلى {{ elite_competition.limit }}؛ أنت خارجها حاليًا وفق مرجّح التعادل الثابت.{% endif %} عند تساوي النقاط يُقدَّم المعرّف الأسبق؛ لا تُعرض معرّفات الطلاب، والترتيب قابل للتغيّر مع تحديث النقاط.</p>
-      {% elif elite_competition.difference == None %}
-        <p class="elite-competition__note">عدد المنافسين النشطين لا يتجاوز حد الترشيح ({{ elite_competition.limit }})، لذلك لا يوجد فارق نقاط للمقارنة عند الحد.</p>
-      {% else %}
-        <p class="elite-competition__note">الفارق من النقاط الحالية فقط، وليس عدد نقاط يضمن الترشيح؛ يتغيّر ترتيبك مع تغيّر نقاط المنافسة.</p>
+        <p class="elite-competition__note elite-competition__tie">النقاط متساوية عند خط الترشيح؛ كل نقطة قد ترفع ترتيبك.</p>
       {% endif %}
-      <p class="elite-competition__note" id="elite-competition-caption">الموقع على الشريط بحسب ترتيب النقاط، وليس الأميال. الفرسان رموز توضيحية عامة وليست تمثيلًا لطلاب محددين؛ لا تُعرض أسماء المنافسين أو هوياتهم أو نقاطهم.</p>
+      <p class="elite-competition__note" id="elite-competition-caption">{% if elite_competition.qualified %}واصل إنجازك وحافظ على تقدّمك؛ فالترتيب يتغيّر.{% else %}اجتهد واحصد المزيد من الأميال لتكون من المرشحين لرحلة النخبة. كل إنجاز يفرق!{% endif %}</p>
     </section>
   {% elif elite_status %}
     <section class="elite-card elite-{{ elite_status.eliteStatus }}">

@@ -94,7 +94,7 @@ class EliteCompetitionTests(TestCase):
                 html, _ = self.render_dashboard(student, data)
                 self.assertIn(f"<dd><bdi>{rank}</bdi></dd>", html)
                 self.assertIn(f"أنت / {rank}", html)
-                self.assertIn(f'aria-label="ترتيبك {rank} من {len(ranking)}', html)
+                self.assertIn(f'aria-label="ترتيبك في بيئتك {rank}؛', html)
 
     def test_exact_gap_and_margin_match_the_existing_elite_status(self):
         ranking = self.make_ranking()
@@ -129,9 +129,9 @@ class EliteCompetitionTests(TestCase):
         self.assertEqual(data["difference_kind"], "gap")
         old = ParticipantDashboardView().get_elite_status(ranking[10])
         html, _ = self.render_dashboard(ranking[10], data, old)
-        self.assertIn("أنت خارج أعلى 10 حاليًا", html)
-        self.assertIn("التعادل في النقاط لا يعني دخول أعلى 10", html)
-        self.assertIn("المعرّف الأسبق", html)
+        self.assertIn("لست ضمن المرشحين لرحلة النخبة حاليًا.", html)
+        self.assertIn("النقاط متساوية عند خط الترشيح؛ كل نقطة قد ترفع ترتيبك.", html)
+        self.assertNotIn("المعرّف الأسبق", html)
         self.assertNotIn(old["message"], html)
         self.assertNotIn("نقطة واحدة تضمن", html)
         self.assertNotIn("أنت ضمن المرشحين لرحلة النخبة", html)
@@ -144,9 +144,9 @@ class EliteCompetitionTests(TestCase):
         self.assertEqual(data["difference"], 0)
         self.assertEqual(data["difference_kind"], "margin")
         html, _ = self.render_dashboard(ranking[9], data)
-        self.assertIn("أنت داخل أعلى 10 حاليًا وفق مرجّح التعادل الثابت", html)
-        self.assertIn("الترتيب قابل للتغيّر", html)
-        self.assertIn("هامش نقاطك عن المركز 11", html)
+        self.assertIn("أنت ضمن المرشحين لرحلة النخبة حاليًا.", html)
+        self.assertIn("فالترتيب يتغيّر", html)
+        self.assertIn("تقدّمك عن خط الخروج من الترشيح", html)
 
     def test_all_zero_points_still_use_id_ascending_and_rank_positions(self):
         ranking = [self.make_participant(0) for _ in range(22)]
@@ -185,10 +185,12 @@ class EliteCompetitionTests(TestCase):
                 self.assertIsNone(data["difference_kind"])
                 self.assertEqual(data["cutoff_percent"], 100)
                 html, _ = self.render_dashboard(ranking[0], data)
-                self.assertIn("لا مقارنة", html)
-                self.assertIn("جميع المنافسين النشطين ضمن الحد", html)
-                self.assertIn("الخط عند نهاية الشريط", html)
+                self.assertNotIn("لا مقارنة", html)
+                self.assertNotIn("عدد المنافسين", html)
+                self.assertIn("واصل إنجازك وحافظ على تقدّمك", html)
                 markup = CompetitionMarkup(html)
+                self.assertEqual(len(markup.matching("elite-competition__stat")), 1)
+                self.assertFalse(markup.matching("elite-competition__stat--difference"))
                 self.assertEqual(markup.matching("elite-competition__cutoff")[0]["style"], "inset-inline-start:100.0%")
                 if total == 1:
                     self.assertEqual(data["marker_positions"], [])
@@ -224,8 +226,8 @@ class EliteCompetitionTests(TestCase):
         self.assertEqual(markup.matching("elite-competition__cutoff")[0]["style"], f'inset-inline-start:{data["cutoff_percent"]}%')
         self.assertEqual(markup.matching("elite-competition__me")[0]["style"], f'inset-inline-start:{data["position_percent"]}%')
         self.assertIn("يبدأ الترتيب من اليمين", html)
-        self.assertIn("حد الترشيح: أعلى 10", html)
-        self.assertIn("فارق النقاط إلى المركز 10", html)
+        self.assertIn("خط الترشيح", html)
+        self.assertIn("نقاط تفصلك عن خط الترشيح", html)
         self.assertNotIn("المركز 20", html)
         self.assertNotIn("المركز 21", html)
         self.assertNotIn("أعلى 20", html)
@@ -269,7 +271,8 @@ class EliteCompetitionTests(TestCase):
             self.assertNotIn(f'"points": {other.points}', encoded)
         self.assertNotIn("data-participant-id", html)
         self.assertNotIn("<script type=\"application/json\"", html)
-        self.assertIn("الفرسان رموز توضيحية عامة", html)
+        self.assertNotIn("الفرسان رموز توضيحية عامة", html)
+        self.assertIn('id="elite-generic-rider"', html)
 
     def test_other_students_cutoff_points_are_not_rendered_or_returned(self):
         ranking = self.make_ranking(9)
@@ -356,3 +359,51 @@ class EliteCompetitionTests(TestCase):
                 self.assertEqual(data["difference"], ranking[9].points - ranking[10].points)
                 self.assertEqual(data["difference"], ParticipantDashboardView().get_elite_status(student)["difference"])
                 self.assertAlmostEqual(data["cutoff_percent"], 10 / 11 * 100, places=5)
+
+    def test_outside_card_shows_only_own_rank_and_gap_without_environment_size(self):
+        ranking = self.make_ranking(28)
+        student = ranking[25]
+        data = build_elite_competition(student)
+        html, _ = self.render_dashboard(student, data)
+        card = html.split('<section class="elite-competition', 1)[1].split('</section>', 1)[0]
+        markup = CompetitionMarkup(html)
+        self.assertEqual(data['rank'], 26)
+        self.assertEqual(data['total'], 28)  # Internal count still positions the track.
+        self.assertEqual(len(markup.matching('elite-competition__stat')), 2)
+        self.assertIn('<dd><bdi>26</bdi></dd>', card)
+        self.assertIn(f'<bdi>{data["difference"]}</bdi> <small>نقطة</small>', card)
+        self.assertIn('لست ضمن المرشحين لرحلة النخبة حاليًا.', card)
+        self.assertIn('اجتهد واحصد المزيد من الأميال لتكون من المرشحين لرحلة النخبة.', card)
+        for forbidden in ('أنت خارج أعلى', 'المنافسون النشطون', 'بمن فيهم أنت',
+                          '<bdi>28</bdi>', 'من 28', 'الفارق من النقاط الحالية فقط',
+                          'الفرسان رموز', 'مرجّح التعادل', 'المعرّف الأسبق'):
+            self.assertNotIn(forbidden, card)
+        self.assertEqual(len(markup.matching('elite-competition__note')), 1)
+        self.assertEqual(len(markup.matching('elite-competition__stat--difference')), 1)
+        plot = markup.matching('elite-competition__plot')[0]
+        self.assertEqual(plot['aria-label'], 'ترتيبك في بيئتك 26؛ لست ضمن المرشحين حاليًا. يبدأ الترتيب من اليمين.')
+
+    def test_qualified_card_shows_margin_and_short_encouragement(self):
+        ranking = self.make_ranking(28)
+        student = ranking[5]
+        data = build_elite_competition(student)
+        html, _ = self.render_dashboard(student, data)
+        markup = CompetitionMarkup(html)
+        self.assertTrue(data['qualified'])
+        self.assertIn('تقدّمك عن خط الخروج من الترشيح', html)
+        self.assertIn(f'<bdi>{student.points - ranking[10].points}</bdi> <small>نقطة</small>', html)
+        self.assertIn('واصل إنجازك وحافظ على تقدّمك؛ فالترتيب يتغيّر.', html)
+        self.assertNotIn('المنافسون النشطون', html)
+        self.assertEqual(len(markup.matching('elite-competition__stat')), 2)
+        self.assertEqual(len(markup.matching('elite-competition__note')), 1)
+
+    def test_fallback_message_is_short_and_never_uses_outside_top_copy(self):
+        ranking = self.make_ranking(28)
+        student = ranking[25]
+        old = ParticipantDashboardView().get_elite_status(student)
+        html, _ = self.render_dashboard(student, None, old)
+        self.assertIn('لست ضمن المرشحين لرحلة النخبة حاليًا.', html)
+        self.assertIn('اجتهد واحصد المزيد من الأميال', html)
+        self.assertNotIn('باقي عليك', html)
+        self.assertNotIn('أنت خارج أعلى', html)
+        self.assertNotIn('المنافسون النشطون', html)
