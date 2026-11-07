@@ -27,7 +27,7 @@
 .task-preview-dialog::backdrop { background: rgba(43,47,51,.7); }
 .task-preview-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .task-preview-header h2 { margin: 0; font-size: 18px; overflow-wrap: anywhere; }
-.task-preview-header button { flex: none; min-width: 40px; min-height: 40px; }
+.task-preview-header button { flex: none; min-width: 44px; min-height: 44px; }
 #preview-help, #preview-status { font-size: 12px; color: var(--slate); overflow-wrap: anywhere; }
 .task-preview-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(230px, 300px); gap: 18px; }
 #modal-content { margin: 0; min-width: 0; }
@@ -40,11 +40,18 @@
 #modal-review-actions .review-actions { display: flex; flex-direction: column; }
 #modal-review-actions form { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
 #modal-review-actions .field { width: 100%; }
-#modal-review-actions select, #modal-review-actions input[type="text"] { width: 100%; min-width: 0; }
-#modal-review-actions button { min-height: 40px; }
+#modal-review-actions select, #modal-review-actions input[type="text"], #modal-review-actions textarea { width: 100%; max-width: 100%; min-width: 0; }
+#modal-review-actions textarea { min-height: 64px; }
+#modal-review-actions button, #modal-review-actions select, #modal-review-actions input[type="text"] { min-height: 44px; }
 #modal-review-actions p { font-size: 13px; margin: 0; }
-.btn-featured { background: var(--gold-ink); }
-.btn-featured:hover { background: var(--asphalt); }
+#modal-review-actions .featured-checkbox-label { min-height: 44px; padding: 8px 12px; gap: 8px; border: 1px solid var(--line); border-radius: 99px; background: #fff; color: var(--gold-ink); cursor: pointer; font-size: 14px; }
+#modal-review-actions .featured-checkbox-label input { width: 18px; height: 18px; accent-color: var(--gold-ink); }
+#modal-review-actions .featured-checkbox-label:has(input:checked) { background: var(--gold-soft); border-color: var(--gold-ink); }
+.grade-cancellation-form { flex-direction: column; align-items: stretch !important; max-width: 100%; }
+.grade-cancellation-form p, .return-unavailable p { white-space: normal; overflow-wrap: anywhere; }
+.btn-cancel-grade { background: var(--gold-ink); }
+.btn-cancel-grade:hover { background: var(--asphalt); }
+.return-unavailable button:disabled { opacity: .55; cursor: not-allowed; }
 .task-preview-dialog :focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
 @media (max-width: 600px) {
   .task-review-card { padding: 12px; }

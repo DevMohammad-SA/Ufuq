@@ -143,10 +143,12 @@ class GradeRevisionTests(TestCase):
         response = self.client.get(self.url, {'task': self.task.pk})
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, self.submission.grade_revision_token)
-        self.assertContains(response, 'value="revise_grade"')
+        self.assertContains(response, 'value="cancel_grade"')
+        self.assertNotContains(response, 'value="revise_grade"')
         for actor in (self.environment, self.system):
             self.client.force_login(actor)
             response = self.client.get(self.url, {'task': self.task.pk})
+            self.assertNotContains(response, 'value="cancel_grade"')
             self.assertNotContains(response, 'value="revise_grade"')
 
     def test_original_acceptance_records_exact_award_value(self):

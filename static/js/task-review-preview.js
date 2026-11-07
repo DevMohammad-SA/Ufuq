@@ -11,6 +11,17 @@
   var previousOverflow = '';
 
   function confirmGradeChange(form, event) {
+    if (form.classList.contains('grade-cancellation-form')) {
+      var award = form.getAttribute('data-award');
+      var historical = form.querySelector('[name="previous_award"]');
+      if (!award && historical) award = historical.value;
+      var note = award === '0' ? 'لا توجد منحة محتسبة لسحبها.' :
+        (['10', '12'].indexOf(award) !== -1 ? 'ستُسحب منحة المهمة (' + award + ' نقطة) من الأرصدة الحالية وفق قواعدها.' : 'ستُلغى منحة المهمة المؤكدة من الأرصدة الحالية وفق قواعدها.');
+      if (!window.confirm('هل تؤكد إلغاء التقييم وإعادة التسليم إلى قيد المراجعة؟ ' + note + ' يبقى عمل الطالب محفوظًا ويمكنك تقييمه من جديد.')) {
+        event.preventDefault();
+        return false;
+      }
+    }
     if (form.classList.contains('grade-revision-form') &&
         !window.confirm('هل تؤكد تعديل التقييم وتطبيق فرق المنحة على الأرصدة الحالية؟')) {
       event.preventDefault();
@@ -19,7 +30,7 @@
     return true;
   }
 
-  document.querySelectorAll('.grade-revision-form').forEach(function (form) {
+  document.querySelectorAll('.grade-revision-form, .grade-cancellation-form').forEach(function (form) {
     form.addEventListener('submit', function (event) { confirmGradeChange(form, event); });
   });
 
@@ -76,7 +87,9 @@
     // Clone server-rendered, already-authorized forms, including CSRF, legacy
     // choice, submission id and native POST target. Preserve list forms intact.
     var copy = original.cloneNode(true);
-    copy.querySelectorAll('.return-form').forEach(function (form) { form.remove(); });
+    // Featured is the same checkbox as in the list, not a submitter. Choosing
+    // or clearing it never accepts the work until the reviewer presses Accept.
+    // The authorized return form (or its disabled explanation) stays intact.
     copy.querySelectorAll('[id]').forEach(function (field) {
       var oldId = field.id;
       field.id = 'preview-' + oldId;
@@ -84,21 +97,13 @@
         if (label.htmlFor === oldId) label.htmlFor = field.id;
       });
     });
-    var acceptForm = copy.querySelector('.accept-form');
-    if (acceptForm) {
-      // The featured submitter uses the existing accept + is_featured=on pair.
-      // Normal acceptance has no featured field and therefore remains +10.
-      var featuredLabel = acceptForm.querySelector('.featured-checkbox-label');
-      if (featuredLabel) featuredLabel.remove();
-      var featured = document.createElement('button');
-      featured.type = 'submit';
-      featured.name = 'is_featured';
-      featured.value = 'on';
-      featured.className = 'btn btn-featured btn-sm';
-      featured.textContent = 'متميز';
-      var normalButton = acceptForm.querySelector('button[type="submit"]');
-      acceptForm.insertBefore(featured, normalButton);
-    }
+    copy.querySelectorAll('.featured-checkbox-label input[type="checkbox"]').forEach(function (checkbox) {
+      checkbox.addEventListener('keydown', function (event) {
+        // Space toggles a native checkbox. Enter here must not implicitly
+        // submit its acceptance form; the Accept button remains explicit.
+        if (event.key === 'Enter') event.preventDefault();
+      });
+    });
     copy.querySelectorAll('form').forEach(function (form) {
       form.addEventListener('submit', function (event) {
         if (!confirmGradeChange(form, event)) return;

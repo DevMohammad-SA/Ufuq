@@ -269,7 +269,7 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
 {% endblock %}
 
 {% block content %}
-  <link rel="stylesheet" href="{% static 'css/task-review-preview.css' %}">
+  <link rel="stylesheet" href="{% static 'css/task-review-preview.css' %}?v=20261107-cancel1">
   <h1 class="page-title">المهام الأسبوعية</h1>
   {% for message in messages %}
     <p class="task-review-message task-review-message-{{ message.tags }}" role="status">{{ message }}</p>
@@ -494,9 +494,9 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
                               </select>
                             </label>
                           {% endif %}
-                          <label class="featured-checkbox-label">
-                            <input type="checkbox" name="is_featured">
-                            مميزة ⭐
+                          <label class="featured-checkbox-label" for="featured-{{ submission.id }}" title="تفعيل التميز ثم الضغط على قبول">
+                            <input type="checkbox" id="featured-{{ submission.id }}" name="is_featured" value="on">
+                            متميز
                           </label>
                           <button type="submit" class="btn btn-accept btn-sm">قبول</button>
                         </form>
@@ -516,40 +516,35 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
 	                            <textarea name="revision_note" class="return-note-input" rows="2" maxlength="2000" required aria-label="ملاحظة التعديل" placeholder="ملاحظة التعديل (مطلوبة)"></textarea>
 	                            <button type="submit" class="btn btn-return btn-sm">إعادة للتعديل</button>
 	                          </form>
+	                        {% else %}
+                            <div class="return-unavailable">
+                              <button type="button" class="btn btn-return btn-sm" disabled>إعادة للتعديل</button>
+                              <p class="rejection-note">{% if entry.task.is_past_due %}الإعادة غير متاحة بعد انتهاء موعد التسليم.{% else %}الإعادة غير متاحة ما دامت المهمة غير نشطة.{% endif %}</p>
+                            </div>
 	                        {% endif %}
                       </div>
-                    {% elif can_revise_grades and submission.status != "returned" %}
+                    {% elif can_revise_grades %}
                       <div class="review-actions">
-                        <details class="grade-revision-panel">
-                          <summary class="btn-inline">تعديل التقييم</summary>
-                          <form method="post" class="grade-revision-form" style="display:flex;flex-direction:column;align-items:stretch;max-width:100%;gap:8px">
-                            {% csrf_token %}
-                            <input type="hidden" name="action" value="revise_grade">
-                            <input type="hidden" name="submission_id" value="{{ submission.id }}">
-                            <input type="hidden" name="review_version" value="{{ submission.grade_revision_token }}">
-                            <label>التقييم الجديد
-                              <select name="grade" required aria-label="التقييم الجديد">
-                                <option value="accepted"{% if submission.status == "accepted" and not submission.is_featured %} selected{% endif %}>قبول</option>
-                                <option value="featured"{% if submission.is_featured %} selected{% endif %}>متميز</option>
-                                <option value="rejected"{% if submission.status == "rejected" %} selected{% endif %}>رفض</option>
+                        <form method="post" class="grade-cancellation-form" data-award="{% if submission.award_value is not None %}{{ submission.award_value }}{% elif submission.points_awarded is False %}0{% endif %}">
+                          {% csrf_token %}
+                          <input type="hidden" name="action" value="cancel_grade">
+                          <input type="hidden" name="submission_id" value="{{ submission.id }}">
+                          <input type="hidden" name="review_version" value="{{ submission.grade_revision_token }}">
+                          <input type="hidden" name="confirm" value="yes">
+                          {% if submission.award_value is None and submission.points_awarded is not False %}
+                            <label class="field" for="cancel-award-{{ submission.id }}">تحقق من المنحة السابقة للتسليم القديم
+                              <select id="cancel-award-{{ submission.id }}" name="previous_award" required aria-label="قيمة المنحة السابقة">
+                                <option value="">حدد ما صُرف فعليًا دون تخمين</option>
+                                <option value="0">لم تصرف نقاط</option>
+                                <option value="10">صرفت 10 نقاط</option>
+                                <option value="12">صرفت 12 نقطة</option>
                               </select>
                             </label>
-                            {% if submission.award_value is None and submission.points_awarded is not False %}
-                              <label>تحقق من قيمة المنحة السابقة لهذا التسليم القديم
-                                <select name="previous_award" required aria-label="قيمة المنحة السابقة">
-                                  <option value="">حدد ما صُرف فعليًا دون تخمين</option>
-                                  <option value="0">لم تصرف نقاط</option>
-                                  <option value="10">صرفت 10 نقاط</option>
-                                  <option value="12">صرفت 12 نقطة</option>
-                                </select>
-                              </label>
-                            {% endif %}
-                            <textarea name="reason" rows="2" maxlength="2000" required aria-label="سبب تعديل التقييم" placeholder="سبب تعديل التقييم (مطلوب)"></textarea>
-                            <input type="text" name="rejection_reason" maxlength="2000" aria-label="سبب الرفض الجديد" placeholder="سبب الرفض عند اختيار رفض؛ إن ترك فارغًا يستخدم سبب التعديل">
-                            <p class="rejection-note">يُطبّق فرق المنحة فقط على الأرصدة الحالية، ويُسجّل القرار والسبب. لا يتغير الملف أو الموعد.</p>
-                            <button type="submit" class="btn btn-sm">حفظ تعديل التقييم</button>
-                          </form>
-                        </details>
+                          {% endif %}
+                          <p class="rejection-note">يعود التسليم إلى قيد المراجعة وتُلغى منحتُه إن صُرفت، مع حفظ العمل وسجل الإلغاء.</p>
+                          <noscript><label><input type="checkbox" required> أؤكد إلغاء التقييم وسحب منحة المهمة المحتسبة.</label></noscript>
+                          <button type="submit" class="btn btn-cancel-grade btn-sm">إلغاء التقييم</button>
+                        </form>
                       </div>
                     {% else %}
                       —
@@ -618,7 +613,7 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
                 </td>
                 <td>
                   <a href="?edit_task={{ task.id }}#task-edit-form" class="btn-inline">تعديل</a>
-                  {% if can_revise_grades %}<a href="?task={{ task.id }}" class="btn-inline">التسليمات وتعديل تقييمها</a>{% endif %}
+                  {% if can_revise_grades %}<a href="?task={{ task.id }}" class="btn-inline">التسليمات ومراجعتها</a>{% endif %}
                   <form method="post" class="task-toggle-form">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="toggle_active">
@@ -645,7 +640,7 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg>
       </button>
     </header>
-    <p id="preview-help">يمكن معاينة الملف والنص معًا. أدوات القرار للتسليم المعلّق والمراجع المخوّل، وتعديل التقييم النهائي للمشرف العام فقط؛ تُرسل إلى المسار نفسه وتظهر النتيجة بعد تحميل الصفحة.</p>
+    <p id="preview-help">فعّل «متميز» إن أردت ثم اضغط «قبول». يمكنك الرفض أو الإعادة مع ملاحظة ضمن الموعد. إلغاء التقييم للمشرف العام فقط، ويعيد التسليم إلى قيد المراجعة بعد التأكيد.</p>
     <p id="preview-status" role="status" aria-live="polite"></p>
     <div class="task-preview-layout">
       <div id="modal-content"></div>
@@ -655,5 +650,5 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
 {% endblock %}
 
 {% block scripts %}
-<script src="{% static 'js/task-review-preview.js' %}" defer></script>
+<script src="{% static 'js/task-review-preview.js' %}?v=20261107-cancel1" defer></script>
 {% endblock %}

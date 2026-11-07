@@ -2292,9 +2292,12 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
         if not may_manage and action not in ("accept", "reject", "return_for_revision"):
             raise PermissionDenied("لا يمكنك إنشاء المهام أو تفعيلها أو إعادة فتح التسليمات.")
 
-        if action == "revise_grade":
-            from .task_grading import revise_submission_grade
-            saved, message = revise_submission_grade(request)
+        if action in ("revise_grade", "cancel_grade"):
+            # Older open pages keep the protected revision path; the current
+            # interface offers cancellation followed by the ordinary review.
+            from .task_grading import revise_submission_grade, cancel_submission_grade
+            operation = cancel_submission_grade if action == "cancel_grade" else revise_submission_grade
+            saved, message = operation(request)
             if not saved:
                 messages.error(request, message)
                 return self.render_to_response(self.get_context_data(), status=400)
