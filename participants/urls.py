@@ -2,6 +2,7 @@ from django.urls import path
 
 from . import views
 from .report_views import StudentReportView
+from .report_center_views import ReportCenterView, ReportCenterExportView
 from .permission_views import TaskReviewPermissionsView
 from .student_views import StudentDetailView
 from .management_views import (
@@ -25,6 +26,8 @@ urlpatterns = [
     path("points-ledger/", views.PointsLedgerView.as_view(), name="points_ledger"),
     path("data/", views.ParticipantsDataView.as_view(), name="participants_data"),
     path("student-report/", StudentReportView.as_view(), name="student_report"),
+    path("reports/", ReportCenterView.as_view(), name="report_center"),
+    path("reports/export/", ReportCenterExportView.as_view(), name="report_center_export"),
     path("students/<int:pk>/", StudentDetailView.as_view(), name="student_detail"),
     path("students/<int:pk>/edit/", ParticipantEditView.as_view(), name="participant_edit"),
     path("students/<int:pk>/delete/", ParticipantDeleteView.as_view(), name="participant_delete"),

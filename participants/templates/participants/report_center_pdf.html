@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <title>مركز التقارير — رحّال</title>
+  <style>
+    {% if assets.font_regular %}
+    @font-face {
+      font-family: "Tajawal";
+      src: url("{{ assets.font_regular }}") format("truetype");
+      font-weight: 400;
+    }
+    {% endif %}
+    {% if assets.font_bold %}
+    @font-face {
+      font-family: "Tajawal";
+      src: url("{{ assets.font_bold }}") format("truetype");
+      font-weight: 700;
+    }
+    {% endif %}
+    {% if assets.font_extra_bold %}
+    @font-face {
+      font-family: "Tajawal";
+      src: url("{{ assets.font_extra_bold }}") format("truetype");
+      font-weight: 800;
+    }
+    {% endif %}
+    @page {
+      size: A4 landscape;
+      margin: 14mm 12mm 16mm;
+      @bottom-right {
+        content: "رحّال | جمعية صقيل";
+        font-family: "Tajawal", sans-serif;
+        font-size: 8pt;
+        color: #5F676E;
+      }
+      @bottom-left {
+        content: "صفحة " counter(page) " من " counter(pages);
+        font-family: "Tajawal", sans-serif;
+        font-size: 8pt;
+        color: #5F676E;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      direction: rtl;
+      font-family: "Tajawal", "Arial", sans-serif;
+      font-size: 10pt;
+      line-height: 1.45;
+      color: #2B2F33;
+    }
+    .brand {
+      border-bottom: 2pt solid #C6A664;
+      padding-bottom: 5mm;
+      margin-bottom: 5mm;
+      min-height: 25mm;
+    }
+    .brand img {
+      float: left;
+      width: auto;
+      height: 24mm;
+      max-width: 25mm;
+      object-fit: contain;
+    }
+    .brand h1 { margin: 0 0 2mm; font-size: 23pt; font-weight: 800; }
+    .brand p { margin: 0; color: #85682F; }
+    h2 { margin: 0 0 2mm; font-size: 19pt; font-weight: 800; color: #85682F; }
+    h3 { margin: 5mm 0 2mm; font-size: 12pt; color: #85682F; break-after: avoid; }
+    p, li, td, th { overflow-wrap: anywhere; }
+    .meta { color: #5F676E; font-size: 9pt; margin: 2mm 0 4mm; }
+    .description { margin: 2mm 0; white-space: pre-wrap; }
+    .settings { margin-bottom: 5mm; }
+    .settings dl { margin: 0; }
+    .settings dt { font-weight: 700; color: #85682F; margin-top: 2mm; }
+    .settings dd { margin: 0 0 1mm; white-space: pre-wrap; }
+    .index { margin-bottom: 5mm; }
+    .index li { margin-bottom: 1mm; }
+    a { color: #85682F; text-decoration: none; }
+    .report { break-before: page; }
+    .metrics { width: 100%; margin: 4mm 0; }
+    .metrics th:first-child { width: 70%; }
+    .metrics th:last-child { width: 30%; }
+    .notes { background: #F7F3EA; border-right: 2pt solid #C6A664; padding: 3mm 5mm; margin: 4mm 0; }
+    .notes h3 { margin-top: 0; }
+    .notes ul { margin: 0; padding-right: 5mm; }
+    .notes li { white-space: pre-wrap; margin-bottom: 1mm; }
+    .panel + .panel { break-before: page; }
+    .panel-label { color: #5F676E; font-size: 9pt; margin: 1mm 0 2mm; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    thead { display: table-header-group; }
+    tbody { break-inside: auto; }
+    tr { break-inside: avoid; }
+    th, td {
+      padding: 2mm 2.5mm;
+      border-bottom: .5pt solid #E2DCD0;
+      text-align: right;
+      vertical-align: top;
+      white-space: pre-wrap;
+      font-size: 9pt;
+      line-height: 1.4;
+    }
+    th { background: #F7F3EA; border-top: 1pt solid #C6A664; font-weight: 700; }
+    tr:nth-child(even) td { background: #FCFAF6; }
+    th:first-child, td:first-child { border-right: .5pt solid #E2DCD0; }
+    th:last-child, td:last-child { border-left: .5pt solid #E2DCD0; }
+    .continued td { border-top: .5pt dashed #C6A664; }
+    .continued-label { display: block; font-size: 7pt; color: #85682F; white-space: normal; }
+    .empty { padding: 5mm; background: #F7F3EA; color: #5F676E; }
+    .completion { color: #5F676E; font-size: 8pt; margin-top: 2mm; }
+  </style>
+</head>
+<body>
+  <header class="brand">
+    {% if assets.logo %}<img src="{{ assets.logo }}" alt="شعار رحّال">{% endif %}
+    <h1>مركز التقارير</h1>
+    <p>رحّال — جمعية صقيل</p>
+  </header>
+  <p class="meta">وقت الإصدار: <bdi dir="ltr">{{ generated_at }}</bdi></p>
+  <section class="settings">
+    <h2>إعدادات التقرير</h2>
+    <dl>
+      {% for filter in filter_labels %}
+        <dt>{{ filter.label }}</dt>
+        <dd>{{ filter.value }}</dd>
+      {% empty %}
+        <dd>لم تُحدد إعدادات إضافية لهذا الإصدار.</dd>
+      {% endfor %}
+    </dl>
+  </section>
+  <section class="index">
+    <h3>التقارير المختارة</h3>
+    <ol>
+      {% for report in reports %}
+        <li><a href="#report-{{ forloop.counter }}">{{ report.title }}</a></li>
+      {% empty %}
+        <li>لم تُختر تقارير لهذا الإصدار.</li>
+      {% endfor %}
+    </ol>
+  </section>
+  {% for report in reports %}
+    <article class="report" id="report-{{ forloop.counter }}">
+      <h2>{{ report.title }}</h2>
+      <p class="description">{{ report.description }}</p>
+      <p class="meta">وقت الإصدار: <bdi dir="ltr">{{ generated_at }}</bdi> | الإعدادات كما وردت في صفحة الإصدار.</p>
+      {% if report.metrics %}
+        <h3>المؤشرات</h3>
+        <table class="metrics">
+          <thead><tr><th>المؤشر</th><th>القيمة</th></tr></thead>
+          <tbody>
+            {% for metric in report.metrics %}
+              <tr><td>{{ metric.label }}</td><td>{{ metric.value }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% endif %}
+      {% if report.notes %}
+        <aside class="notes">
+          <h3>ملاحظات وبيان احتساب النتائج</h3>
+          <ul>{% for note in report.notes %}<li>{{ note }}</li>{% endfor %}</ul>
+        </aside>
+      {% endif %}
+      {% for section in report.sections %}
+        <section>
+          {% for panel in section.panels %}
+            <div class="panel">
+              <h3>{{ section.title }}</h3>
+              {% if panel.total > 1 %}
+                <p class="panel-label">جزء الأعمدة {{ panel.number }} من {{ panel.total }} — يتكرر العمود الأول لربط بيانات الصف نفسه؛ جميع الصفوف موجودة في كل جزء.</p>
+              {% endif %}
+              {% if panel.columns %}
+                <table>
+                  <thead><tr>{% for column in panel.columns %}<th>{{ column }}</th>{% endfor %}</tr></thead>
+                  <tbody>
+                    {% for row in panel.rows %}
+                      <tr{% if row.continued %} class="continued"{% endif %}>
+                        {% for cell in row.cells %}
+                          <td>{% if row.continued and forloop.first %}<span class="continued-label">استكمال الصف السابق</span>{% endif %}{{ cell }}</td>
+                        {% endfor %}
+                      </tr>
+                    {% empty %}
+                      <tr><td colspan="{{ panel.columns|length }}" class="empty">لا توجد نتائج مطابقة في هذا القسم.</td></tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              {% else %}
+                <p class="empty">لا توجد أعمدة لهذا القسم.</p>
+              {% endif %}
+              <p class="completion">عدد الصفوف الأصلية في هذا القسم: {{ section.row_count }}. الصفوف الطويلة تستكمل دون اختصار.</p>
+            </div>
+          {% endfor %}
+        </section>
+      {% empty %}
+        <p class="empty">لا توجد أقسام تفصيلية لهذا التقرير.</p>
+      {% endfor %}
+    </article>
+  {% endfor %}
+</body>
+</html>

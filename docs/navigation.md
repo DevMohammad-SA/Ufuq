@@ -106,6 +106,7 @@
 | `elite_trip` | تحضير رحلة النخبة | `participants:elite_trip_attendance` | `students` | لا — **للمشرف العام فقط** |
 | `data` | بيانات المشاركين | `participants:participants_data` | `students` | لا |
 | `student_report` | تقرير الطلاب التفصيلي | `participants:student_report` | `students` | لا |
+| `report_center` | التقارير | `participants:report_center` | `students` | لا — **للمشرف العام النشط فقط** |
 | `extra_points` | نقاط إضافية | `participants:extra_points` | `points` | لا |
 | `points_ledger` | سجل النقاط | `participants:points_ledger` | `points` | لا |
 | `supervisors` | إدارة المشرفين | `participants:supervisor_list` | `account` | لا |

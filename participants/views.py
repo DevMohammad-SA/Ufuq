@@ -475,6 +475,11 @@ def build_navbar(user, active_key):
             "student_report", "تقرير الطلاب التفصيلي", "participants:student_report",
             ICON_LEDGER, "students", False,
         ))
+        if user.role == Role.GENERAL_SUPERVISOR and user.is_active:
+            entries.insert(data_index + 2, (
+                "report_center", "التقارير", "participants:report_center",
+                ICON_LEDGER, "students", False,
+            ))
 
     return [
         {

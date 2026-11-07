@@ -1,0 +1,220 @@
+{% extends "participants/app_base.html" %}
+{% load static tz %}
+
+{% block title %}مركز التقارير — رحّال{% endblock %}
+
+{% block extra_style %}
+.wrap{width:100%;max-width:100%;min-width:0}
+{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/report-center.css' %}">
+<main class="report-center">
+  <header class="rc-heading">
+    <div>
+      <p class="rc-eyebrow">رحّال / التقارير</p>
+      <h1 class="page-title">مركز التقارير</h1>
+      <p class="page-sub">الفترة والطلاب والتقارير التي تحتاجها، في عرض واحد أو ملف واحد.</p>
+    </div>
+    <span class="rc-scope">للمشرف العام · قراءة فقط</span>
+  </header>
+
+  <section class="card rc-settings" aria-labelledby="rc-settings-title">
+    <div class="rc-section-heading">
+      <h2 id="rc-settings-title">إعداد التقرير</h2>
+      <span class="rc-muted">اختر ثم اضغط «عرض التقرير»</span>
+    </div>
+    <form id="report-center-form" class="rc-form" method="get"
+          action="{% url 'participants:report_center' %}"
+          data-filters-valid="{{ filters_valid|yesno:'true,false' }}">
+      {% if form.errors or not filters_valid %}
+        <div class="rc-error-summary" id="rc-validation-errors" role="alert">
+          <strong>راجع إعدادات التقرير</strong>
+          <p>صحح الحقول الموضحة أدناه، ثم اضغط «عرض التقرير» للتحقق قبل التصدير. لم تُعرض نتائج بهذه الإعدادات.</p>
+          {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+        </div>
+      {% endif %}
+
+      <div class="rc-main-filters">
+        <div class="rc-field">
+          <label for="{{ form.period.id_for_label }}">الفترة</label>
+          {{ form.period }}
+          {% for error in form.period.errors %}<p class="rc-field-error"{% if forloop.first %} id="{{ form.period.auto_id }}_error"{% endif %}>{{ error }}</p>{% endfor %}
+        </div>
+        <div class="rc-field">
+          <label for="{{ form.group.id_for_label }}">البيئة</label>
+          {{ form.group }}
+          {% for error in form.group.errors %}<p class="rc-field-error"{% if forloop.first %} id="{{ form.group.auto_id }}_error"{% endif %}>{{ error }}</p>{% endfor %}
+        </div>
+        <div class="rc-field">
+          <label for="{{ form.detail.id_for_label }}">مستوى التفاصيل</label>
+          {{ form.detail }}
+          {% for error in form.detail.errors %}<p class="rc-field-error"{% if forloop.first %} id="{{ form.detail.auto_id }}_error"{% endif %}>{{ error }}</p>{% endfor %}
+        </div>
+      </div>
+      <div class="rc-date-range" id="rc-date-range">
+        <div class="rc-field">
+          <label for="{{ form.start_date.id_for_label }}">من تاريخ</label>
+          {{ form.start_date }}
+          {% for error in form.start_date.errors %}<p class="rc-field-error"{% if forloop.first %} id="{{ form.start_date.auto_id }}_error"{% endif %}>{{ error }}</p>{% endfor %}
+        </div>
+        <div class="rc-field">
+          <label for="{{ form.end_date.id_for_label }}">إلى تاريخ</label>
+          {{ form.end_date }}
+          {% for error in form.end_date.errors %}<p class="rc-field-error"{% if forloop.first %} id="{{ form.end_date.auto_id }}_error"{% endif %}>{{ error }}</p>{% endfor %}
+        </div>
+        <p class="rc-hint">للفترة «من إلى» فقط، وتشمل يومي البداية والنهاية. الأسبوع يبدأ الأحد بتوقيت الرياض.</p>
+      </div>
+
+      <details class="rc-advanced"{% if form.academic_stage.errors or form.participant.errors or form.account_status.errors or form.points_basis.errors or form.task.errors or form.include_private.errors %} open{% endif %}>
+        <summary>إعدادات إضافية <span>الطلاب، حالة الحساب، النقاط والخصوصية</span></summary>
+        <div class="rc-advanced-body">
+          <div class="rc-advanced-filters">
+            <div class="rc-field">
+              <label for="{{ form.academic_stage.id_for_label }}">المرحلة الدراسية</label>
+              {{ form.academic_stage }}
+              {% for error in form.academic_stage.errors %}<p class="rc-field-error"{% if forloop.first %} id="{{ form.academic_stage.auto_id }}_error"{% endif %}>{{ error }}</p>{% endfor %}
+            </div>
+            <div class="rc-field">
+              <label for="{{ form.participant.id_for_label }}">الطالب</label>
+              {{ form.participant }}
+              {% for error in form.participant.errors %}<p class="rc-field-error"{% if forloop.first %} id="{{ form.participant.auto_id }}_error"{% endif %}>{{ error }}</p>{% endfor %}
+            </div>
+            <div class="rc-field">
+              <label for="{{ form.account_status.id_for_label }}">حالة الحساب</label>
+              {{ form.account_status }}
+              {% for error in form.account_status.errors %}<p class="rc-field-error"{% if forloop.first %} id="{{ form.account_status.auto_id }}_error"{% endif %}>{{ error }}</p>{% endfor %}
+            </div>
+            <div class="rc-field">
+              <label for="{{ form.points_basis.id_for_label }}">تاريخ احتساب النقاط</label>
+              {{ form.points_basis }}
+              {% for error in form.points_basis.errors %}<p class="rc-field-error"{% if forloop.first %} id="{{ form.points_basis.auto_id }}_error"{% endif %}>{{ error }}</p>{% endfor %}
+            </div>
+            <div class="rc-field rc-field--wide">
+              <label for="{{ form.task.id_for_label }}">مهمة محددة <span class="rc-muted">(اختياري)</span></label>
+              {{ form.task }}
+              {% for error in form.task.errors %}<p class="rc-field-error"{% if forloop.first %} id="{{ form.task.auto_id }}_error"{% endif %}>{{ error }}</p>{% endfor %}
+            </div>
+          </div>
+          <label class="rc-private-option" for="{{ form.include_private.id_for_label }}">
+            {{ form.include_private }}
+            <span><strong>تضمين الهوية والجوال والملاحظات في التقرير والتصدير</strong><small>غير مفعّل افتراضيًا. فعّله فقط عند الحاجة إلى البيانات الخاصة.</small></span>
+          </label>
+          {% for error in form.include_private.errors %}<p class="rc-field-error"{% if forloop.first %} id="{{ form.include_private.auto_id }}_error"{% endif %}>{{ error }}</p>{% endfor %}
+          <p class="rc-hint">نقاط الفترة مستقلة عن الرصيد الحالي. إعداد التاريخ يغيّر طريقة عرض السجل فقط، ولا يغيّر أي نقاط.</p>
+        </div>
+      </details>
+
+      <fieldset class="rc-report-selector" aria-describedby="rc-selection-help">
+        <legend>التقارير المطلوبة</legend>
+        <p class="rc-hint" id="rc-selection-help">اختر تقريرًا أو أكثر. تُجمع التقارير المختارة في ملف واحد لكل صيغة.</p>
+        <div class="rc-report-choices">
+          {% for option in form.reports %}
+            <label class="rc-report-choice" for="{{ option.id_for_label }}">
+              {{ option.tag }}
+              <span>
+                <strong>{{ option.choice_label }}</strong>
+                <small>{% if option.data.value == 'summary' %}نظرة شاملة على نتائج الفترة.{% elif option.data.value == 'students' %}الحضور والإنجاز والمهام والنقاط لكل طالب.{% elif option.data.value == 'attendance' %}السجلات بحسب الطالب والنشاط والتاريخ.{% elif option.data.value == 'tasks' %}ملخص المهام وتفصيل المهمة المختارة.{% elif option.data.value == 'groups' %}مؤشرات البيئات ومقامات المقارنة.{% endif %}</small>
+              </span>
+            </label>
+          {% endfor %}
+        </div>
+        {% for error in form.reports.errors %}<p class="rc-field-error"{% if forloop.first %} id="{{ form.reports.auto_id }}_error"{% endif %}>{{ error }}</p>{% endfor %}
+      </fieldset>
+
+      <div class="rc-pending" id="rc-pending" role="status" aria-live="polite" hidden>
+        تغيّرت الإعدادات ولم تُطبّق بعد. النتائج والفلاتر المعروضة أدناه تخص آخر عرض؛ اضغط «عرض التقرير» لتحديثها.
+      </div>
+      <div class="rc-actions">
+        <button type="submit" class="rc-button rc-button--primary" id="rc-view-button">عرض التقرير</button>
+        <button type="submit" class="rc-button" name="format" value="pdf"
+                formaction="{% url 'participants:report_center_export' %}"
+                {% if not filters_valid %}disabled aria-describedby="rc-validation-errors"{% endif %}>
+          <span data-export-label="PDF">PDF</span>
+        </button>
+        <button type="submit" class="rc-button" name="format" value="xlsx"
+                formaction="{% url 'participants:report_center_export' %}"
+                {% if not filters_valid %}disabled aria-describedby="rc-validation-errors"{% endif %}>
+          <span data-export-label="Excel">Excel</span>
+        </button>
+        <a class="rc-reset" href="{% url 'participants:report_center' %}">إعادة الإعدادات</a>
+      </div>
+      <p class="rc-hint" id="rc-export-help">التصدير يستخدم إعدادات النموذج الحالية والتقارير المختارة، ويشمل كل الصفوف لا الصفحة المعروضة فقط. يتحقق الخادم منها قبل إصدار الملف.</p>
+      <p class="rc-submit-status" id="rc-submit-status" role="status" aria-live="polite"></p>
+      <noscript><p class="rc-hint">العرض والتصدير يعملان دون JavaScript. عند تغيير الإعدادات اضغط «عرض التقرير» لتحديث النتائج؛ أزرار التصدير تستخدم إعداداتك الحالية.</p></noscript>
+    </form>
+  </section>
+
+  <section class="rc-results" id="reports-results" aria-labelledby="rc-results-title" tabindex="-1">
+    <div class="rc-section-heading">
+      <h2 id="rc-results-title">نتائج التقارير</h2>
+      {% if filters_valid and generated_at %}
+        {% timezone "Asia/Riyadh" %}<p class="rc-generated">وقت الإصدار: <time datetime="{{ generated_at|date:'c' }}">{{ generated_at|date:"Y/m/d H:i" }}</time> · الرياض</p>{% endtimezone %}
+      {% endif %}
+    </div>
+    {% if filters_valid %}
+      {% if filter_labels %}
+        <dl class="rc-applied-filters" aria-label="الفلاتر المطبقة على النتائج">
+          {% for item in filter_labels %}<div><dt>{{ item.label }}</dt><dd>{{ item.value }}</dd></div>{% endfor %}
+        </dl>
+      {% endif %}
+      {% for report in reports %}
+        <article class="card rc-report" aria-labelledby="rc-report-title-{{ forloop.counter }}">
+          <header>
+            <h3 id="rc-report-title-{{ forloop.counter }}">{{ report.title }}</h3>
+            {% if report.description %}<p class="rc-description">{{ report.description }}</p>{% endif %}
+          </header>
+          {% if report.metrics %}
+            <dl class="rc-metrics">
+              {% for metric in report.metrics %}<div><dt>{{ metric.label }}</dt><dd>{{ metric.value|default_if_none:"—" }}</dd></div>{% endfor %}
+            </dl>
+          {% endif %}
+          {% if report.notes %}
+            <ul class="rc-notes">{% for note in report.notes %}<li>{{ note }}</li>{% endfor %}</ul>
+          {% endif %}
+          {% for section in report.sections %}
+            <section class="rc-data-section" aria-labelledby="rc-section-{{ forloop.parentloop.counter }}-{{ forloop.counter }}">
+              <h4 id="rc-section-{{ forloop.parentloop.counter }}-{{ forloop.counter }}">{{ section.title }}</h4>
+              {% if section.rows %}
+                <div class="rc-table-scroll" role="region" tabindex="0" aria-label="{{ section.title }} — جدول قابل للتمرير أفقيًا">
+                  <table class="rc-table">
+                    <caption>{{ section.title }}</caption>
+                    <thead><tr>{% for column in section.columns %}<th scope="col">{{ column }}</th>{% endfor %}</tr></thead>
+                    <tbody>
+                      {% for row in section.rows %}
+                        <tr>
+                          {% for cell in row.cells %}
+                            <td>{% if forloop.first and row.detail_url %}<a class="rc-detail-link" href="{{ row.detail_url }}">{{ cell|default_if_none:"—" }}</a>{% else %}{{ cell|default_if_none:"—" }}{% endif %}</td>
+                          {% endfor %}
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              {% else %}<p class="rc-empty">لا توجد سجلات مطابقة للإعدادات في هذا القسم.</p>{% endif %}
+              {% if section.page_obj %}
+                <nav class="rc-pagination" aria-label="صفحات {{ section.title }}">
+                  <span>الصفوف {{ section.page_obj.start_index }}–{{ section.page_obj.end_index }} من {{ section.page_obj.paginator.count }} · الصفحة {{ section.page_obj.number }} من {{ section.page_obj.paginator.num_pages }}</span>
+                  <div>
+                    {% if section.page_obj.has_previous %}<a class="rc-button" href="?{% if pagination_query %}{{ pagination_query }}&amp;{% endif %}page={{ section.page_obj.previous_page_number }}#reports-results">السابق</a>{% endif %}
+                    {% if section.page_obj.has_next %}<a class="rc-button" href="?{% if pagination_query %}{{ pagination_query }}&amp;{% endif %}page={{ section.page_obj.next_page_number }}#reports-results">التالي</a>{% endif %}
+                  </div>
+                </nav>
+              {% endif %}
+            </section>
+          {% endfor %}
+          {% if not report.metrics and not report.sections %}<p class="rc-empty">لا توجد بيانات متاحة لهذا التقرير ضمن الإعدادات المطبقة.</p>{% endif %}
+        </article>
+      {% empty %}
+        <div class="card rc-empty-state"><h3>لا توجد نتائج للعرض</h3><p>اختر التقارير المطلوبة وراجع الفترة والطلاب، ثم اضغط «عرض التقرير».</p></div>
+      {% endfor %}
+    {% else %}
+      <div class="card rc-empty-state"><h3>الإعدادات تحتاج إلى تصحيح</h3><p>لم تُعرض بيانات أو نتائج. صحح الأخطاء بالأعلى ثم اضغط «عرض التقرير» قبل التصدير.</p></div>
+    {% endif %}
+  </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/report-center.js' %}" defer></script>
+{% endblock %}

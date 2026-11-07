@@ -449,6 +449,18 @@
   `apply_points_delta` إطلاقًا (تعليق أعلى كلاس `StoreView` في
   `participants/views.py`).
 
+## مركز التقارير للمشرف العام
+
+`ReportCenterView` و`ReportCenterExportView` في `participants/report_center_views.py`
+يربطان `report_center` و`report_center_export` بقسم «التقارير» للمشرف العام النشط
+فقط. نموذج وتجميع `report_center.py` يقدّمان الملخص العام والطلاب والحضور والمهام
+ومقارنة البيئات من نفس فلاتر الفترة والبيئة والمرحلة والطالب والحالة والتفاصيل.
+الواجهة `report_center.html` وأصول `report-center.css/js` بهوية رحّال الفاتحة.
+التصدير في `report_center_exports.py` للنتائج الكاملة عبر PDF/Excel، دون حفظ
+بيانات أو إعادة منح نقاط؛ الهوية والجوال والملاحظات اختيار صريح غير افتراضي.
+مصادر الحساب ومقامات النسب والقيود التاريخية موثقة في
+[`report-center.md`](report-center.md)، ولا يتغير تقرير الطلاب القديم.
+
 ## التنقل والإشعارات
 
 > **التفاصيل الكاملة في ملف مستقل: [`navigation.md`](navigation.md)**
@@ -523,6 +535,8 @@
 | `dashboard/` | `participants:dashboard` |
 | `supervisor/dashboard/` | `participants:supervisor_dashboard` |
 | `student-report/` **(غير موسوم بعد)** | `participants:student_report` |
+| `reports/` | `participants:report_center` |
+| `reports/export/` | `participants:report_center_export` |
 | `students/<int:pk>/` **(غير موسوم بعد)** | `participants:student_detail` |
 | `students/<int:pk>/edit/` | `participants:participant_edit` |
 | `students/<int:pk>/delete/` | `participants:participant_delete` |

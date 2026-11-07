@@ -48,6 +48,8 @@
 | `ParticipantDashboardView` | `dashboard` | `role == PARTICIPANT` و`is_active=True` — تعرض بيانات الطالب وترتيبه فقط، وترفض أدوار المشرفين قبل تحميل سياق المشارك |
 | `SupervisorDashboardView` | `supervisor_dashboard` | `role in (GROUP_SUPERVISOR, GENERAL_SUPERVISOR, SUPERADMIN)`؛ مشرف البيئة مقيد ببيئاته المسندة والبقية يختارون أي بيئة |
 | `StudentReportView` **(غير موسوم بعد)** | `student_report` | `role in (GROUP_SUPERVISOR, GENERAL_SUPERVISOR, SUPERADMIN)` — تقرير قراءة فقط؛ مشرف البيئة يرى كل بيئاته المسندة |
+| `ReportCenterView` | `report_center` | المشرف العام النشط فقط (`GENERAL_SUPERVISOR` و`is_active=True`)، قراءة فقط للتقارير الخمسة والفلاتر الموحدة؛ لا يغيّر صلاحية التقرير السابق |
+| `ReportCenterExportView` | `report_center_export` | نفس قيد المشرف العام النشط، ونفس تحقق الفلاتر والتقارير والخصوصية؛ PDF/Excel كاملان للقراءة فقط، والمعرفات أو الفترة غير الصالحة تمنع الملف |
 | `StudentDetailView` **(غير موسوم بعد)** | `student_detail` | `role in (GROUP_SUPERVISOR, GENERAL_SUPERVISOR, SUPERADMIN)` — يجري التقييد قبل جلب الطالب بالمعرّف |
 | `QuranCircleAttendanceView` | `quran_circle_attendance` | `role in (GROUP_SUPERVISOR, GENERAL_SUPERVISOR, SUPERADMIN)` |
 | `WeeklyActivityAttendanceView` **(جديد)** | `weekly_activity_attendance` | `role in (GROUP_SUPERVISOR, GENERAL_SUPERVISOR, SUPERADMIN)` |
