@@ -1,0 +1,45 @@
+<section class="rgc" id="report-group-comparison" aria-labelledby="rgc-title" dir="rtl">
+  <header class="rgc-heading">
+    <div>
+      <p class="rgc-eyebrow">مؤشرات الفترة المطبقة</p>
+      <h4 id="rgc-title">مقارنة أداء البيئات</h4>
+    </div>
+    <span class="rgc-scope">كل البيئات المطابقة · قبل ترقيم الجداول</span>
+  </header>
+  <p class="rgc-note">{{ group_comparison.scope_note }}</p>
+  <p class="rgc-note" id="rgc-applied-note">الرسم يخص آخر نتائج معروضة والفترة المطبقة أعلاه. بعد تغيير الفلاتر اضغط «عرض التقرير» لتحديثه؛ اختيار المؤشر أو الفرز لا يغيّر الفلاتر.</p>
+  <p class="rgc-stale" id="rgc-stale" role="status" aria-live="polite" hidden>تغيّرت إعدادات التقرير ولم تُطبّق بعد. هذا الرسم ما زال يعرض النتائج السابقة؛ اضغط «عرض التقرير» لتحديث الفترة والبيئات.</p>
+
+  <div class="rgc-controls" id="rgc-controls" hidden>
+    <div class="rgc-field">
+      <label for="rgc-metric">المؤشر</label>
+      <select id="rgc-metric" aria-controls="rgc-figure" disabled></select>
+    </div>
+    <div class="rgc-field">
+      <label for="rgc-sort">ترتيب البيئات</label>
+      <select id="rgc-sort" aria-controls="rgc-figure" disabled>
+        <option value="name">حسب اسم البيئة</option>
+        <option value="highest">الأعلى قيمة أولًا</option>
+      </select>
+    </div>
+  </div>
+
+  <p class="rgc-fallback" id="rgc-fallback">الأرقام وجداول المقارنة متاحة أدناه. يتاح اختيار المؤشر والرسم التفاعلي عند تشغيل JavaScript.</p>
+  <figure class="rgc-figure" id="rgc-figure" role="region" aria-label="رسم مقارنة أداء البيئات خلال الفترة المطبقة" aria-describedby="rgc-description rgc-scale-note rgc-applied-note" hidden>
+    <figcaption>
+      <h5 id="rgc-metric-title"></h5>
+      <p class="rgc-note" id="rgc-description"></p>
+      <p class="rgc-note" id="rgc-scale-note"></p>
+    </figcaption>
+    <div class="rgc-axis-layout" id="rgc-axis-layout" aria-hidden="true">
+      <span></span>
+      <div class="rgc-axis" id="rgc-axis" dir="ltr"></div>
+      <span class="rgc-axis-unit" id="rgc-axis-unit"></span>
+    </div>
+    <p class="rgc-message" id="rgc-message" hidden></p>
+    <ul class="rgc-rows" id="rgc-rows" aria-labelledby="rgc-metric-title"></ul>
+  </figure>
+  <p class="rgc-status" id="rgc-status" role="status" aria-live="polite" aria-atomic="true"></p>
+  <p class="rgc-note rgc-table-note">الجداول أدناه مرجع الأعداد والتفاصيل. تصدير PDF وExcel يحتفظ بجداول النتائج الكاملة وقيمها، وليس صورة الرسم.</p>
+  {{ group_comparison|json_script:"report-group-comparison-data" }}
+</section>

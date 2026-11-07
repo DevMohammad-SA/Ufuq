@@ -86,6 +86,25 @@
   color:var(--slate);
   margin:0 0 var(--s1);
 }
+.comparison-entry{
+  display:flex;align-items:center;justify-content:space-between;gap:20px;
+  background:#fff;border:1px solid var(--gold);border-radius:var(--r-md);
+  padding:20px;margin:var(--s3) 0;min-width:0;max-width:100%;
+}
+.comparison-entry h2{margin:0 0 8px;color:var(--gold-ink);font-size:20px}
+.comparison-entry p{margin:0;color:var(--slate);font-size:14px;overflow-wrap:anywhere}
+.comparison-entry a{
+  display:inline-flex;align-items:center;justify-content:center;min-height:44px;
+  padding:10px 20px;border-radius:var(--r-sm);background:var(--sand);
+  color:var(--gold-ink);font-weight:800;text-decoration:none;border:1px solid var(--line);
+  flex-shrink:0;
+}
+.comparison-entry a:hover{background:var(--gold-soft)}
+.comparison-entry a:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+@media(max-width:720px){
+  .comparison-entry{flex-direction:column;align-items:stretch}
+  .comparison-entry a{width:auto}
+}
 {% endblock %}
 
 {% block content %}
@@ -107,6 +126,16 @@
       <div class="kpi-value">{{ kpi_pending_orders }}</div>
     </div>
   </div>
+
+  {% if can_compare_groups %}
+  <section class="comparison-entry" aria-labelledby="group-comparison-entry-title">
+    <div>
+      <h2 id="group-comparison-entry-title">مقارنة أداء البيئات</h2>
+      <p>اختر الفترة وقارن الحضور والإنجاز وتسليم المهام وصافي النقاط برسوم واضحة.</p>
+    </div>
+    <a href="{% url 'participants:report_center' %}?period=month&amp;reports=groups#reports-results">فتح المقارنة البيانية</a>
+  </section>
+  {% endif %}
 
   <h2 class="page-title" style="font-size:20px; margin-top:var(--s2)">نظرة عامة على البرنامج</h2>
 

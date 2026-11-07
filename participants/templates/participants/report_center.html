@@ -9,6 +9,7 @@
 
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/report-center.css' %}">
+<link rel="stylesheet" href="{% static 'css/report-group-charts.css' %}">
 <main class="report-center">
   <header class="rc-heading">
     <div>
@@ -114,7 +115,7 @@
               {{ option.tag }}
               <span>
                 <strong>{{ option.choice_label }}</strong>
-                <small>{% if option.data.value == 'summary' %}نظرة شاملة على نتائج الفترة.{% elif option.data.value == 'students' %}الحضور والإنجاز والمهام والنقاط لكل طالب.{% elif option.data.value == 'attendance' %}السجلات بحسب الطالب والنشاط والتاريخ.{% elif option.data.value == 'tasks' %}ملخص المهام وتفصيل المهمة المختارة.{% elif option.data.value == 'groups' %}مؤشرات البيئات ومقامات المقارنة.{% endif %}</small>
+                <small>{% if option.data.value == 'summary' %}نظرة شاملة على نتائج الفترة.{% elif option.data.value == 'students' %}الحضور والإنجاز والمهام والنقاط لكل طالب.{% elif option.data.value == 'attendance' %}السجلات بحسب الطالب والنشاط والتاريخ.{% elif option.data.value == 'tasks' %}ملخص المهام وتفصيل المهمة المختارة.{% elif option.data.value == 'groups' %}مقارنة بيانية ومقامات واضحة للبيئات.{% endif %}</small>
               </span>
             </label>
           {% endfor %}
@@ -172,6 +173,9 @@
           {% if report.notes %}
             <ul class="rc-notes">{% for note in report.notes %}<li>{{ note }}</li>{% endfor %}</ul>
           {% endif %}
+          {% if report.key == 'groups' and group_comparison %}
+            {% include "participants/_report_group_comparison.html" %}
+          {% endif %}
           {% for section in report.sections %}
             <section class="rc-data-section" aria-labelledby="rc-section-{{ forloop.parentloop.counter }}-{{ forloop.counter }}">
               <h4 id="rc-section-{{ forloop.parentloop.counter }}-{{ forloop.counter }}">{{ section.title }}</h4>
@@ -217,4 +221,5 @@
 
 {% block scripts %}
 <script src="{% static 'js/report-center.js' %}" defer></script>
+<script src="{% static 'js/report-group-charts.js' %}" defer></script>
 {% endblock %}

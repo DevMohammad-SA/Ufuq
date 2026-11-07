@@ -56,7 +56,7 @@
 | `EliteTripAttendanceView` **(جديد)** | `elite_trip_attendance` | `is_active=True` و`role in (GROUP_SUPERVISOR, GENERAL_SUPERVISOR)` فقط؛ مشرف البيئة في بيئاته المسندة، والمشرف العام في كل البيئات، وحفظ بيانات/إحصاء بلا نقاط |
 | `ParticipantImportView` | `import_participants` | `role in (GENERAL_SUPERVISOR, SUPERADMIN)` |
 | `AddParticipantView` **(جديد)** | `add_participant` | `role in (GENERAL_SUPERVISOR, SUPERADMIN)` — **لا** يشمل `GROUP_SUPERVISOR` (راجع الملاحظة أدناه) |
-| `GeneralSupervisorDashboardView` | `general_supervisor_dashboard` | `role in (GENERAL_SUPERVISOR, SUPERADMIN)` |
+| `GeneralSupervisorDashboardView` | `general_supervisor_dashboard` | `role in (GENERAL_SUPERVISOR, SUPERADMIN)`؛ مدخل المقارنة البيانية لمركز التقارير يظهر للعام النشط فقط ولا يمنح النظام صلاحية المركز |
 | `PointsSnapshotHistoryView` | `points_snapshot_history` | `role in (GENERAL_SUPERVISOR, SUPERADMIN)` |
 | `ExtraPointsView` **(جديد)** | `extra_points` | `role in (GENERAL_SUPERVISOR, SUPERADMIN)` |
 | `PointsLedgerView` **(جديد)** | `points_ledger` | `role in (GROUP_SUPERVISOR, GENERAL_SUPERVISOR, SUPERADMIN)` |

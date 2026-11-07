@@ -13,6 +13,7 @@ from .report_center import (
     can_access_report_center,
 )
 from .views import build_navbar
+from .report_group_charts import build_group_comparison
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,10 @@ class ReportCenterView(ReportCenterAccessMixin, TemplateView):
         form = ReportCenterFilterForm(self.request.GET, user=self.request.user)
         valid = form.is_valid()
         reports = build_reports(self.request.user, form.cleaned_data) if valid else []
+        comparison_report = next((report for report in reports if report["key"] == "groups"), None)
+        # Do not chart a page of table rows: every group shares the same full
+        # filtered comparison before any presentation pagination takes place.
+        group_comparison = build_group_comparison(comparison_report) if comparison_report else None
         for report in reports:
             for section in report["sections"]:
                 page = Paginator(section["rows"], self.page_size).get_page(self.request.GET.get("page"))
@@ -50,6 +55,7 @@ class ReportCenterView(ReportCenterAccessMixin, TemplateView):
         return {
             "form": form,
             "reports": reports,
+            "group_comparison": group_comparison,
             "filter_labels": build_filter_labels(form.cleaned_data) if valid else [],
             "generated_at": timezone.localtime(timezone.now()),
             "pagination_query": query + "&" if query else "",

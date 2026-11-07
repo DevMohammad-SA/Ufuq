@@ -1740,6 +1740,9 @@ class GeneralSupervisorDashboardView(
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["navbar_items"] = build_navbar(self.request.user, "home")
+        context["can_compare_groups"] = (
+            self.request.user.is_active and self.request.user.role == Role.GENERAL_SUPERVISOR
+        )
 
         # ----------------------------------------------------------------
         # Overview charts. Every series below is derived from existing
