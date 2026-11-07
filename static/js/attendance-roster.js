@@ -48,7 +48,7 @@
       });
     }
 
-    if (searchInput) {
+    if (searchInput && !root.hasAttribute("data-mobile-attendance")) {
       searchInput.addEventListener("input", function () {
         var query = searchInput.value.trim().toLocaleLowerCase("ar");
         var visibleRows = 0;
@@ -67,7 +67,10 @@
       if (!earlyBox.checked) return;
       var row = earlyBox.closest("tr");
       var attendedBox = row && row.querySelector('input[type="checkbox"][data-col="attended"]');
-      if (attendedBox) attendedBox.checked = true;
+      if (attendedBox && !attendedBox.checked) {
+        attendedBox.checked = true;
+        attendedBox.dispatchEvent(new Event("change", { bubbles: true }));
+      }
     }
 
     toArray(root.querySelectorAll('input[type="checkbox"][data-col="early"]')).forEach(function (earlyBox) {
@@ -84,7 +87,10 @@
         if (!boxes.length) return;
 
         var allChecked = boxes.every(function (box) { return box.checked; });
-        boxes.forEach(function (box) { box.checked = !allChecked; });
+        boxes.forEach(function (box) {
+          box.checked = !allChecked;
+          box.dispatchEvent(new Event("change", { bubbles: true }));
+        });
 
         if (column === "early") {
           boxes.forEach(makeEarlyAttendanceAlsoAttended);
@@ -97,26 +103,38 @@
         var form = button.closest("form");
         var field = document.getElementById(button.getAttribute("data-note-field"));
         var status = button.parentElement.querySelector(".note-save-status");
-        if (!form || !field || !status) return;
+        if (!form || !field || !status || button.disabled || form.getAttribute("aria-busy") === "true") return;
         if (!field.reportValidity()) return;
+        var sentValue = field.value;
+        var sentDate = form.querySelector('[name="date"]').value;
+        var sentGroup = form.querySelector('[name="group"]').value;
         var data = new FormData();
         data.append("csrfmiddlewaretoken", form.querySelector('[name="csrfmiddlewaretoken"]').value);
         data.append("action", "save_note");
         data.append("participant_id", button.getAttribute("data-participant"));
-        data.append("note_text", field.value);
-        data.append("date", form.querySelector('[name="date"]').value);
-        data.append("group", form.querySelector('[name="group"]').value);
+        data.append("note_text", sentValue);
+        data.append("date", sentDate);
+        data.append("group", sentGroup);
+        root.setAttribute("data-note-saving", String(Number(root.getAttribute("data-note-saving") || 0) + 1));
         button.disabled = true;
+        root.dispatchEvent(new CustomEvent("roster:note-request"));
         status.textContent = "جارٍ حفظ الملاحظة…";
         fetch(form.action, {method: "POST", body: data, credentials: "same-origin"})
           .then(function (response) {
-            if (!response.ok || !response.redirected || new URL(response.url).pathname !== "/participants/supervisor/dashboard/") {
+            var target = new URL(response.url);
+            if (!response.ok || !response.redirected || target.pathname !== new URL(form.action).pathname ||
+                target.searchParams.get("date") !== sentDate || target.searchParams.get("group") !== sentGroup) {
               throw new Error("note_save_failed");
             }
             status.textContent = "تم حفظ الملاحظة دون تغيير التحضير.";
+            root.dispatchEvent(new CustomEvent("roster:note-saved", { detail: { field: field, value: sentValue } }));
           })
           .catch(function () { status.textContent = "تعذر حفظ الملاحظة. حدّث الصفحة وتحقق من الصلاحية أو طول النص."; })
-          .finally(function () { button.disabled = false; });
+          .finally(function () {
+            button.disabled = false;
+            root.setAttribute("data-note-saving", String(Math.max(0, Number(root.getAttribute("data-note-saving") || 0) - 1)));
+            root.dispatchEvent(new CustomEvent("roster:note-request"));
+          });
       });
     });
 

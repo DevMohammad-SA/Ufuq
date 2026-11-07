@@ -474,3 +474,107 @@
 }
 .attendance-roster .note-save-button:disabled{opacity:.6;cursor:wait}
 .attendance-roster .note-save-status{display:block;margin-top:5px;color:var(--slate);font:11px/1.6 var(--font-ui)}
+
+/* Mobile preparation keeps the original fields and the desktop column order. */
+.attendance-roster[data-mobile-attendance] .roster-tools{flex-wrap:wrap}
+.attendance-roster .roster-filter-label{font:700 12px var(--font-ui);color:var(--slate)}
+.attendance-roster .roster-preparation-filter{
+  min-width:0;min-height:44px;padding:8px 12px;background:#fff;color:var(--asphalt);
+  border:1.5px solid var(--line);border-radius:var(--r-sm);font:700 13px var(--font-ui);
+}
+.attendance-roster .roster-remaining{font:600 12px var(--font-ui);color:var(--slate)}
+.attendance-roster .roster-mobile-bulk,.attendance-roster .roster-control-text{display:none}
+.attendance-roster .roster-row-state{display:block;color:var(--slate);font:600 11px/1.6 var(--font-ui)}
+.attendance-roster .roster-row--dirty .roster-row-state{color:var(--gold-ink)}
+.attendance-roster .roster-negative{
+  display:block;margin:4px auto 0;min-height:44px;max-width:100%;padding:6px 12px;
+  border:1px solid #dfc1b4;border-radius:8px;background:#fff7f3;color:#8d3f2e;
+  font:700 12px/1.5 var(--font-ui);cursor:pointer;white-space:normal;overflow-wrap:anywhere;
+}
+.attendance-roster .roster-negative:focus-visible,
+.attendance-roster .roster-preparation-filter:focus-visible{outline:3px solid var(--roster-focus);outline-offset:2px}
+.attendance-roster [data-roster-savebar]{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.attendance-roster .roster-save-info{flex:1 1 220px;min-width:0;font:600 12px/1.6 var(--font-ui);color:var(--slate)}
+.attendance-roster .roster-save-info > span{display:block;overflow-wrap:anywhere}
+.attendance-roster [data-roster-status][data-error="true"]{color:#8d3f2e}
+.attendance-roster [data-roster-status]:empty{display:none}
+.attendance-roster button:disabled{opacity:.55;cursor:not-allowed}
+.attendance-roster [data-roster-form][aria-busy="true"]{cursor:wait}
+.attendance-roster [data-roster-form][aria-busy="true"] button:disabled{cursor:wait}
+.attendance-roster table.roster tbody tr[hidden]{display:none!important}
+
+@media (max-width:767px){
+  .attendance-roster[data-mobile-attendance]{
+    --roster-nav-height:74px;
+    --roster-save-height:110px;
+    padding-bottom:calc(var(--roster-save-height) + var(--roster-nav-height) + 20px);
+  }
+  .attendance-roster[data-mobile-attendance] .roster-tools{display:grid;grid-template-columns:1fr;gap:8px;align-items:stretch}
+  .attendance-roster[data-mobile-attendance] .roster-search{
+    flex:none;width:100%;height:44px;min-height:44px;box-sizing:border-box;
+  }
+  .attendance-roster[data-mobile-attendance] .roster-data-toggle{width:100%;min-height:44px}
+  .attendance-roster[data-mobile-attendance] .date-bar .field{flex:1 1 130px}
+  .attendance-roster[data-mobile-attendance] .date-bar input,
+  .attendance-roster[data-mobile-attendance] .date-bar select,
+  .attendance-roster[data-mobile-attendance] .date-bar button{min-height:44px}
+  .attendance-roster[data-mobile-attendance] .roster-scroll{
+    max-width:100%;width:100%;overflow:visible;border:0;background:transparent;
+  }
+  .attendance-roster[data-mobile-attendance] table.roster{
+    display:block;min-width:0!important;width:100%;background:transparent;table-layout:auto;
+  }
+  .attendance-roster[data-mobile-attendance] table.roster colgroup,
+  .attendance-roster[data-mobile-attendance] table.roster thead{display:none}
+  .attendance-roster[data-mobile-attendance] table.roster tbody{display:grid;gap:12px;width:100%}
+  .attendance-roster[data-mobile-attendance] table.roster tbody tr{
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;
+    min-width:0;padding:12px;border:1px solid #e6ddca;border-radius:12px;background:#fffefa;
+    box-shadow:0 6px 16px -14px rgba(43,47,51,.45);
+  }
+  .attendance-roster[data-mobile-attendance] table.roster tbody tr.roster-row--dirty{border-color:#cda65a;background:#fffaf0}
+  .attendance-roster[data-mobile-attendance] table.roster tbody td{
+    display:block;min-width:0;padding:0;border:0!important;text-align:start;white-space:normal;
+  }
+  .attendance-roster[data-mobile-attendance] table.roster .student-name-cell{grid-column:1/-1;padding-bottom:6px}
+  .attendance-roster[data-mobile-attendance] .student-name-line{min-height:44px}
+  .attendance-roster[data-mobile-attendance] .student-name-link{font-size:17px;width:100%;white-space:normal;overflow-wrap:anywhere}
+  .attendance-roster[data-mobile-attendance] .roster-check-label{
+    display:flex;gap:8px;width:100%;min-height:48px;padding:8px;
+    justify-content:flex-start;border:1px solid #e6ddca;border-radius:8px;background:#fff;
+  }
+  .attendance-roster[data-mobile-attendance] .roster-control-text{display:inline;font:700 12px/1.5 var(--font-ui)}
+  .attendance-roster[data-mobile-attendance] .roster-checkbox{flex:0 0 26px}
+  .attendance-roster[data-mobile-attendance] .roster-negative{width:100%;margin-top:8px;min-height:44px}
+  .attendance-roster--activity[data-mobile-attendance] table.roster .check-cell,
+  .attendance-roster--elite-trip[data-mobile-attendance] table.roster .check-cell{grid-column:1/-1}
+  .attendance-roster[data-mobile-attendance] .attendance-note-cell{grid-column:1/-1}
+  .attendance-roster[data-mobile-attendance] .attendance-note > summary{justify-content:flex-start;padding:8px;min-height:44px}
+  .attendance-roster[data-mobile-attendance] .attendance-note__panel textarea{font-size:14px;min-height:80px;padding:10px}
+  .attendance-roster[data-mobile-attendance] .note-save-button{min-height:44px;font-size:13px}
+  .attendance-roster[data-mobile-attendance] table.roster .student-extra:not([hidden]){
+    grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+    padding:8px;background:#fbf8f0;border-radius:6px;text-align:start;font-size:13px;
+  }
+  .attendance-roster[data-mobile-attendance] td.student-extra::before{
+    content:attr(data-label);font:700 11px/1.5 var(--font-ui);color:var(--slate);direction:rtl;
+  }
+  .attendance-roster[data-mobile-attendance] .roster-mobile-bulk{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+  .attendance-roster[data-mobile-attendance] .roster-mobile-bulk .select-all{
+    flex:1 1 120px;width:auto;margin:0;min-height:44px;padding:8px;border:1px solid #d7bd83;
+    border-radius:8px;background:#fffaf0;text-decoration:none;font-size:12px;
+  }
+  .attendance-roster[data-mobile-attendance] .elite-trip-status-select{
+    min-width:0;width:100%;min-height:48px;font-size:14px;
+  }
+  .attendance-roster[data-mobile-attendance] .elite-trip-bulk{max-width:100%}
+  .attendance-roster[data-mobile-attendance] .elite-trip-bulk select,
+  .attendance-roster[data-mobile-attendance] .elite-trip-bulk__apply{min-height:44px;max-width:100%}
+  .attendance-roster[data-mobile-attendance] [data-roster-savebar]{
+    position:fixed;inset-inline:0;bottom:var(--roster-nav-height);z-index:49;
+    margin:0;padding:10px 16px;gap:8px;border-top:1px solid #d7bd83;
+    background:#fffefa;box-shadow:0 -5px 20px -16px rgba(43,47,51,.5);
+  }
+  .attendance-roster[data-mobile-attendance] .roster-save-info{flex:1 1 100%;font-size:12px}
+  .attendance-roster[data-mobile-attendance] [data-roster-savebar] .btn{max-width:none;width:100%;min-height:44px;padding:10px 16px}
+}

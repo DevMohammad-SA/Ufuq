@@ -9,6 +9,7 @@ function control(attributes = {}) {
     getAttribute(name) { return this.attributes[name]; },
     setAttribute(name, value) { this.attributes[name] = value; },
     addEventListener(name, callback) { this.listeners[name] = callback; },
+    dispatchEvent(event) { if (this.listeners[event.type]) this.listeners[event.type](event); return true; },
   };
 }
 
@@ -49,6 +50,7 @@ function select(value, selectedIndex) {
   const context = {
     window: {confirm(message) { confirmations.push(message); return confirmed; }},
     document: {readyState: 'complete', querySelectorAll: () => [root]},
+    Event,
   };
 
   vm.runInNewContext(fs.readFileSync('static/js/elite-trip-attendance.js', 'utf8'), context);

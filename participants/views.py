@@ -777,6 +777,7 @@ class SupervisorDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateV
                 roster.append(
                     {
                         "participant": participant,
+                        "recorded": record is not None,
                         "attended": record.attended if record else False,
                         "is_early": record.is_early if record else False,
                     }
@@ -813,7 +814,13 @@ class SupervisorDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateV
         group = self.get_group()
         selected_date = self.get_selected_date()
 
+        from .attendance_transport import (
+            wants_roster_json, selected_roster_ids, roster_error, roster_success,
+        )
+
         if not group:
+            if wants_roster_json(request):
+                return roster_error(request, "اختر بيئة متاحة قبل حفظ التحضير.")
             # Nothing to save for a supervisor with no environment linked —
             # just re-render the (empty) page.
             return self.get(request, *args, **kwargs)
@@ -862,8 +869,15 @@ class SupervisorDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateV
                         ), status=400)
                     note_values[participant_id] = text
 
+        try:
+            selected_ids = selected_roster_ids(request.POST, participant_ids)
+        except ValueError as error:
+            return roster_error(request, str(error))
+        saved_ids = []
+        saved_note_ids = []
+
         with transaction.atomic():
-            for participant_id in sorted(participant_ids):
+            for participant_id in sorted(selected_ids | set(note_values)):
                 attended = request.POST.get(f"attended_{participant_id}") == "on"
                 is_early = request.POST.get(f"early_{participant_id}") == "on"
                 participant = Participant.objects.select_for_update(of=("self",)).filter(
@@ -872,6 +886,11 @@ class SupervisorDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateV
                 ).first()
                 if participant is None:
                     continue  # Archived/reassigned after the initial roster was loaded.
+
+                if participant_id not in selected_ids:
+                    self.save_note(participant, selected_date, note_values[participant_id])
+                    saved_note_ids.append(participant_id)
+                    continue
 
                 existing = MeetingAttendance.objects.filter(
                     participant_id=participant_id,
@@ -921,7 +940,11 @@ class SupervisorDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateV
                     )
                 if participant_id in note_values:
                     self.save_note(participant, selected_date, note_values[participant_id])
+                    saved_note_ids.append(participant_id)
+                saved_ids.append(participant_id)
 
+        if wants_roster_json(request):
+            return roster_success(request, selected_date, group, saved_ids, saved_note_ids)
         messages.success(request, f"تم حفظ تحضير اللقاء بتاريخ {selected_date:%Y/%m/%d} بنجاح.")
 
         return redirect(
@@ -1003,6 +1026,7 @@ class QuranCircleAttendanceView(LoginRequiredMixin, UserPassesTestMixin, Templat
                 roster.append(
                     {
                         "participant": participant,
+                        "recorded": record is not None,
                         "attended": record.attended if record else False,
                         "achieved": record.achieved if record else False,
                     }
@@ -1017,7 +1041,13 @@ class QuranCircleAttendanceView(LoginRequiredMixin, UserPassesTestMixin, Templat
         selected_date = self.get_selected_date()
         group = self.get_selected_group()
 
+        from .attendance_transport import (
+            wants_roster_json, selected_roster_ids, roster_error, roster_success,
+        )
+
         if not group:
+            if wants_roster_json(request):
+                return roster_error(request, "اختر بيئة متاحة قبل حفظ التحضير.")
             return self.get(request, *args, **kwargs)
 
         # Iterate ONLY over this group's own participant ids and read POST
@@ -1028,8 +1058,14 @@ class QuranCircleAttendanceView(LoginRequiredMixin, UserPassesTestMixin, Templat
             Participant.objects.filter(group=group, user__is_active=True, user__role=Role.PARTICIPANT).values_list("id", flat=True)
         )
 
+        try:
+            selected_ids = selected_roster_ids(request.POST, participant_ids)
+        except ValueError as error:
+            return roster_error(request, str(error))
+        saved_ids = []
+
         with transaction.atomic():
-            for participant_id in sorted(participant_ids):
+            for participant_id in sorted(selected_ids):
                 attended = request.POST.get(f"attended_{participant_id}") == "on"
                 achieved = request.POST.get(f"achieved_{participant_id}") == "on"
                 participant = Participant.objects.select_for_update(of=("self",)).filter(
@@ -1085,6 +1121,10 @@ class QuranCircleAttendanceView(LoginRequiredMixin, UserPassesTestMixin, Templat
                         event_date=selected_date,
                     )
 
+                saved_ids.append(participant_id)
+
+        if wants_roster_json(request):
+            return roster_success(request, selected_date, group, saved_ids)
         messages.success(request, f"تم حفظ تحضير الحلقة بتاريخ {selected_date:%Y/%m/%d} بنجاح.")
 
         redirect_url = (
@@ -1158,6 +1198,7 @@ class WeeklyActivityAttendanceView(LoginRequiredMixin, UserPassesTestMixin, Temp
                 roster.append(
                     {
                         "participant": participant,
+                        "recorded": record is not None,
                         "attended": record.attended if record else False,
                     }
                 )
@@ -1171,7 +1212,13 @@ class WeeklyActivityAttendanceView(LoginRequiredMixin, UserPassesTestMixin, Temp
         selected_date = self.get_selected_date()
         group = self.get_selected_group()
 
+        from .attendance_transport import (
+            wants_roster_json, selected_roster_ids, roster_error, roster_success,
+        )
+
         if not group:
+            if wants_roster_json(request):
+                return roster_error(request, "اختر بيئة متاحة قبل حفظ التحضير.")
             return self.get(request, *args, **kwargs)
 
         # Iterate ONLY over this group's own participant ids and read POST
@@ -1182,8 +1229,14 @@ class WeeklyActivityAttendanceView(LoginRequiredMixin, UserPassesTestMixin, Temp
             Participant.objects.filter(group=group, user__is_active=True, user__role=Role.PARTICIPANT).values_list("id", flat=True)
         )
 
+        try:
+            selected_ids = selected_roster_ids(request.POST, participant_ids)
+        except ValueError as error:
+            return roster_error(request, str(error))
+        saved_ids = []
+
         with transaction.atomic():
-            for participant_id in sorted(participant_ids):
+            for participant_id in sorted(selected_ids):
                 attended = request.POST.get(f"attended_{participant_id}") == "on"
                 participant = Participant.objects.select_for_update(of=("self",)).filter(
                     pk=participant_id, group=group, user__is_active=True,
@@ -1222,6 +1275,10 @@ class WeeklyActivityAttendanceView(LoginRequiredMixin, UserPassesTestMixin, Temp
                         event_date=selected_date,
                     )
 
+                saved_ids.append(participant_id)
+
+        if wants_roster_json(request):
+            return roster_success(request, selected_date, group, saved_ids)
         messages.success(request, f"تم حفظ تحضير فعالية الأسبوع بتاريخ {selected_date:%Y/%m/%d} بنجاح.")
 
         redirect_url = (
@@ -1314,8 +1371,9 @@ class EliteTripAttendanceView(LoginRequiredMixin, UserPassesTestMixin, TemplateV
         context["roster"] = [
             {
                 "participant": participant,
-                # As in the other rosters, an unsaved row is displayed as absent;
-                # statistics only count database records, not this UI default.
+                        "recorded": participant.id in existing_records,
+                # The recorded flag distinguishes an untouched row from saved absence.
+                # Statistics only count database records.
                 "status": existing_records.get(participant.id).status
                 if participant.id in existing_records
                 else EliteTripAttendance.Status.ABSENT,
@@ -1339,7 +1397,13 @@ class EliteTripAttendanceView(LoginRequiredMixin, UserPassesTestMixin, TemplateV
                 status=400,
             )
         group = self.get_selected_group()
+        from .attendance_transport import (
+            wants_roster_json, selected_roster_ids, roster_error, roster_success,
+        )
+
         if not group:
+            if wants_roster_json(request):
+                return roster_error(request, "اختر بيئة متاحة قبل حفظ التحضير.")
             return self.get(request, *args, **kwargs)
 
         participant_ids = set(
@@ -1349,14 +1413,23 @@ class EliteTripAttendanceView(LoginRequiredMixin, UserPassesTestMixin, TemplateV
                 user__role=Role.PARTICIPANT,
             ).values_list("id", flat=True)
         )
+        try:
+            selected_ids = selected_roster_ids(request.POST, participant_ids)
+        except ValueError as error:
+            return roster_error(request, str(error))
+        saved_ids = []
+
         valid_statuses = {
             value for value, _label in EliteTripAttendance.Status.choices
         }
         requested_statuses = {}
-        for participant_id in participant_ids:
+        for participant_id in selected_ids:
             values = request.POST.getlist(f"status_{participant_id}")
             if not values:
-                requested_statuses[participant_id] = EliteTripAttendance.Status.ABSENT
+                requested_statuses[participant_id] = (
+                    None if "partial_roster" in request.POST
+                    else EliteTripAttendance.Status.ABSENT
+                )
             elif len(values) == 1 and values[0] in valid_statuses:
                 requested_statuses[participant_id] = values[0]
             else:
@@ -1372,7 +1445,7 @@ class EliteTripAttendanceView(LoginRequiredMixin, UserPassesTestMixin, TemplateV
         # Lock each active participant first. This serializes competing saves for
         # the same student/date before the unique constraint is reached.
         with transaction.atomic():
-            for participant_id in sorted(participant_ids):
+            for participant_id in sorted(selected_ids):
                 participant = Participant.objects.select_for_update(of=("self",)).filter(
                     pk=participant_id,
                     group=group,
@@ -1397,6 +1470,11 @@ class EliteTripAttendanceView(LoginRequiredMixin, UserPassesTestMixin, TemplateV
                         status=requested_statuses[participant_id],
                         recorded_by=request.user,
                     )
+
+                saved_ids.append(participant_id)
+
+        if wants_roster_json(request):
+            return roster_success(request, selected_date, group, saved_ids)
 
         # Deliberately no apply_points_delta call and no PointsLedgerEntry write.
         messages.success(
@@ -2128,6 +2206,8 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
         )
         context["can_manage_tasks"] = can_manage_tasks(self.request.user)
         context["can_review_submissions"] = can_review_task_submissions(self.request.user)
+        from .task_grading import can_revise_grades
+        context["can_revise_grades"] = can_revise_grades(self.request.user)
         if context["can_manage_tasks"]:
             context.setdefault("create_form", WeeklyTaskForm())
             edit_task_id = self.request.GET.get("edit_task", "")
@@ -2203,7 +2283,18 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
         if not may_manage and action not in ("accept", "reject", "return_for_revision"):
             raise PermissionDenied("لا يمكنك إنشاء المهام أو تفعيلها أو إعادة فتح التسليمات.")
 
-        if action == "create_task":
+        if action == "revise_grade":
+            from .task_grading import revise_submission_grade
+            saved, message = revise_submission_grade(request)
+            if not saved:
+                messages.error(request, message)
+                return self.render_to_response(self.get_context_data(), status=400)
+            messages.success(request, message)
+            submission = TaskSubmission.objects.filter(pk=request.POST.get("submission_id")).first()
+            if submission:
+                return redirect(f"{reverse('participants:weekly_task_review')}?task={submission.task_id}")
+            return redirect("participants:weekly_task_review")
+        elif action == "create_task":
             form = WeeklyTaskForm(request.POST)
             if form.is_valid():
                 task = form.save(commit=False)
@@ -2319,7 +2410,8 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
                         event_date=timezone.localdate(submission.submitted_at),
                     )
                     submission.points_awarded = True
-                    submission.save(update_fields=["points_awarded"])
+                    submission.award_value = points
+                    submission.save(update_fields=["points_awarded", "award_value"])
                 if action == "accept":
                     messages.success(request, "تم قبول التسليم كمتميز." if is_featured else "تم قبول التسليم.")
                 elif action == "reject":
@@ -2377,6 +2469,7 @@ class TaskSubmissionView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
         context["navbar_items"] = build_navbar(self.request.user, "tasks")
         return context
 
+    @transaction.atomic
     def post(self, request, *args, **kwargs):
         task_id = request.POST.get("task_id")
         participant = request.user.participant
@@ -2385,7 +2478,7 @@ class TaskSubmissionView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
         if not task:
             return redirect("participants:task_submission")
 
-        existing = TaskSubmission.objects.filter(
+        existing = TaskSubmission.objects.select_for_update().filter(
             task=task, participant=participant
         ).first()
 
@@ -2424,7 +2517,14 @@ class TaskSubmissionView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
             submission.reviewed_by = None
             submission.reviewed_at = None
             submission.reopened_for_resubmission = False
-            submission.save()
+            if existing:
+                # Uploads never overwrite the award metadata owned by reviewers.
+                submission.save(update_fields=[
+                    "file", "text_content", "status", "reviewed_by", "reviewed_at",
+                    "reopened_for_resubmission",
+                ])
+            else:
+                submission.save()
         else:
             # The page lists every active task's form at once, so a failed
             # form can't simply be re-rendered in place of the whole list

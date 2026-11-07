@@ -245,6 +245,7 @@ SUBMISSION_FORMAT_EXTENSIONS = {
 | `status` | `CharField(choices=Status.choices, default=PENDING)` | `pending` / `accepted` / `rejected` / `returned` («مُعادة للتعديل»). |
 | `is_featured` | `BooleanField(default=False)` | **جديد**. تُفعَّل عند القبول فقط عبر خانة اختيار "مميزة" في `WeeklyTaskReviewView` — تمنح نقطتين إضافيتين (12 بدل 10). راجع [`points-system.md`](points-system.md). |
 | `points_awarded` | `BooleanField(null=True, default=False)` | علامة المنحة الدائمة: `True` = صُرفت النقاط، `False` = لم تُصرف (الافتراضي للتسليم الجديد)، و`NULL` = حالة تاريخية غير مؤكدة تحتاج قرار `historical_award` صريحًا من المشرف العام/النظام عند القبول. تمنع المنح المتكرر بعد إعادة التسليم. أضافتها الهجرة `0019`. |
+| `award_value` | `PositiveSmallIntegerField(null=True, editable=False)` | أضافته0024: قيمة المنحة المحتسبة0/10/12 للمراجعات الجديدة أو التصحيح النهائي الصريح، وNULL للسجل السابق الذي يحتاج تحققًا؛ لا تهيئة تخمينية أو إعادة صرف أثناء الهجرة. |
 | `rejection_reason` | `TextField(blank=True)` | **جديد**. يُملأ عند الرفض، ويظهر للمشارك ليفهم سبب الرفض. |
 | `revision_note` | `TextField(blank=True)` | أضافته الهجرة `0021`. تُملأ فقط عند `status=returned` من نموذج خادمي إلزامي بحد 2000 حرف؛ تظهر للمشارك أثناء التعديل قبل الموعد وللمراجع كسياق، ولا تغيّر نقاطًا أو الموعد. |
 | `reopened_for_resubmission` | `BooleanField(default=False)` | يتيح تسليمًا ثانيًا لمشارك واحد. |
@@ -255,8 +256,21 @@ SUBMISSION_FORMAT_EXTENSIONS = {
 `Meta.constraints`: `UniqueConstraint(fields=["task", "participant"], name="unique_submission_per_task_per_participant")`.
 `Meta.ordering = ["-submitted_at"]`.
 
+`grade_revision_token` خاصية تعيد reviewed_at بصيغةISO كاملة تتضمن الكسور
+والمنطقة الزمنية لمنع تبديل تقييم أحدث بنموذج قديم. تعديل العام النهائي
+يحدّث `award_value` و`points_awarded` بتطبيق الفرق فقط؛ لا يؤثر على اللقطات.
+
+### `TaskGradeRevision` — تدقيق تعديل التقييم
+
+أضافته0024 بلا بيانات افتراضية أو إعادة حساب. يرتبط بالتسليم عبرFK/PROTECT
+و`grade_revisions`، ويحفظ old_status/new_status وold_featured/new_featured
+وold_award/new_award وreason وrevised_by (SET_NULL) وrevised_at. تكتبه خدمة
+`task_grading.py` داخل معاملة التعديل للعام فقط، ولا يُسجّل في واجهة الأدمن
+للتحرير. حماية المرجع تمنع حذف تسليم له أثر تدقيق؛ أرشفة الطالب الحالية
+لا تحذف أيًا منهما.
+
 طريقة `save()`: تضغط الصورة فقط لرفع جديد (`file._committed is False`) **وعندما
-يكون امتداد الملف نفسه امتداد صورة** (`SUBMISSION_FORMAT_EXTENSIONS["image"]`) —
+يكون امتداد الملف نفسه امتداد صورة** (`SUBMISSION_FORMAT_EXTENSIONS["image"]) —
 وليس بناءً على صيغ المهمة المسموحة، لأن مهمة متعددة الصيغ (مثل `"image,pdf"`)
 لا تخبرنا وحدها بنوع هذا الملف تحديدًا.
 

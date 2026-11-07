@@ -67,6 +67,7 @@
       statusSelects.forEach(function (select) {
         select.value = status;
         updateSelectAppearance(select);
+        select.dispatchEvent(new Event("change", { bubbles: true }));
       });
       showFeedback("تم تعيين حالة «" + label + "» لجميع الطلاب. راجع الحالات ثم احفظ الكشف.");
     });

@@ -18,8 +18,10 @@ function control(attributes = {}) {
     attributes, listeners: {}, classList: classList(), hidden: false, checked: false,
     value: '', textContent: '', disabled: false,
     getAttribute(name) { return this.attributes[name]; },
+    hasAttribute(name) { return Object.hasOwn(this.attributes, name); },
     setAttribute(name, value) { this.attributes[name] = value; },
     addEventListener(name, callback) { this.listeners[name] = callback; },
+    dispatchEvent(event) { if (this.listeners[event.type]) this.listeners[event.type](event); return true; },
     reportValidity() { return true; },
     click() { this.listeners.click(); },
   };
@@ -59,12 +61,12 @@ function fixture(kind, withNotes = kind === 'meeting') {
   const values = {'csrfmiddlewaretoken':'test-csrf', date:'2026-10-24', group:'3'};
   const form = {action:'https://example.test/participants/supervisor/dashboard/', querySelector(selector) {
     const key = selector.match(/name="([^"]+)"/)[1]; return {value:values[key]};
-  }};
+  }, getAttribute() { return null; }};
   noteButton.closest = () => form;
   noteButton.parentElement = {querySelector: () => status};
   const table = {querySelectorAll(selector) { return selector === '.student-extra' ? extras : headers; }};
   const root = {
-    classList: classList(),
+    ...control(),
     querySelector(selector) { return {'#roster-table':table, '#roster-body':body, '#student-data-toggle':toggle, '#roster-search':search, '#roster-empty':empty}[selector] || null; },
     querySelectorAll(selector) {
       if (selector === '.note-save-button') return withNotes ? [noteButton] : [];
@@ -77,7 +79,8 @@ function fixture(kind, withNotes = kind === 'meeting') {
   let response = {ok:true, redirected:true, url:form.action+'?date=2026-10-24&group=3'};
   const context = {
     document:{readyState:'complete', querySelectorAll:()=>[root], getElementById:()=>field},
-    FormData, URL,
+    FormData, URL, Event,
+    CustomEvent: class extends Event { constructor(type, options = {}) { super(type); this.detail = options.detail; } },
     fetch: async (url, options) => {
       requests.push({url, options});
       if (response instanceof Error) throw response;

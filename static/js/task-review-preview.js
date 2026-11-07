@@ -10,6 +10,19 @@
   var opener = null;
   var previousOverflow = '';
 
+  function confirmGradeChange(form, event) {
+    if (form.classList.contains('grade-revision-form') &&
+        !window.confirm('هل تؤكد تعديل التقييم وتطبيق فرق المنحة على الأرصدة الحالية؟')) {
+      event.preventDefault();
+      return false;
+    }
+    return true;
+  }
+
+  document.querySelectorAll('.grade-revision-form').forEach(function (form) {
+    form.addEventListener('submit', function (event) { confirmGradeChange(form, event); });
+  });
+
   function clearPreview() {
     // Removing media also stops audio/video playback, without parsing student HTML.
     content.replaceChildren();
@@ -87,7 +100,8 @@
       acceptForm.insertBefore(featured, normalButton);
     }
     copy.querySelectorAll('form').forEach(function (form) {
-      form.addEventListener('submit', function () {
+      form.addEventListener('submit', function (event) {
+        if (!confirmGradeChange(form, event)) return;
         // Native navigation visibly handles login redirects/403; never report
         // a decision as successful before the server has actually saved it.
         status.textContent = 'جارٍ إرسال القرار للتحقق والحفظ؛ ستظهر النتيجة بعد تحميل الصفحة. إن انتهت الجلسة ستحتاج تسجيل الدخول مجددًا.';

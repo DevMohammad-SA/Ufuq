@@ -6,7 +6,7 @@
 {% block content %}
   <link rel="stylesheet" href="{% static 'css/attendance-roster.css' %}">
 
-  <div class="attendance-roster attendance-roster--meeting{% if can_view_notes %} attendance-roster--with-notes{% endif %}" data-roster-kind="meeting">
+  <div class="attendance-roster attendance-roster--meeting{% if can_view_notes %} attendance-roster--with-notes{% endif %}" data-roster-kind="meeting" data-mobile-attendance>
     <p class="welcome-note">مرحبًا، {{ request.user.full_name }}</p>
     <h1 class="page-title">تحضير اللقاء الأسبوعي</h1>
     <p class="page-sub">
@@ -57,6 +57,12 @@
         <div class="roster-tools">
           <label class="sr-only" for="roster-search">البحث في المشاركين</label>
           <input type="search" id="roster-search" class="roster-search" placeholder="ابحث بالاسم أو رقم الهوية…" autocomplete="off">
+          <label class="roster-filter-label" for="roster-preparation-filter">عرض التحضير</label>
+          <select id="roster-preparation-filter" class="roster-preparation-filter" data-preparation-filter>
+            <option value="all">الجميع</option>
+            <option value="unprepared">لم يُحدّد</option>
+          </select>
+          <span class="roster-remaining" data-remaining-count role="status" aria-live="polite"></span>
           <button type="button" class="roster-data-toggle" id="student-data-toggle"
                   aria-controls="roster-table" aria-expanded="false"
                   data-show-label="إظهار بيانات الطلاب" data-hide-label="إخفاء بيانات الطلاب">
@@ -64,10 +70,15 @@
           </button>
         </div>
 
-        <form method="post" action="{% url 'participants:supervisor_dashboard' %}">
+        <form data-roster-form method="post" action="{% url 'participants:supervisor_dashboard' %}">
           {% csrf_token %}
           <input type="hidden" name="date" value="{{ selected_date|date:'Y-m-d' }}">
           <input type="hidden" name="group" value="{{ group.id }}">
+
+          <div class="roster-mobile-bulk" aria-label="تحديد جماعي للتحضير">
+            <button type="button" class="select-all" data-target="attended" aria-label="تحديد أو إلغاء حضور اللقاء لجميع الطلاب">حضور اللقاء للجميع</button>
+            <button type="button" class="select-all" data-target="early" aria-label="تحديد أو إلغاء حضور مبكر لجميع الطلاب">حضور مبكر للجميع</button>
+          </div>
 
           <div class="roster-scroll">
             <table class="roster" id="roster-table" dir="rtl">
@@ -98,23 +109,27 @@
               </thead>
               <tbody id="roster-body">
                 {% for entry in roster %}
-                  <tr data-search="{{ entry.participant.user.full_name|default:''|lower }} {{ entry.participant.user.national_id|default:''|lower }}">
+                  <tr data-participant-id="{{ entry.participant.id }}" data-recorded="{{ entry.recorded|yesno:'true,false' }}" data-search="{{ entry.participant.user.full_name|default:''|lower }} {{ entry.participant.user.national_id|default:''|lower }}">
                     <td class="student-name-cell" data-sort-value="{{ entry.participant.user.full_name|default:'' }}">
                       <div class="student-name-line">
                         <a class="student-name-link" href="{% url 'participants:student_detail' pk=entry.participant.pk %}" aria-label="فتح ملف {{ entry.participant.user.full_name|default:'المشارك' }}">
                           {{ entry.participant.user.full_name|default:"—" }}
                         </a>
                       </div>
+                      <span class="roster-row-state" data-row-state>{% if entry.recorded %}محفوظ{% else %}لم يُحدّد{% endif %}</span>
                     </td>
                     <td class="check-cell">
                       <label class="roster-check-label" for="meeting-attended-{{ entry.participant.id }}">
                         <input class="roster-checkbox" type="checkbox" id="meeting-attended-{{ entry.participant.id }}" data-col="attended" name="attended_{{ entry.participant.id }}"{% if entry.attended %} checked{% endif %}>
+                        <span class="roster-control-text" aria-hidden="true">حضور اللقاء</span>
                         <span class="sr-only">تسجيل حضور اللقاء لـ {{ entry.participant.user.full_name|default:'المشارك' }}</span>
                       </label>
+                      <button type="button" class="roster-negative" data-explicit-negative aria-label="تسجيل غائب لـ {{ entry.participant.user.full_name|default:'المشارك' }}">غائب</button>
                     </td>
                     <td class="check-cell">
                       <label class="roster-check-label" for="meeting-early-{{ entry.participant.id }}">
                         <input class="roster-checkbox" type="checkbox" id="meeting-early-{{ entry.participant.id }}" data-col="early" name="early_{{ entry.participant.id }}"{% if entry.is_early %} checked{% endif %}>
+                        <span class="roster-control-text" aria-hidden="true">حضور مبكر</span>
                         <span class="sr-only">تسجيل حضور مبكر لـ {{ entry.participant.user.full_name|default:'المشارك' }}</span>
                       </label>
                     </td>
@@ -131,11 +146,11 @@
                         </details>
                       </td>
                     {% endif %}
-                    <td class="student-extra" hidden>{{ entry.participant.user.national_id|default:"—" }}</td>
-                    <td class="student-extra" hidden dir="ltr">{{ entry.participant.phone|default:"—" }}</td>
-                    <td class="student-extra" hidden>{{ entry.participant.get_academic_stage_display|default:"—" }}</td>
-                    <td class="student-extra num-cell" hidden data-sort-value="{{ entry.participant.miles|default_if_none:'' }}">{{ entry.participant.miles }}</td>
-                    <td class="student-extra num-cell" hidden data-sort-value="{{ entry.participant.points|default_if_none:'' }}">{{ entry.participant.points }}</td>
+                    <td data-label="رقم الهوية" class="student-extra" hidden>{{ entry.participant.user.national_id|default:"—" }}</td>
+                    <td data-label="رقم الجوال" class="student-extra" hidden dir="ltr">{{ entry.participant.phone|default:"—" }}</td>
+                    <td data-label="المرحلة الدراسية" class="student-extra" hidden>{{ entry.participant.get_academic_stage_display|default:"—" }}</td>
+                    <td data-label="الأميال" class="student-extra num-cell" hidden data-sort-value="{{ entry.participant.miles|default_if_none:'' }}">{{ entry.participant.miles }}</td>
+                    <td data-label="النقاط" class="student-extra num-cell" hidden data-sort-value="{{ entry.participant.points|default_if_none:'' }}">{{ entry.participant.points }}</td>
                   </tr>
                 {% endfor %}
               </tbody>
@@ -143,7 +158,11 @@
           </div>
           <p class="empty-note" id="roster-empty" hidden>لا توجد نتائج مطابقة للبحث.</p>
 
-          <div class="save-bar">
+          <div class="save-bar" data-roster-savebar>
+              <div class="roster-save-info">
+                <span data-dirty-count>طلاب بتعديلات غير محفوظة: 0</span>
+                <span data-roster-status role="status" aria-live="polite"></span>
+              </div>
             <button type="submit" class="btn">حفظ التحضير</button>
           </div>
         </form>
@@ -156,4 +175,5 @@
 
 {% block scripts %}
 <script src="{% static 'js/attendance-roster.js' %}" defer></script>
+<script src="{% static 'js/mobile-attendance.js' %}" defer></script>
 {% endblock %}

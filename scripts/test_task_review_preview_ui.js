@@ -41,6 +41,7 @@ class Element {
     this.classList = {
       add: (...names) => { this.className = [...new Set(this.className.split(/\s+/).filter(Boolean).concat(names))].join(' '); },
       remove: (...names) => { this.className = this.className.split(/\s+/).filter(name => !names.includes(name)).join(' '); },
+      contains: name => this.className.split(/\s+/).includes(name),
     };
   }
   get id() { return this.attrs.id || ''; } set id(value) { this.attrs.id = value; }

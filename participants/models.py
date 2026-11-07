@@ -355,6 +355,11 @@ class TaskSubmission(models.Model):
         default=False, null=True, verbose_name="احتُسبت نقاط هذه المهمة",
         help_text="علامة دائمة تمنع تكرار المنح؛ القيمة غير المحددة تتطلب تحققًا إداريًا للسجل القديم.",
     )
+    award_value = models.PositiveSmallIntegerField(
+        null=True, blank=True, editable=False,
+        verbose_name="قيمة منحة التسليم المحتسبة",
+        help_text="0 أو 10 أو 12؛ السجل القديم غير المحدد يحتاج تحققًا عند تعديل التقييم.",
+    )
     rejection_reason = models.TextField(
         blank=True,
         verbose_name="سبب الرفض",
@@ -393,6 +398,10 @@ class TaskSubmission(models.Model):
 
     def __str__(self):
         return f"{self.participant.user.full_name} - {self.task.title} - {self.get_status_display()}"
+
+    @property
+    def grade_revision_token(self):
+        return self.reviewed_at.isoformat() if self.reviewed_at else ""
 
     def save(self, *args, **kwargs):
         # Compress ONLY a freshly uploaded image file — keyed off the file's
@@ -438,6 +447,32 @@ class TaskSubmission(models.Model):
         if self.text_content:
             return "text"
         return ""
+
+
+class TaskGradeRevision(models.Model):
+    """Immutable audit of an explicit general-supervisor grading correction."""
+
+    submission = models.ForeignKey(
+        TaskSubmission, on_delete=models.PROTECT, related_name="grade_revisions",
+        verbose_name="تسليم المهمة",
+    )
+    old_status = models.CharField(max_length=10, choices=TaskSubmission.Status.choices, verbose_name="التقييم السابق")
+    new_status = models.CharField(max_length=10, choices=TaskSubmission.Status.choices, verbose_name="التقييم الجديد")
+    old_featured = models.BooleanField(verbose_name="متميز سابقًا")
+    new_featured = models.BooleanField(verbose_name="متميز بعد التعديل")
+    old_award = models.PositiveSmallIntegerField(verbose_name="المنحة السابقة")
+    new_award = models.PositiveSmallIntegerField(verbose_name="المنحة بعد التعديل")
+    reason = models.TextField(verbose_name="سبب تعديل التقييم")
+    revised_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+        related_name="+", verbose_name="عدّله",
+    )
+    revised_at = models.DateTimeField(auto_now_add=True, verbose_name="وقت التعديل")
+
+    class Meta:
+        verbose_name = "تعديل تقييم مهمة"
+        verbose_name_plural = "تعديلات تقييم المهام"
+        ordering = ["-revised_at", "-pk"]
 
 
 class StoreProduct(models.Model):

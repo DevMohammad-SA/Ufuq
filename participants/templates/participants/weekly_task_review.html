@@ -518,6 +518,39 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
 	                          </form>
 	                        {% endif %}
                       </div>
+                    {% elif can_revise_grades and submission.status != "returned" %}
+                      <div class="review-actions">
+                        <details class="grade-revision-panel">
+                          <summary class="btn-inline">تعديل التقييم</summary>
+                          <form method="post" class="grade-revision-form" style="display:flex;flex-direction:column;align-items:stretch;max-width:100%;gap:8px">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="revise_grade">
+                            <input type="hidden" name="submission_id" value="{{ submission.id }}">
+                            <input type="hidden" name="review_version" value="{{ submission.grade_revision_token }}">
+                            <label>التقييم الجديد
+                              <select name="grade" required aria-label="التقييم الجديد">
+                                <option value="accepted"{% if submission.status == "accepted" and not submission.is_featured %} selected{% endif %}>قبول</option>
+                                <option value="featured"{% if submission.is_featured %} selected{% endif %}>متميز</option>
+                                <option value="rejected"{% if submission.status == "rejected" %} selected{% endif %}>رفض</option>
+                              </select>
+                            </label>
+                            {% if submission.award_value is None and submission.points_awarded is not False %}
+                              <label>تحقق من قيمة المنحة السابقة لهذا التسليم القديم
+                                <select name="previous_award" required aria-label="قيمة المنحة السابقة">
+                                  <option value="">حدد ما صُرف فعليًا دون تخمين</option>
+                                  <option value="0">لم تصرف نقاط</option>
+                                  <option value="10">صرفت 10 نقاط</option>
+                                  <option value="12">صرفت 12 نقطة</option>
+                                </select>
+                              </label>
+                            {% endif %}
+                            <textarea name="reason" rows="2" maxlength="2000" required aria-label="سبب تعديل التقييم" placeholder="سبب تعديل التقييم (مطلوب)"></textarea>
+                            <input type="text" name="rejection_reason" maxlength="2000" aria-label="سبب الرفض الجديد" placeholder="سبب الرفض عند اختيار رفض؛ إن ترك فارغًا يستخدم سبب التعديل">
+                            <p class="rejection-note">يُطبّق فرق المنحة فقط على الأرصدة الحالية، ويُسجّل القرار والسبب. لا يتغير الملف أو الموعد.</p>
+                            <button type="submit" class="btn btn-sm">حفظ تعديل التقييم</button>
+                          </form>
+                        </details>
+                      </div>
                     {% else %}
                       —
                     {% endif %}
@@ -585,6 +618,7 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
                 </td>
                 <td>
                   <a href="?edit_task={{ task.id }}#task-edit-form" class="btn-inline">تعديل</a>
+                  {% if can_revise_grades %}<a href="?task={{ task.id }}" class="btn-inline">التسليمات وتعديل تقييمها</a>{% endif %}
                   <form method="post" class="task-toggle-form">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="toggle_active">
@@ -611,7 +645,7 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg>
       </button>
     </header>
-    <p id="preview-help">يمكن معاينة الملف والنص معًا. أدوات القرار تظهر للتسليم المعلّق وللمراجع المخوّل فقط؛ تُرسل إلى نموذج التصحيح نفسه وتظهر النتيجة بعد تحميل الصفحة.</p>
+    <p id="preview-help">يمكن معاينة الملف والنص معًا. أدوات القرار للتسليم المعلّق والمراجع المخوّل، وتعديل التقييم النهائي للمشرف العام فقط؛ تُرسل إلى المسار نفسه وتظهر النتيجة بعد تحميل الصفحة.</p>
     <p id="preview-status" role="status" aria-live="polite"></p>
     <div class="task-preview-layout">
       <div id="modal-content"></div>
