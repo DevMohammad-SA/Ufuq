@@ -19,7 +19,7 @@ from django.utils import timezone
 
 from accounts.models import Role
 from .models import (
-    AcademicStage, CircleAttendance, Group, MeetingAttendance, MeetingNote,
+    AcademicStage, CircleAttendance, EliteTripAttendance, Group, MeetingAttendance, MeetingNote,
     Participant, PointsLedgerEntry, TaskSubmission, WeeklyActivityAttendance,
     WeeklyTask,
 )
@@ -432,7 +432,7 @@ def _common_notes(data, filters):
             "أساس التسجيل يستخدم created_at ولا يشترط تاريخ الحدث ولا يملأه."
         )
     if filters.get("task"):
-        notes.append("فلتر المهمة يقيّد عدادات التسليمات فقط؛ لا يغيّر نطاق الحضور أو النقاط.")
+        notes.append("فلتر المهمة يقيّد عدّ المهام ذات الموعد والتسليمات؛ لا يغيّر نطاق الحضور أو النقاط أو النخبة.")
     if not data["students"]:
         notes.append("لا يوجد طلاب ضمن الفلاتر المختارة؛ تبقى المهام ذات الموعد المطابق ظاهرة بلا تسليمات من هذا النطاق.")
     if not filters.get("include_private"):
@@ -564,6 +564,80 @@ def _private_sections(data, filters):
     return sections
 
 
+def _reference_summary(data, filters):
+    """Evidence-backed programme totals, not a reconstructed activity calendar.
+
+    One attended environment/day is one observed meeting. Unknown environments
+    remain in cumulative attendance but cannot define a made-up meeting cohort.
+    All three additional aggregates are summary-only and independent sources.
+    """
+    groups = {}
+    ungrouped = 0
+    group_names = {p.group_id: p.group.name for p in data["students"] if p.group_id is not None}
+    observed = data["attendance_queries"]["meeting"].filter(attended=True).order_by().values(
+        "participant__group_id", "week_start_date",
+    ).annotate(present=Count("pk"))
+    for item in observed:
+        group_id = item["participant__group_id"]
+        if group_id is None:
+            ungrouped += item["present"]
+            continue
+        counts = groups.setdefault(group_id, {"meetings": 0, "present": 0})
+        counts["meetings"] += 1
+        counts["present"] += item["present"]
+    meetings = sum(item["meetings"] for item in groups.values())
+    grouped_present = sum(item["present"] for item in groups.values())
+    tasks = _window(WeeklyTask.objects.all(), "due_date", filters)
+    if filters.get("task"):
+        tasks = tasks.filter(pk=filters["task"].pk)
+    trip = _window(EliteTripAttendance.objects.filter(
+        participant_id__in=list(data["by_id"]), status=EliteTripAttendance.Status.PRESENT,
+    ), "date", filters).aggregate(days=Count("date", distinct=True), present=Count("pk"))
+    size = len(data["students"])
+    earned_miles = _point_counts(data)["earned"] * 10
+    metrics = [
+        ("البيئات ذات حضور لقاء مسجل", len(groups)),
+        ("اللقاءات ذات حضور مسجل", meetings),
+        ("إجمالي حضور اللقاء التراكمي", grouped_present + ungrouped),
+        ("متوسط حضور لقاءات البيئات", round(grouped_present / meetings, 2) if meetings else "—"),
+        ("حضور لقاء غير منسوب لبيئة", ungrouped),
+        ("المهام ذات موعد في الفترة", tasks.count()),
+        ("إجمالي تسليمات المهام في الفترة", _status_counts(data)["submitted"]),
+        ("إجمالي الأميال المكتسبة في الفترة", earned_miles),
+        ("متوسط الأميال المكتسبة لكل طالب بالنطاق", round(earned_miles / size, 2) if size else "—"),
+        ("أيام رحلة النخبة ذات حضور مسجل", trip["days"]),
+        ("إجمالي حضور رحلة النخبة التراكمي", trip["present"]),
+    ]
+    sections = [_section("حصيلة اللقاءات حسب البيئة الحالية", [
+        "البيئة الحالية", "اللقاءات ذات حضور", "الحضور التراكمي", "متوسط الحضور للقاء",
+    ], [_row([group_names[group_id], counts["meetings"], counts["present"],
+              round(counts["present"] / counts["meetings"], 2)])
+        for group_id, counts in sorted(groups.items(), key=lambda item: (group_names[item[0]], item[0]))]),
+        _section("مؤشرات تحتاج بيانات غير محفوظة", ["المؤشر", "حالة البيانات"], [
+            _row(["المنافسات الرياضية", "غير متاح — لا يوجد تصنيف محفوظ للفعاليات"]),
+            _row(["المنافسات الثقافية والحركية", "غير متاح — لا يوجد تصنيف محفوظ للفعاليات"]),
+            _row(["عدد الرحلات المنفذة فعليًا", "غير متاح — التحضير يحفظ تاريخًا وحالة، لا سجل تنفيذ رحلة مستقلة"]),
+        ])]
+    notes = [
+        "حصيلة اللقاءات من الحضور الصريح ضمن الفلاتر: البيئة الحالية + التاريخ = لقاء "
+        "ذو حضور مسجل. لقاء البيئتين في اليوم نفسه يُعد مرتين، وحضور الطالب عدة "
+        "لقاءات يُعد في الإجمالي عدة مرات؛ الغياب أو الحضور المبكر وحده لا يثبت لقاءً.",
+        f"متوسط حضور لقاءات البيئات = {grouped_present} حضورًا ÷ {meetings} لقاءً "
+        f"ضمن الفلاتر. يوجد {ungrouped} حضور بلا بيئة خارج هذا المتوسط، لكنه داخل الإجمالي.",
+        f"الأميال المكتسبة = حركات النقاط الموجبة ×10 وفق أساس التاريخ المختار؛ "
+        f"متوسطها = {earned_miles} ميلًا ÷ {size} طالبًا بالنطاق، بما فيهم من لا منحة له. "
+        "هذه أميال الفترة المكتسبة لا الرصيد الحالي، ولا تُطرح الخصومات من هذا المؤشر.",
+        "عدد المهام بحسب موعدها، لا عدد تكليفات أو إثبات نشرها تاريخيًا؛ "
+        "تسليمات الفترة بتاريخ الرفع الأول، ولذلك قد تختلف عن تسليمات تقرير المهام بحسب الموعد.",
+        "أيام رحلة النخبة هي تواريخ مختلفة لها حالة «حاضر» ضمن الفلاتر فقط، "
+        "حتى لو حضرت عدة بيئات في اليوم نفسه؛ ليست عدد رحلات منفذة مؤكدًا. "
+        "لا تُعد حالات المعتذر والغائب وغير المرشح أيام رحلة ذات حضور.",
+        "أعداد الرياضة والثقافة والحركة والرحلات المنفذة غير محفوظة كمصادر مستقلة؛ "
+        "لا نخمّنها من عنوان المهمة أو ننسخ أرقام التقرير المصور.",
+    ]
+    return metrics, sections, notes
+
+
 def _summary_report(data, filters):
     status, points = _status_counts(data), _point_counts(data)
     participating = set()
@@ -594,7 +668,8 @@ def _summary_report(data, filters):
     ])]
     if filters.get("detail") == "detailed":
         sections.extend(_student_summary_sections(data))
-    return _metrics(metrics), sections, [
+    reference_metrics, reference_sections, reference_notes = _reference_summary(data, filters)
+    return _metrics(reference_metrics + metrics), reference_sections + sections, reference_notes + [
         "المشاركة المسجلة تحسب الطالب مرة واحدة إذا حضر أو أنجز أو سُجل له حضور مبكر، "
         "أو لديه تسليم ضمن الفترة، أو حركة نقاط موجبة وفق أساس التاريخ المختار. "
         "الغياب أو الخصم وحدهما لا يعدان مشاركة."
