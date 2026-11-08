@@ -31,8 +31,10 @@
 .status-pill--inactive{background:#FBEEEA;color:var(--alert)}
 .self-pill{margin-top:5px;background:var(--gold-soft);color:var(--gold-ink)}
 .table-actions{display:flex;gap:7px;align-items:center;flex-wrap:wrap;white-space:nowrap}
-.action-button{min-height:34px;padding:6px 11px;border-color:var(--line);background:#fff;font-size:12px}
+.action-button{min-height:44px;padding:6px 11px;border-color:var(--line);background:#fff;font-size:12px}
 .action-button:hover{background:var(--sand);border-color:var(--asphalt)}
+.action-button--grant{border-color:#d8ba71;background:#fff8e8;color:var(--gold-ink)}
+.action-button--grant:hover{border-color:var(--gold-ink);background:var(--gold-soft)}
 .action-button--danger{border-color:var(--alert);color:var(--alert)}
 .action-button--danger:hover{background:#FBEEEA;border-color:var(--alert)}
 .pager{display:flex;align-items:center;justify-content:space-between;gap:var(--s2);flex-wrap:wrap;margin-top:var(--s2);color:var(--slate);font:12px var(--font-ui)}
@@ -128,6 +130,9 @@
                   <div class="table-actions">
                     <a class="action-button" href="{% url 'participants:supervisor_edit' pk=supervisor.pk %}">تعديل</a>
                     {% if request.user.pk != supervisor.pk %}
+                      {% if supervisor.is_active and supervisor.role == "group_supervisor" %}
+                        <a class="action-button action-button--grant" href="{% url 'participants:supervisor_grant_general' pk=supervisor.pk %}">منح صلاحية المشرف العام</a>
+                      {% endif %}
                       <a class="action-button action-button--danger" href="{% url 'participants:supervisor_delete' pk=supervisor.pk %}">حذف</a>
                     {% endif %}
                   </div>

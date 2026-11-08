@@ -38,12 +38,16 @@ def managed_supervisors():
     ).exclude(pk__in=Participant.objects.values("user_id"))
 
 
-def locked_users(actor_id, target_id=None):
+def locked_users(actor_id, target_id=None, *, no_key=False):
     # Consistent order prevents managers editing each other from deadlocking.
+    # Promotions do not change keys: allow concurrent historical actor FKs.
     ids = {actor_id}
     if target_id is not None:
         ids.add(target_id)
-    rows = {u.pk: u for u in User.objects.select_for_update().filter(pk__in=ids).order_by("pk")}
+    rows = {
+        user.pk: user for user in User.objects.select_for_update(no_key=no_key)
+        .filter(pk__in=ids).order_by("pk")
+    }
     actor = rows.get(actor_id)
     if actor is None or not can_manage_accounts(actor):
         raise PermissionDenied
@@ -224,6 +228,51 @@ class SupervisorFormView(AccountManagementView):
         except IntegrityError:
             form.add_error(None, "تعذر الحفظ؛ اسم المستخدم أو الهوية مسجلان مسبقًا أو تغيّرت البيانات بالتزامن")
         return self.show(form, original_supervisor)
+
+
+class SupervisorGrantGeneralView(AccountManagementView):
+    template_name = "participants/supervisor_grant_general_confirm.html"
+
+    def target(self, pk, *, allow_general=False):
+        supervisors = managed_supervisors().filter(is_active=True)
+        if not allow_general:
+            supervisors = supervisors.filter(role=Role.GROUP_SUPERVISOR)
+        return get_object_or_404(supervisors, pk=pk)
+
+    def show(self, supervisor, *, status=200):
+        return render(self.request, self.template_name, self.context(
+            "supervisors", supervisor=supervisor,
+        ), status=status)
+
+    def get(self, request, pk):
+        return self.show(self.target(pk))
+
+    def post(self, request, pk):
+        target = self.target(pk, allow_general=True)
+        if target.pk == request.user.pk:
+            raise PermissionDenied("لا يمكن استخدام هذا الإجراء على حسابك أنت")
+        if request.POST.getlist("confirm") != ["yes"]:
+            messages.error(request, "أكّد منح الصلاحية أولًا؛ لم يتغير أي حساب")
+            return self.show(target, status=400)
+
+        with transaction.atomic():
+            actor, supervisor = locked_users(request.user.pk, pk, no_key=True)
+            require_managed_supervisor(supervisor)
+            if actor.pk == supervisor.pk or not supervisor.is_active:
+                raise PermissionDenied
+            already_general = supervisor.role == Role.GENERAL_SUPERVISOR
+            if not already_general:
+                supervisor.role = Role.GENERAL_SUPERVISOR
+                supervisor.save(update_fields=["role"])
+                supervisor.group_set.clear()
+                revoke_review(supervisor, actor)
+                record_management(actor, supervisor, "منح صلاحية المشرف العام")
+
+        if already_general:
+            messages.info(request, "هذا المشرف يملك صلاحية المشرف العام بالفعل؛ لم يتغير أي حساب")
+        else:
+            messages.success(request, "تم منح صلاحية المشرف العام؛ صلاحيات حسابك لم تتغير")
+        return redirect("participants:supervisor_list")
 
 
 class SupervisorDeleteView(AccountManagementView):

@@ -1,0 +1,60 @@
+{% extends "participants/app_base.html" %}
+
+{% block title %}منح صلاحية المشرف العام — رحّال{% endblock %}
+
+{% block extra_style %}
+.wrap{max-width:100%;min-width:0}
+.grant-card{max-width:760px;border-color:#ead9ae}
+.supervisor-summary{margin:0 0 var(--s2);padding:14px;border:1px solid var(--line);border-radius:var(--r-sm);background:#fcfbf8}
+.supervisor-summary strong{display:block;color:var(--asphalt);font:800 17px var(--font-display);overflow-wrap:anywhere}
+.supervisor-summary span{display:block;margin-top:3px;color:var(--slate);font:13px var(--font-ui);overflow-wrap:anywhere}
+.grant-note{margin:0 0 var(--s2);padding:12px 14px;border:1px solid #ead9ae;border-radius:var(--r-sm);background:#fff9ec;color:var(--gold-ink);font:14px var(--font-ui);line-height:1.8;overflow-wrap:anywhere}
+.grant-error{border-color:var(--alert);background:#FBEEEA;color:var(--alert)}
+.confirm-check{display:flex;align-items:center;gap:10px;min-height:44px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r-sm);background:#fff;color:var(--asphalt);font:14px var(--font-ui);line-height:1.8;cursor:pointer}
+.confirm-check input{width:20px;height:20px;margin:0;accent-color:var(--gold-ink);flex:none}
+.form-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:var(--s3)}
+.grant-button,.cancel-button{display:inline-flex;align-items:center;justify-content:center;min-height:44px;max-width:100%;padding:10px 18px;border:1px solid var(--gold);border-radius:99px;background:var(--gold);color:var(--asphalt);font:700 14px var(--font-display);text-decoration:none;cursor:pointer;text-align:center}
+.grant-button:hover{background:#b88b32;border-color:#b88b32}
+.cancel-button{border-color:var(--line);background:#fff;color:var(--asphalt)}
+.cancel-button:hover{background:var(--sand);border-color:var(--asphalt)}
+.grant-button:focus-visible,.cancel-button:focus-visible,.confirm-check:focus-within{outline:3px solid var(--gold-ink);outline-offset:3px}
+@media(max-width:720px){.wrap{padding:16px}.card{padding:16px}.form-actions{align-items:stretch}.grant-button,.cancel-button{flex:1 1 100%}}
+{% endblock %}
+
+{% block content %}
+  <h1 class="page-title">منح صلاحية المشرف العام</h1>
+  <p class="page-sub">منح مشرف آخر نفس صلاحيات المشرف العام، دون تغيير صلاحيات حسابك.</p>
+
+  {% if messages %}
+    {% for message in messages %}<p class="grant-note grant-error" role="alert">{{ message }}</p>{% endfor %}
+  {% endif %}
+
+  <section class="card grant-card" aria-labelledby="grant-general-title">
+    <h2 id="grant-general-title">تأكيد منح الصلاحية</h2>
+    <div class="supervisor-summary">
+      <strong>{{ supervisor.full_name|default:supervisor.username|default:"مشرف بدون اسم" }}</strong>
+      <span>اسم الدخول: {{ supervisor.username|default:"—" }}</span>
+      <span>الدور الحالي: {{ supervisor.get_role_display }}</span>
+    </div>
+
+    <p class="grant-note">سيصبح هذا المشرف مشرفًا عامًا، ويتمكن من إدارة جميع البيئات والطلاب والمشرفين والتقارير، ومنح صلاحية المشرف العام لمشرف آخر.</p>
+    <p class="grant-note">تبقى صلاحيات حسابك كما هي. لا تتغير كلمات المرور أو بيانات الطلاب أو الأرصدة أو السجلات السابقة. لا يحتاج المشرف العام إلى إسناد بيئات أو تفويض تصحيح منفصل.</p>
+
+    {% if supervisor.role == "group_supervisor" %}
+      <form method="post">
+        {% csrf_token %}
+        <label class="confirm-check" for="confirm-general-grant">
+          <input id="confirm-general-grant" type="checkbox" name="confirm" value="yes" required>
+          <span>أؤكد منح هذا المشرف جميع صلاحيات المشرف العام.</span>
+        </label>
+        <div class="form-actions">
+          <button type="submit" class="grant-button">تأكيد منح الصلاحية</button>
+          <a class="cancel-button" href="{% url 'participants:supervisor_list' %}">إلغاء</a>
+        </div>
+      </form>
+    {% else %}
+      <p class="grant-note">هذا المشرف يملك صلاحية المشرف العام بالفعل؛ لا حاجة لمنحها مجددًا.</p>
+      <a class="cancel-button" href="{% url 'participants:supervisor_list' %}">العودة إلى إدارة المشرفين</a>
+    {% endif %}
+  </section>
+{% endblock %}

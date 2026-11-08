@@ -229,6 +229,14 @@
   بيئات. كلمة المرور إلزامية وقوية ومتطابقة عند الإنشاء، واختيارية عند التعديل
   (الحقلان الفارغان يبقيانها كما هي). لا يمكن من الصفحة منح `is_staff` أو
   `is_superuser` أو دور مشرف النظام.
+- **منح صلاحية المشرف العام:** `SupervisorGrantGeneralView` — المسار
+  `participants:supervisor_grant_general` (`supervisors/<pk>/grant-general/`)
+  والقالب `participants/supervisor_grant_general_confirm.html`. يظهر إجراء
+  مستقل لمشرف بيئة نشط آخر، مع تأكيد `GET` ومنح `POST` محمي لمديري الحسابات.
+  يتغير دور الهدف فقط إلى مشرف عام؛ يبقى المانح بجميع صلاحياته، ويستطيع
+  المشرف الجديد استخدام نفس صلاحيات العام دون تغيير كلمة المرور أو امتياز
+  أدمن. تُزال إسنادات بيئاته ويُلغى التفويض القديم، وتُحفظ المراجع والسجلات
+  ويُكتب حدث منح واحد؛ الطلب المتكرر لا يكرر الحدث أو التغيير.
 - **تعطيل مشرف:** `SupervisorDeleteView` — المسار
   `participants:supervisor_delete` (`supervisors/<pk>/delete/`) والقالب
   `participants/supervisor_delete_confirm.html`. يعرض `GET` تأكيدًا فقط؛ لا يتم
@@ -573,6 +581,7 @@
 | `supervisors/add/` | `participants:supervisor_add` |
 | `supervisors/<int:pk>/edit/` | `participants:supervisor_edit` |
 | `supervisors/<int:pk>/delete/` | `participants:supervisor_delete` |
+| `supervisors/<int:pk>/grant-general/` | `participants:supervisor_grant_general` |
 | `tasks/review/` | `participants:weekly_task_review` |
 | `tasks/review-permissions/` **(غير موسوم بعد)** | `participants:task_review_permissions` |
 | `tasks/archive/` | `participants:tasks_archive` |
