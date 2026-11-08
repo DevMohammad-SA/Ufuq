@@ -172,7 +172,7 @@
   if (window.isSecureContext === true && allowedOrigin && navigator.serviceWorker
       && typeof navigator.serviceWorker.register === 'function') {
     try {
-      Promise.resolve(navigator.serviceWorker.register('/service-worker.js', {
+      Promise.resolve(navigator.serviceWorker.register('/service-worker.js?v=20261108-pwa2', {
         scope: '/', updateViaCache: 'none'
       })).catch(registrationFailed);
     } catch (error) {

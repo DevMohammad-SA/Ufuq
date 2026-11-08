@@ -43,3 +43,19 @@
 إذا غاب خيار التثبيت، جرّب نافذة متصفح عادية خارج التصفح الخاص. كشف فحصChromium
 المحلي أن وضعincognito يمنع أهلية التثبيت، بينما ملف متصفح عادي مؤقت اجتاز
 فحصManifest وinstallabilityErrors دون محاولة تثبيت على مستوى النظام.
+
+### منع نسخة عامل قديمة علىCDN
+
+كشف فحص النشر أنCloudflare أعاد`Cache-Control: max-age=14400` لملف العامل رغم
+`no-cache` منDjango. لذلك أصبحت استجابة العامل`no-store, no-cache, max-age=0,
+must-revalidate` مع`CDN-Cache-Control: no-store` و`Cloudflare-CDN-Cache-Control:
+no-store`. التسجيل يستعمل`/service-worker.js?v=20261108-pwa2` مع بقاءscope`/`
+و`updateViaCache:none`، وروابط مكون التثبيت تحمل النسخةpwa2، كي يتجاوز أي نسخة
+قديمة موجودة قبل هذا الإصلاح. لا تعديل لإعداداتCloudflare أوNginx أوCI ولا
+purge أوskipWaiting أوإعادة تحميل قسرية للمستخدم.
+
+عند تغيير ملف العامل لاحقًا تُحدَّث نسخة عنوانه وروابط سكربت التثبيت معًا.
+الترويسات المخصصة للCDN موثقة في[Cloudflare](https://developers.cloudflare.com/cache/concepts/cdn-cache-control/)،
+وفرقno-store/no-cache في[مرجع التحكم بالتخزين](https://developers.cloudflare.com/cache/concepts/cache-control/).
+قواعدCDN الخارجية قد تتجاوز ترويسات المصدر؛ لذلك تبقى مطابقة البصمات والنسخة
+والترويسات الفعلية جزءًا من التحقق بعد النشر، لا افتراضًا من كودDjango وحده.

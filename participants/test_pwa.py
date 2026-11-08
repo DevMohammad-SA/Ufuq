@@ -113,7 +113,9 @@ class PublicPWAResourceTests(SimpleTestCase):
     def test_worker_mime_scope_no_cache_and_fixed_asset(self):
         response = self.client.get(reverse("pwa_service_worker"))
         self.assertEqual(response["Content-Type"], "application/javascript")
-        self.assertEqual(response["Cache-Control"], "no-cache")
+        self.assertEqual(response["Cache-Control"], "no-store, no-cache, max-age=0, must-revalidate")
+        self.assertEqual(response["CDN-Cache-Control"], "no-store")
+        self.assertEqual(response["Cloudflare-CDN-Cache-Control"], "no-store")
         self.assertEqual(response["Service-Worker-Allowed"], "/")
         self.assertEqual(response.content, Path(finders.find("js/pwa-service-worker.js")).read_bytes())
 

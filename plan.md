@@ -90,3 +90,9 @@ ExcelعربيRTL منopenpyxl الموجود، إعدادات وأوراق ال�
 `participants/pwa_views.py` وroot routes يقدمون manifest وservice-worker.js وoffline/ فقط دون DB أو محتوى خاص. worker network-only للتنقلGET من نفس الأصل، ويمرر POST/GET API/الملفات/التقارير بلا اعتراض أو تخزين أو إعادة إرسال؛ cache اختياري واحد لصفحة offline عامة ثابتة self-contained لا أسماء/أرصدة/CSRF. عند انقطاع الشبكة يعرض تنبيه أن عرض البيانات وحفظها يحتاج اتصالًا، لا وهم عمل دون اتصال. لا caches للصفحات العامة الديناميكية أو الخاصة أو الدخول أو media أو استجابات المصادقة، ولا background sync أو skipWaiting/إعادةتحميل قسرية تمس مسودات التحضير. استثناءGET/HEAD للمسارات الثلاثة العامة فقط من إجبار إعداد كلمة المرور؛ تبقى كل الشاشات والنماذج محجوبة إلى إعدادها، ولا استثناء بادئة عامة.
 
 البنية: backend/routes/middleware/worker/offline واختباراتها، مكون templates/pwa وpwa-install.js/css واختبارات الإرشاد/الحالات، icons فيstatic/pwa، توثيقdocs/pwa.md وفهرس الميزات والمصادقة. فحوص مصطنعة للروابط وMIME/scope والخصوصية/الجلسات وworker cache وprompt/إلغاء/standalone/فشل/لمس وفائض، ثم مراجعة مستقلة وDjango check والهجرات والاختبارات الشاملة وCI/CD المعتاد. لا حسابات حقيقية أو install على جهاز المستخدم نيابة عنه. تحقق مرجعي: MDN Making PWAs installable وbeforeinstallprompt، ودليلApple Add to Home Screen؛ اختلاف المتصفح/الجهاز والتوقيت متوقع ولا يُضمن ظهور prompt علىiOS.
+
+استكمال التثبيت بعد فحصCDN: نجح نشرcc8e3f2، لكنCloudflare بدّلno-cache للعامل
+إلىmax-age=14400. إصلاح داخل التطبيق فقط: ترويساتno-store للمتصفح وCDN، وتسجيل
+العامل بعنوانrelease query pwa2 وروابط سكربته بنفس النسخة؛ لا إعدادات حسابCDN
+أومسح cache أوخادم مباشرة. يُعاد اختبار مواردPWA/التسجيل/الواجهة المتأثرة،
+ثم نشر واحد للمعالجة ومطابقة النسخة والترويسات العامة قبل إغلاق التسليم.

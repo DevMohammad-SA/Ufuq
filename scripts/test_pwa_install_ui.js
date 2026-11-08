@@ -174,7 +174,7 @@ function outsideBlocks(templateText, target) {
     }
     assert.match(head, /rel="apple-touch-icon" sizes="180x180" href="{% static 'pwa\/apple-touch-icon.png' %}"/);
     assert.match(head, /rel="icon" type="image\/png" sizes="192x192" href="{% static 'pwa\/icon-192.png' %}"/);
-    assert.match(head, /css\/pwa-install.css' %}\?v=20261108-pwa1/);
+    assert.match(head, /css\/pwa-install.css' %}\?v=20261108-pwa2/);
     assert.doesNotMatch(head, /<script|<style|<form/);
   });
   await run('three parent templates: shared includes and deferred script cannot be replaced by children', () => {
@@ -187,7 +187,7 @@ function outsideBlocks(templateText, target) {
       assert.ok(base.indexOf('pwa/_head.html') < base.indexOf('</head>'));
       const scriptTag = base.match(/<script\b[^>]*pwa-install\.js[^>]*>/)?.[0] || '';
       assert.match(scriptTag, /\bdefer\b/);
-      assert.match(scriptTag, /src="{% static 'js\/pwa-install.js' %}\?v=20261108-pwa1"/);
+      assert.match(scriptTag, /src="{% static 'js\/pwa-install.js' %}\?v=20261108-pwa2"/);
       assert.equal(outsideBlocks(base, 'pwa/_install.html'), true);
       assert.equal(outsideBlocks(base, 'pwa-install.js'), true);
       const prefix = base.slice(0, base.indexOf('pwa/_install.html'));
@@ -210,7 +210,7 @@ function outsideBlocks(templateText, target) {
     const f = setup(); await settle();
     assert.equal(f.button.hidden, false); assert.equal(f.summary.textContent, 'طريقة التثبيت');
     assert.equal(f.help.open, false); assert.equal(f.status.hidden, true);
-    assert.deepEqual(f.registrations, [{url: '/service-worker.js', settings: {scope: '/', updateViaCache: 'none'}}]);
+    assert.deepEqual(f.registrations, [{url: '/service-worker.js?v=20261108-pwa2', settings: {scope: '/', updateViaCache: 'none'}}]);
     assert.deepEqual(f.queries, ['(display-mode: standalone)']);
     assert.equal(f.window.listeners.beforeinstallprompt.length, 1);
     f.runScript(); f.ready(); f.ready();

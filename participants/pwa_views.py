@@ -67,7 +67,11 @@ def pwa_manifest(request):
 @require_safe
 def pwa_service_worker(request):
     response = _static_response("js/pwa-service-worker.js", "application/javascript")
-    response["Cache-Control"] = "no-cache"
+    # A CDN's browser TTL can override no-cache. Keep this mutable script out
+    # of both browser and edge caches; registration also uses a release URL.
+    response["Cache-Control"] = "no-store, no-cache, max-age=0, must-revalidate"
+    response["CDN-Cache-Control"] = "no-store"
+    response["Cloudflare-CDN-Cache-Control"] = "no-store"
     response["Service-Worker-Allowed"] = "/"
     return response
 
