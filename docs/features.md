@@ -5,6 +5,15 @@
 > بصيغة اسم الدالة/الكلاس بدل رقم السطر. الجدول الكامل للمسارات في نهاية
 > الملف.
 
+## تثبيت رحّال كتطبيق ويب
+
+تثبيت من المتصفح في الصفحة العامة والدخول ولوحات الأدوار، بالهوية والأيقونات
+الحالية ونافذةstandalone. `participants/pwa_views.py` يقدمmanifest وworker
+وصفحة انقطاع عامة، ومكون `templates/pwa` و`pwa-install.js/css` يتيح زرًا
+وإرشادًا قصيرًا للجوال والكمبيوتر وبديلًا دونJS. لا تخزين لبيانات المستخدم
+أوطلباتPOST ولا إرسال مؤجل أوتغيير صلاحيات، ولا وعد بعمل البيانات دون اتصال.
+راجع[`pwa.md`](pwa.md) للمسارات الدقيقة والتعليمات وسياسة الخصوصية والتحديث.
+
 ## صفحة الهبوط العامة
 
 - **View:** `HomeView` (`config/urls.py` → `participants/views.py`، `name="home"`).
@@ -519,6 +528,9 @@
 |--------|------|
 | `/admin/` | (أدمن Django) |
 | `/` | `home` |
+| `/manifest.webmanifest` | `pwa_manifest` |
+| `/service-worker.js` | `pwa_service_worker` |
+| `/offline/` | `pwa_offline` |
 | `/accounts/…` | `include("accounts.urls")` |
 | `/participants/…` | `include("participants.urls")` |
 

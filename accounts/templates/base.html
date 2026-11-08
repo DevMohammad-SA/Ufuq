@@ -5,6 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}رحّال{% endblock %}</title>
+{% include "pwa/_head.html" %}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -232,11 +233,13 @@ body{
 
     <div class="auth-form-side">
       {% block form_content %}{% endblock %}
+      {% include "pwa/_install.html" %}
     </div>
   </div>
 
   <footer class="dev-credit">
     <a href="https://linktr.ee/devmohammad_sa" target="_blank" rel="noopener noreferrer">تطوير: محمد</a>
   </footer>
+  <script src="{% static 'js/pwa-install.js' %}?v=20261108-pwa1" defer></script>
 </body>
 </html>

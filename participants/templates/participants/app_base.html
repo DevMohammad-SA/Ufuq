@@ -5,6 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}رحّال{% endblock %}</title>
+{% include "pwa/_head.html" %}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -374,6 +375,7 @@ body.drawer-open{overflow:hidden}
 </nav>
 
 <div class="wrap">
+  {% include "pwa/_install.html" %}
   {% block content %}{% endblock %}
 </div>
 
@@ -494,5 +496,7 @@ body.drawer-open{overflow:hidden}
   });
 })();
 </script>
+{% comment %}خارج blocks كي لا تلغي صفحات المهام/التحضير إتاحة التثبيت.{% endcomment %}
+<script src="{% static 'js/pwa-install.js' %}?v=20261108-pwa1" defer></script>
 </body>
 </html>

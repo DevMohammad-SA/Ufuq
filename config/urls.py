@@ -21,8 +21,12 @@ from django.conf import settings
 from django.conf.urls.static import static
 
 from participants.views import HomeView
+from participants.pwa_views import pwa_manifest, pwa_offline, pwa_service_worker
 
 urlpatterns = [
+    path("manifest.webmanifest", pwa_manifest, name="pwa_manifest"),
+    path("service-worker.js", pwa_service_worker, name="pwa_service_worker"),
+    path("offline/", pwa_offline, name="pwa_offline"),
     path("admin/", admin.site.urls),
     path("", HomeView.as_view(), name="home"),
     path("accounts/", include("accounts.urls")),

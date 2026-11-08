@@ -60,6 +60,10 @@ AUTHENTICATION_BACKENDS = [
     `accounts:logout` → إعادة توجيه إجباري إلى `accounts:set_password`.
   - المسارات المستثناة: صفحة تعيين كلمة المرور نفسها (نفس URL لـ GET وPOST)،
     وتسجيل الخروج (كي لا يعلق المستخدم بلا مخرج).
+- منذ إضافة التثبيت في8 نوفمبر2026 يُستثنىGET/HEAD فقط للموارد العامة الدقيقة
+  `/manifest.webmanifest` و`/service-worker.js` و`/offline/` قبل قراءة المستخدم.
+  لا تتضمن حسابًا أوبيانات ولا تقبل نماذج، ولا استثناء بادئة أوتجاوز لتعيين
+  كلمة المرور على لوحة المشارك أوالمتجر أوالمهام. التفاصيل في[`pwa.md`](pwa.md).
 - **`SetPasswordView`** (`accounts/views.py`):
   - `dispatch()` يعيد التوجيه للوحة المشارك إذا `must_set_password == False`
     (لا داعي للصفحة).
