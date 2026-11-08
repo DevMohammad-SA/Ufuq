@@ -255,3 +255,76 @@ class SupervisorGeneralGrantConcurrencyTests(TransactionTestCase):
     def test_committed_target_deactivation_while_request_waits_cannot_be_promoted(self):
         status = self.committed_change_during_grant(self.target.pk, {"is_active": False})
         self.assertIn(status, (403, 404))
+
+    def test_committed_staff_flag_while_grant_waits_is_preserved_by_role_only_promotion(self):
+        """Staff alone is not a grant ban, including after the stale GET/read."""
+        changed_row_held = Event()
+        grant_attempting_user_lock = Event()
+        release_change = Event()
+        captured_user_locks = []
+        grant_client = Client()
+        grant_client.force_login(self.actors[0])
+        self.assertEqual(grant_client.get(self.url).status_code, 200)
+        before_target = User.objects.filter(pk=self.target.pk).values().get()
+        before_actor = User.objects.filter(pk=self.actors[0].pk).values().get()
+
+        def modifier():
+            with transaction.atomic():
+                locked = User.objects.select_for_update(no_key=True).get(pk=self.target.pk)
+                locked.is_staff = True
+                locked.save(update_fields=["is_staff"])
+                changed_row_held.set()
+                self.wait_for(release_change, "parent releasing committed staff flag")
+            return "committed"
+
+        def mark_user_lock(execute, sql, params, many, context):
+            if '"accounts_user"' in sql and "FOR " in sql and "UPDATE" in sql:
+                captured_user_locks.append(sql)
+                grant_attempting_user_lock.set()
+            return execute(sql, params, many, context)
+
+        def granting():
+            self.wait_for(changed_row_held, "modifier holding staff-flag change")
+            with connection.execute_wrapper(mark_user_lock):
+                return grant_client.post(self.url, {
+                    "confirm": "yes", "is_staff": "", "is_superuser": "on",
+                    "role": Role.SUPERADMIN, "password1": "InjectedPass123!",
+                }).status_code
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            changing = pool.submit(self.worker, modifier)
+            grant = pool.submit(self.worker, granting)
+            try:
+                self.wait_for(grant_attempting_user_lock, "stale request waiting on changed staff User")
+                with self.assertRaises(TimeoutError):
+                    grant.result(timeout=0.2)
+            finally:
+                release_change.set()
+            modifier_pid, result = changing.result(timeout=self.result_timeout)
+            grant_pid, status = grant.result(timeout=self.result_timeout)
+        self.assertNotEqual(modifier_pid, grant_pid)
+        self.assertEqual(result, "committed")
+        self.assertEqual(status, 302)
+        self.assertTrue(captured_user_locks)
+        for sql in captured_user_locks:
+            self.assertIn("FOR NO KEY UPDATE", sql)
+            self.assertRegex(sql, r'ORDER BY "accounts_user"\."id" ASC FOR NO KEY UPDATE')
+        self.assertEqual(User.objects.filter(pk=self.target.pk).values().get(), {
+            **before_target, "is_staff": True, "role": Role.GENERAL_SUPERVISOR,
+        })
+        self.assertEqual(User.objects.filter(pk=self.actors[0].pk).values().get(), before_actor)
+        self.target.refresh_from_db()
+        self.permission.refresh_from_db()
+        self.assertTrue(self.target.is_staff)
+        self.assertFalse(self.target.is_superuser)
+        self.assertFalse(self.target.group_set.exists())
+        self.assertFalse(self.permission.enabled)
+        self.assertEqual(self.permission.granted_by_id, self.actors[0].pk)
+        self.assertEqual(self.audits().count(), 1)
+        self.assertFalse(PointsLedgerEntry.objects.exists())
+        self.student.refresh_from_db()
+        self.assertEqual((self.student.points, self.student.miles, self.student.purchase_points), (91, 910, 19))
+        before_repeat = User.objects.filter(pk=self.target.pk).values().get()
+        self.assertEqual(grant_client.post(self.url, {"confirm": "yes"}).status_code, 302)
+        self.assertEqual(User.objects.filter(pk=self.target.pk).values().get(), before_repeat)
+        self.assertEqual(self.audits().count(), 1)

@@ -50,7 +50,7 @@
   <div class="supervisor-heading">
     <div>
       <h1 class="page-title">إدارة المشرفين</h1>
-      <p class="page-sub">أضف حسابات المشرفين أو حدّث أدوارهم وبيئاتهم وحالة تفعيلهم. لا تظهر حسابات النظام أو حسابات Django الإدارية هنا.</p>
+      <p class="page-sub">هنا مشرفو البيئات والمشرفون العامّون. تظهر الإجراءات المسموح بها لكل حساب، وتبقى بيانات الحسابات الإدارية محمية.</p>
     </div>
     <a class="add-button" href="{% url 'participants:supervisor_add' %}">إضافة مشرف</a>
   </div>
@@ -128,14 +128,17 @@
                 </td>
                 <td>
                   <div class="table-actions">
-                    <a class="action-button" href="{% url 'participants:supervisor_edit' pk=supervisor.pk %}">تعديل</a>
-                    {% if request.user.pk != supervisor.pk %}
-                      {% if supervisor.is_active and supervisor.role == "group_supervisor" %}
-                        <a class="action-button action-button--grant" href="{% url 'participants:supervisor_grant_general' pk=supervisor.pk %}">منح صلاحية المشرف العام</a>
+                    {% if supervisor.can_edit_supervisor %}
+                      <a class="action-button" href="{% url 'participants:supervisor_edit' pk=supervisor.pk %}">تعديل</a>
+                      {% if request.user.pk != supervisor.pk %}
+                        <a class="action-button action-button--danger" href="{% url 'participants:supervisor_delete' pk=supervisor.pk %}">حذف</a>
                       {% endif %}
-                      <a class="action-button action-button--danger" href="{% url 'participants:supervisor_delete' pk=supervisor.pk %}">حذف</a>
+                    {% endif %}
+                    {% if supervisor.can_grant_general %}
+                      <a class="action-button action-button--grant" href="{% url 'participants:supervisor_grant_general' pk=supervisor.pk %}">منح صلاحية المشرف العام</a>
                     {% endif %}
                   </div>
+                  {% if supervisor.protection_note %}<span class="person-meta">{{ supervisor.protection_note }}</span>{% endif %}
                 </td>
               </tr>
             {% endfor %}

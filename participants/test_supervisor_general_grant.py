@@ -230,7 +230,7 @@ class SupervisorGeneralGrantAccessTests(SupervisorGrantBase):
             "grant-inactive-general", Role.GENERAL_SUPERVISOR, is_active=False,
         )
         for target in (
-            self.inactive, self.staff, self.superuser, self.student_user,
+            self.inactive, self.superuser, self.student_user,
             self.participant_backed, self.root, inactive_general,
         ):
             for method in (self.client.get, self.client.post):
@@ -409,6 +409,7 @@ class SupervisorGeneralGrantConfirmationTests(SupervisorGrantBase):
                        and attrs.get("href", "").endswith("/grant-general/")]
         self.assertEqual({link["href"] for link in grant_links}, {
             self.grant_url(self.target), self.grant_url(self.third),
+            self.grant_url(self.staff),
         })
         self.assertTrue(all("action-button" in attrs.get("class", "").split() for attrs in grant_links))
         source = Path(get_template("participants/supervisor_list.html").origin.name).read_text()
@@ -570,7 +571,7 @@ class SupervisorGeneralGrantIntegrityTests(SupervisorGrantBase):
     def test_target_becoming_ineligible_after_initial_read_is_denied_under_lock(self):
         from participants import management_views
         original = management_views.locked_users
-        cases = ({"is_active": False}, {"is_staff": True}, {"is_superuser": True},
+        cases = ({"is_active": False}, {"is_superuser": True},
                  {"role": Role.PARTICIPANT}, {"role": Role.SUPERADMIN}, {"participant": True})
         for index, change in enumerate(cases):
             with self.subTest(change=change):

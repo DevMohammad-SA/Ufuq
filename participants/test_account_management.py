@@ -354,25 +354,29 @@ class ParticipantEditTests(AccountManagementBase):
 
 
 class SupervisorManagementTests(AccountManagementBase):
-    def test_supervisor_list_excludes_system_privileged_and_participant_backed_accounts(self):
+    def test_supervisor_list_shows_protected_rows_but_excludes_system_roles(self):
         self.client.force_login(self.general)
         response = self.client.get(self.supervisor_list_url)
         self.assertEqual(response.status_code, 200)
         html = response.content.decode()
-        for visible in (self.group_supervisor, self.other_group_supervisor, self.general):
+        for visible in (
+            self.group_supervisor, self.other_group_supervisor, self.general,
+            self.privileged_group_user, self.participant_backed_supervisor,
+        ):
             with self.subTest(visible=visible.username):
                 self.assertIn(visible.full_name, html)
-        for hidden in (
-            self.root,
-            self.privileged_group_user,
-            self.privileged_root_user,
+        for hidden in (self.root, self.privileged_root_user, self.participant_user):
+            with self.subTest(hidden=hidden.username):
+                self.assertNotIn(hidden.pk, {user.pk for user in response.context["supervisors"]})
+                self.assertNotIn(hidden.username, html)
+        for protected in (
+            self.root, self.privileged_group_user, self.privileged_root_user,
             self.participant_backed_supervisor,
         ):
-            with self.subTest(hidden=hidden.username):
-                self.assertNotIn(hidden.full_name, html)
-                self.assertIn(
-                    self.client.get(self.supervisor_edit_url(hidden)).status_code,
-                    (403, 404),
+            with self.subTest(protected=protected.username):
+                self.assertNotIn(self.supervisor_edit_url(protected), html)
+                self.assertEqual(
+                    self.client.get(self.supervisor_edit_url(protected)).status_code, 404,
                 )
 
     def test_create_group_supervisor_hashes_password_assigns_groups_and_keeps_django_flags_false(self):

@@ -10,7 +10,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
-from django.db.models import Q
+from django.db.models import Exists, OuterRef, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.decorators import method_decorator
 from django.views import View
@@ -35,6 +35,21 @@ def managed_supervisors():
     # Use a subquery rather than a nullable join: safe for PostgreSQL row locks.
     return User.objects.filter(
         role__in=MANAGED_SUPERVISOR_ROLES, is_staff=False, is_superuser=False,
+    ).exclude(pk__in=Participant.objects.values("user_id"))
+
+
+def visible_supervisors():
+    # Admin flags must protect writes, not hide an existing platform supervisor.
+    return User.objects.filter(role__in=MANAGED_SUPERVISOR_ROLES).annotate(
+        has_participant_profile=Exists(Participant.objects.filter(user_id=OuterRef("pk"))),
+    )
+
+
+def general_grant_supervisors():
+    # Role-only promotion preserves existing staff access and all credentials.
+    # Full admin and participant-backed accounts remain ineligible for changes.
+    return User.objects.filter(
+        role__in=MANAGED_SUPERVISOR_ROLES, is_superuser=False,
     ).exclude(pk__in=Participant.objects.values("user_id"))
 
 
@@ -148,7 +163,7 @@ class SupervisorListView(AccountManagementView):
         role = request.GET.get("role", "")
         if role not in MANAGED_SUPERVISOR_ROLES:
             role = ""
-        supervisors = managed_supervisors().prefetch_related("group_set").order_by("full_name", "pk")
+        supervisors = visible_supervisors().prefetch_related("group_set").order_by("full_name", "pk")
         if q:
             supervisors = supervisors.filter(
                 Q(full_name__icontains=q) | Q(username__icontains=q) | Q(national_id__icontains=q),
@@ -158,10 +173,29 @@ class SupervisorListView(AccountManagementView):
         if role:
             supervisors = supervisors.filter(role=role)
         page = Paginator(supervisors, 30).get_page(request.GET.get("page"))
+        rows = list(page.object_list)
+        for supervisor in rows:
+            supervisor.can_edit_supervisor = not (
+                supervisor.is_staff or supervisor.is_superuser or supervisor.has_participant_profile
+            )
+            supervisor.can_grant_general = bool(
+                supervisor.is_active and supervisor.role == Role.GROUP_SUPERVISOR
+                and not supervisor.is_superuser and not supervisor.has_participant_profile
+                and supervisor.pk != request.user.pk
+            )
+            if supervisor.is_superuser:
+                supervisor.protection_note = "حساب إداري محمي؛ يُدار من مشرف النظام."
+            elif supervisor.has_participant_profile:
+                supervisor.protection_note = "مرتبط بملف طالب؛ يلزم مراجعة مشرف النظام."
+            elif supervisor.is_staff:
+                supervisor.protection_note = "بيانات الحساب الإدارية محمية؛ منح الدور لا يغيّرها."
+            else:
+                supervisor.protection_note = ""
+        page.object_list = rows
         params = request.GET.copy()
         params.pop("page", None)
         return render(request, "participants/supervisor_list.html", self.context(
-            "supervisors", supervisors=page.object_list, page_obj=page,
+            "supervisors", supervisors=rows, page_obj=page,
             querystring=params.urlencode(), q=q, status=status, role=role,
         ))
 
@@ -234,7 +268,7 @@ class SupervisorGrantGeneralView(AccountManagementView):
     template_name = "participants/supervisor_grant_general_confirm.html"
 
     def target(self, pk, *, allow_general=False):
-        supervisors = managed_supervisors().filter(is_active=True)
+        supervisors = general_grant_supervisors().filter(is_active=True)
         if not allow_general:
             supervisors = supervisors.filter(role=Role.GROUP_SUPERVISOR)
         return get_object_or_404(supervisors, pk=pk)
@@ -257,7 +291,7 @@ class SupervisorGrantGeneralView(AccountManagementView):
 
         with transaction.atomic():
             actor, supervisor = locked_users(request.user.pk, pk, no_key=True)
-            require_managed_supervisor(supervisor)
+            get_object_or_404(general_grant_supervisors(), pk=supervisor.pk)
             if actor.pk == supervisor.pk or not supervisor.is_active:
                 raise PermissionDenied
             already_general = supervisor.role == Role.GENERAL_SUPERVISOR
