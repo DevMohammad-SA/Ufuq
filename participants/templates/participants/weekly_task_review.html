@@ -266,6 +266,18 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
 }
 .btn-inline:hover{border-color:var(--asphalt)}
 
+.task-status-filter{display:flex; align-items:flex-end; gap:12px; flex-wrap:wrap}
+.task-status-filter .field{flex:1 1 200px; margin-bottom:0}
+.task-status-filter select,.task-filter-actions button{min-height:44px}
+.task-filter-actions{display:flex; gap:8px; flex-wrap:wrap}
+.task-filter-actions .btn{margin-top:0; min-height:44px}
+.task-filter-reset{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+.task-filter-reset .btn-inline{min-height:44px}
+@media (max-width:600px){
+  .task-status-filter .field,.task-filter-actions{flex-basis:100%}
+  .task-filter-actions button{flex:1}
+}
+
 {% endblock %}
 
 {% block content %}
@@ -276,6 +288,12 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
   {% endfor %}
   {% if can_manage_tasks %}
     <p class="page-sub">إنشاء مهام الأسبوع وتعديلها وتفعيلها ومراجعة تسليمات المشاركين.</p>
+  {% elif limited_task_followup %}
+    <p class="page-sub">متابعة مهام وتسليمات المشاركين في جميع البيئات، بما فيها المهام السابقة.</p>
+    <section class="card">
+      <h2>الاطلاع والمعاينة فقط</h2>
+      <p>يمكنك معاينة الملفات والنصوص وحالات التسليم وملاحظات المراجعة. لا تتيح هذه الصلاحية التصحيح أو إدارة المهام أو فتح تفاصيل الطالب.</p>
+    </section>
   {% else %}
     <p class="page-sub">مهام وتسليمات طلاب البيئات المسندة إليك فقط، بما فيها المهام السابقة.</p>
     <section class="card">
@@ -283,6 +301,31 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
       {% else %}<h2>الاطلاع فقط</h2><p>يمكنك معاينة ملفات ونصوص طلابك وحالات التسليم. التصحيح متاح بعد تفعيله لك من المشرف العام.</p>{% endif %}
     </section>
   {% endif %}
+
+  <section class="card" aria-labelledby="task-filter-title">
+    <h2 id="task-filter-title">تصفية تسليمات المهام</h2>
+    <form method="get" action="{% url 'participants:weekly_task_review' %}" class="task-status-filter" dir="rtl">
+      <div class="field">
+        <label for="task-status-filter">حالة التسليم</label>
+        <select id="task-status-filter" name="status">
+          {% for value, label in status_options %}
+            <option value="{{ value }}"{% if selected_status == value %} selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="task-selection-filter">المهمة</label>
+        <select id="task-selection-filter" name="task">
+          <option value=""{% if not selected_task %} selected{% endif %}>كل المهام</option>
+          {% for task in all_tasks %}
+            <option value="{{ task.pk }}"{% if selected_task == task.pk|stringformat:"s" %} selected{% endif %}>{{ task.title }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="task-filter-actions"><button type="submit" class="btn">تطبيق الفلاتر</button></div>
+    </form>
+    <p class="task-list-hint">الحالة المعروضة: {{ status_label }}. عند اختيار حالة محددة تُعرض التسليمات المطابقة فقط، بما فيها المحفوظة في المهام المنتهية أو غير النشطة.</p>
+  </section>
 
   {% if can_manage_tasks %}
   <p><a href="{% url 'participants:tasks_archive' %}" class="btn-inline">عرض أرشيف المهام السابقة</a></p>
@@ -372,7 +415,7 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
       </div>
 
       <button type="submit" class="btn">حفظ تعديلات المهمة</button>
-      <a class="btn-inline" href="{% url 'participants:weekly_task_review' %}">إلغاء</a>
+      <a class="btn-inline" href="{{ task_review_url }}">إلغاء</a>
     </form>
   </section>
   {% endif %}
@@ -389,9 +432,9 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
 	          </div>
 	          <p class="current-task-desc">{{ entry.task.description }}</p>
 	          {% if entry.task.is_past_due %}
-	            <p class="review-deadline-note">انتهى موعد رفع الطالب. تبقى التسليمات المعلّقة أدناه قابلة للقبول أو الرفض، ولا يمكن إعادتها للتعديل لأنها تتطلب رفعًا جديدًا.</p>
+	            <p class="review-deadline-note">{% if limited_task_followup %}انتهى موعد رفع الطالب. التسليمات المحفوظة متاحة للاطلاع والمعاينة فقط.{% else %}انتهى موعد رفع الطالب. تبقى التسليمات المعلّقة أدناه قابلة للقبول أو الرفض، ولا يمكن إعادتها للتعديل لأنها تتطلب رفعًا جديدًا.{% endif %}</p>
 	          {% elif not entry.task.is_active %}
-	            <p class="review-deadline-note">المهمة غير نشطة لرفع الطلاب، لكن يمكنك حسم أي تسليم معلّق موجود أدناه.</p>
+	            <p class="review-deadline-note">{% if limited_task_followup %}المهمة غير نشطة لرفع الطلاب. التسليمات المحفوظة متاحة للاطلاع والمعاينة فقط.{% else %}المهمة غير نشطة لرفع الطلاب، لكن يمكنك حسم أي تسليم معلّق موجود أدناه.{% endif %}</p>
 	          {% endif %}
 	        </div>
         {% if can_manage_tasks %}
@@ -437,7 +480,7 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
             <tbody class="submissions-body" data-task="{{ entry.task.id }}">
               {% for submission in entry.submissions %}
                 <tr data-group="{{ submission.participant.group.name|default:'' }}" data-submission="{{ submission.id }}">
-                  <td><a class="file-link" href="{% url 'participants:student_detail' submission.participant.pk %}">{{ submission.participant.user.full_name }}</a></td>
+                  <td>{% if can_view_student_detail %}<a class="file-link" href="{% url 'participants:student_detail' submission.participant.pk %}">{{ submission.participant.user.full_name }}</a>{% else %}{{ submission.participant.user.full_name }}{% endif %}</td>
                   <td>{{ submission.participant.group.name|default:"—" }}</td>
                   <td>{{ submission.submitted_at }}</td>
                   <td>
@@ -561,12 +604,13 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
       {% endif %}
       <p class="task-filter-empty" data-empty="submitted" hidden>لا توجد تسليمات في البيئات المحددة.</p>
 
+      {% if show_not_submitted %}
       <h3>من لم يسلّموا <span class="list-count" data-count="not-submitted">{{ entry.not_submitted|length }}</span></h3>
       <p class="task-list-hint">الطلاب النشطون في النطاق المسموح؛ التسليم المعاد للتعديل أو المعاد رفعه محسوب ضمن من سلّموا.</p>
       <ul class="not-submitted-list" data-task="{{ entry.task.id }}">
         {% for participant in entry.not_submitted %}
           <li data-group="{{ participant.group.name|default:'' }}" data-participant="{{ participant.pk }}">
-            <a class="file-link" href="{% url 'participants:student_detail' participant.pk %}">{{ participant.user.full_name }}</a>
+            {% if can_view_student_detail %}<a class="file-link" href="{% url 'participants:student_detail' participant.pk %}">{{ participant.user.full_name }}</a>{% else %}{{ participant.user.full_name }}{% endif %}
             <span>{{ participant.group.name|default:"—" }}</span>
           </li>
         {% empty %}
@@ -574,10 +618,20 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
         {% endfor %}
       </ul>
       <p class="task-filter-empty" data-empty="not-submitted" hidden>لا يوجد طلاب لم يسلّموا في البيئات المحددة.</p>
+      {% endif %}
     </section>
   {% empty %}
     <section class="card">
-	      <p class="empty-note">لا توجد مهام نشطة أو تسليمات معلّقة للمراجعة حاليًا.</p>
+      {% if selected_status != 'all' %}
+        <p class="empty-note">لا توجد تسليمات مطابقة لحالة «{{ status_label }}» ضمن النطاق المسموح والمهمة المختارة.</p>
+        <form method="get" action="{% url 'participants:weekly_task_review' %}" class="task-filter-reset">
+          <input type="hidden" name="status" value="all">
+          {% if selected_task %}<input type="hidden" name="task" value="{{ selected_task }}">{% endif %}
+          <button type="submit" class="btn-inline">عرض كل الحالات للمهمة المختارة</button>
+        </form>
+      {% else %}
+        <p class="empty-note">لا توجد مهام نشطة أو تسليمات معلّقة للمراجعة حاليًا.</p>
+      {% endif %}
     </section>
   {% endfor %}
 
@@ -612,8 +666,8 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
                   {% endif %}
                 </td>
                 <td>
-                  <a href="?edit_task={{ task.id }}#task-edit-form" class="btn-inline">تعديل</a>
-                  {% if can_revise_grades %}<a href="?task={{ task.id }}" class="btn-inline">التسليمات ومراجعتها</a>{% endif %}
+                  <a href="{{ task.edit_filter_url }}#task-edit-form" class="btn-inline">تعديل</a>
+                  {% if can_revise_grades %}<a href="{{ task.review_filter_url }}" class="btn-inline">التسليمات ومراجعتها</a>{% endif %}
                   <form method="post" class="task-toggle-form">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="toggle_active">
@@ -640,11 +694,11 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg>
       </button>
     </header>
-    <p id="preview-help">فعّل «متميز» إن أردت ثم اضغط «قبول». يمكنك الرفض أو الإعادة مع ملاحظة ضمن الموعد. إلغاء التقييم للمشرف العام فقط، ويعيد التسليم إلى قيد المراجعة بعد التأكيد.</p>
+    <p id="preview-help">{% if limited_task_followup %}هذه المعاينة للقراءة فقط: تعرض ملف التسليم ونصه وحالته دون قبول أو رفض أو إعادة أو إلغاء تقييم.{% else %}فعّل «متميز» إن أردت ثم اضغط «قبول». يمكنك الرفض أو الإعادة مع ملاحظة ضمن الموعد. إلغاء التقييم للمشرف العام فقط، ويعيد التسليم إلى قيد المراجعة بعد التأكيد.{% endif %}</p>
     <p id="preview-status" role="status" aria-live="polite"></p>
     <div class="task-preview-layout">
       <div id="modal-content"></div>
-      <aside id="modal-review-actions" aria-label="قرار مراجعة التسليم"></aside>
+      <aside id="modal-review-actions" aria-label="{% if limited_task_followup %}حالة التسليم للقراءة فقط{% else %}قرار مراجعة التسليم{% endif %}"></aside>
     </div>
   </dialog>
 {% endblock %}

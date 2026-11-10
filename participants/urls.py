@@ -7,7 +7,7 @@ from .permission_views import TaskReviewPermissionsView
 from .student_views import StudentDetailView
 from .management_views import (
     ParticipantEditView, SupervisorListView, SupervisorFormView, SupervisorDeleteView,
-    SupervisorGrantGeneralView,
+    SupervisorGrantGeneralView, SupervisorCapabilitiesView, LimitedSupervisorDashboardView,
 )
 from .participant_lifecycle import ParticipantDeleteView, ParticipantRestoreView
 
@@ -38,6 +38,8 @@ urlpatterns = [
     path("supervisors/<int:pk>/edit/", SupervisorFormView.as_view(), name="supervisor_edit"),
     path("supervisors/<int:pk>/delete/", SupervisorDeleteView.as_view(), name="supervisor_delete"),
     path("supervisors/<int:pk>/grant-general/", SupervisorGrantGeneralView.as_view(), name="supervisor_grant_general"),
+    path("supervisors/<int:pk>/capabilities/", SupervisorCapabilitiesView.as_view(), name="supervisor_capabilities"),
+    path("limited-supervisor/dashboard/", LimitedSupervisorDashboardView.as_view(), name="limited_supervisor_dashboard"),
     path("data/export-pdf/", views.ParticipantsDataPDFExportView.as_view(), name="participants_data_pdf"),
     path("tasks/review/", views.WeeklyTaskReviewView.as_view(), name="weekly_task_review"),
     path("tasks/review-permissions/", TaskReviewPermissionsView.as_view(), name="task_review_permissions"),

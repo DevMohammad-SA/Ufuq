@@ -6,7 +6,8 @@
 .wrap{max-width:100%;min-width:0}
 .supervisor-form{max-width:940px}
 .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s2)}
-.form-field{min-width:0}
+.form-field{min-width:0;overflow-wrap:anywhere}
+.supervisor-form h2{overflow-wrap:anywhere}
 .form-field--wide{grid-column:1 / -1}
 .form-field label,.environment-field legend{display:block;margin-bottom:6px;color:var(--asphalt);font:600 13px var(--font-ui)}
 .form-field input:not([type="checkbox"]):not([type="hidden"]),
@@ -21,16 +22,17 @@
 .environment-field{margin:0;padding:0;border:0}
 .environment-options{padding:12px;border:1px solid var(--line);border-radius:var(--r-sm);background:#fcfbf8}
 .environment-options>div,.environment-options ul{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:0;padding:0;list-style:none}
-.environment-options label{display:flex;align-items:center;gap:8px;margin:0;padding:7px 9px;border:1px solid var(--line);border-radius:var(--r-sm);background:#fff;color:var(--asphalt);font:13px var(--font-ui);cursor:pointer}
+.environment-options label{display:flex;align-items:center;gap:8px;min-height:44px;margin:0;padding:7px 9px;border:1px solid var(--line);border-radius:var(--r-sm);background:#fff;color:var(--asphalt);font:13px var(--font-ui);cursor:pointer}
 .environment-options input[type="checkbox"],.checkbox-control input[type="checkbox"]{width:17px;height:17px;margin:0;accent-color:var(--gold-ink);flex:none}
 .checkbox-control{display:flex;align-items:center;gap:8px;min-height:44px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-sm);background:#fcfbf8}
-.checkbox-control label{margin:0;cursor:pointer}
+.checkbox-control label{display:flex;align-items:center;flex:1;min-height:44px;margin:0;cursor:pointer}
 .password-note{margin:var(--s2) 0 0;padding:10px 12px;border:1px solid #ead9ae;border-radius:var(--r-sm);background:#fff9ec;color:var(--gold-ink);font:13px var(--font-ui)}
 .form-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:var(--s3)}
-.form-button{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:9px 18px;border:1px solid var(--gold);border-radius:99px;background:var(--gold);color:var(--asphalt);font:700 14px var(--font-display);text-decoration:none;cursor:pointer}
+.form-button{display:inline-flex;align-items:center;justify-content:center;min-height:44px;max-width:100%;padding:9px 18px;border:1px solid var(--gold);border-radius:99px;background:var(--gold);color:var(--asphalt);font:700 14px var(--font-display);text-decoration:none;cursor:pointer;text-align:center;overflow-wrap:anywhere}
 .form-button:hover{background:#b88b32;border-color:#b88b32}
 .form-button--plain{background:#fff;border-color:var(--line)}
 .form-button--plain:hover{background:var(--sand);border-color:var(--asphalt)}
+.form-button:focus-visible,.environment-options label:focus-within,.checkbox-control:focus-within{outline:3px solid var(--gold-ink);outline-offset:3px}
 @media(max-width:720px){.wrap{padding:16px}.card{padding:16px}.form-grid{grid-template-columns:1fr}.form-field--wide{grid-column:auto}.environment-options>div,.environment-options ul{grid-template-columns:1fr}.form-button{flex:1}}
 {% endblock %}
 
@@ -38,9 +40,9 @@
   <h1 class="page-title">{% if is_create %}إضافة مشرف{% else %}تعديل بيانات المشرف{% endif %}</h1>
   <p class="page-sub">
     {% if is_create %}
-      أنشئ حسابًا لمشرف بيئة أو مشرف عام، وحدد البيئات وكلمة مرور قوية للحساب الجديد.
+      أنشئ حسابًا لمشرف بيئة أو مشرف بصلاحيات محددة أو مشرف عام، وحدد دور الحساب وكلمة مرور قوية. إسناد البيئات خاص بمشرف البيئة فقط.
     {% else %}
-      حدّث بيانات المشرف وبيئاته وحالة حسابه. اترك حقلي كلمة المرور فارغين للإبقاء على كلمة المرور الحالية.
+      حدّث بيانات المشرف ودوره وحالة حسابه، والبيئات لمشرف البيئة فقط. اترك حقلي كلمة المرور فارغين للإبقاء على كلمة المرور الحالية.
     {% endif %}
   </p>
 
@@ -80,6 +82,7 @@
           <label for="{{ form.role.id_for_label }}">{{ form.role.label }}</label>
           {{ form.role }}
           {% if form.role.help_text %}<p class="field-help">{{ form.role.help_text }}</p>{% endif %}
+          <p class="field-help">اختر دور «مشرف بصلاحيات محددة» ثم حدّد صلاحياته من صفحة «صلاحيات محددة»؛ اختيار الدور وحده لا يمنح إدارة المتجر أو متابعة المهام.</p>
           {% if form.role.errors %}<div class="field-errors" role="alert">{{ form.role.errors }}</div>{% endif %}
         </div>
 
@@ -98,6 +101,7 @@
             {{ form.environments }}
           </div>
           {% if form.environments.help_text %}<p class="field-help">{{ form.environments.help_text }}</p>{% endif %}
+          <p class="field-help">البيئات لمشرف البيئة فقط. ألغِ تحديدها للمشرف العام وللمشرف بصلاحيات محددة؛ صلاحيات الدور المحدود مستقلة ولا تتطلب بيئة مسندة.</p>
           {% if form.environments.errors %}<div class="field-errors" role="alert">{{ form.environments.errors }}</div>{% endif %}
         </fieldset>
 
@@ -125,6 +129,15 @@
           {% if form.password2.errors %}<div class="field-errors" role="alert">{{ form.password2.errors }}</div>{% endif %}
         </div>
       </div>
+
+      {% if is_create %}
+        <p class="password-note">يبدأ حساب المشرف بصلاحيات محددة دون أي صلاحيات ممنوحة؛ إدارة المتجر ومتابعة المهام خياران مستقلان.</p>
+        {% if request.user.role == "general_supervisor" %}
+          <p class="password-note">عند إنشاء مشرف بصلاحيات محددة ستنتقل بعد الحفظ إلى صفحة الصلاحيات لتحديدها وتأكيدها يدويًا.</p>
+        {% else %}
+          <p class="password-note">بعد إنشاء مشرف بصلاحيات محددة، يتولى المشرف العام منح صلاحياته من الصفحة المخصصة. إنشاء الحساب لا يمنحه هذه الصلاحيات تلقائيًا.</p>
+        {% endif %}
+      {% endif %}
 
       {% if not is_create %}
         <p class="password-note">اترك حقلي كلمة المرور فارغين إذا لم ترغب في تغييرها. عند تعديل حسابك أنت، تتطلب كلمة المرور الجديدة إدخال كلمة المرور الحالية.</p>

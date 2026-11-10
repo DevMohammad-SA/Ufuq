@@ -6,14 +6,14 @@
 .wrap{max-width:100%;min-width:0}
 .supervisor-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s2);flex-wrap:wrap}
 .supervisor-heading .page-sub{margin-bottom:0}
-.add-button,.action-button,.page-link{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:8px 14px;border:1px solid var(--gold);border-radius:99px;background:var(--gold);color:var(--asphalt);font:700 13px var(--font-ui);text-decoration:none;white-space:nowrap}
+.add-button,.action-button,.page-link{display:inline-flex;align-items:center;justify-content:center;min-height:44px;max-width:100%;padding:8px 14px;border:1px solid var(--gold);border-radius:99px;background:var(--gold);color:var(--asphalt);font:700 13px var(--font-ui);text-decoration:none;overflow-wrap:anywhere;text-align:center}
 .add-button:hover,.action-button:hover,.page-link:hover{background:#b88b32;border-color:#b88b32}
 .filter-form{display:grid;grid-template-columns:minmax(220px,2fr) minmax(150px,1fr) minmax(170px,1fr) auto auto;gap:10px;align-items:end}
 .filter-field{min-width:0}
 .filter-field label{display:block;margin-bottom:5px;font:600 12px var(--font-ui);color:var(--slate)}
-.filter-field input,.filter-field select{width:100%;min-height:40px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r-sm);background:#fff;color:var(--asphalt);font:13px var(--font-ui)}
+.filter-field input,.filter-field select{width:100%;min-height:44px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r-sm);background:#fff;color:var(--asphalt);font:13px var(--font-ui)}
 .filter-field select,.filter-field select option{direction:rtl;text-align:right}
-.filter-submit,.filter-reset{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:8px 14px;border:1px solid var(--line);border-radius:var(--r-sm);background:#fff;color:var(--asphalt);font:600 13px var(--font-ui);text-decoration:none;cursor:pointer;white-space:nowrap}
+.filter-submit,.filter-reset{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:8px 14px;border:1px solid var(--line);border-radius:var(--r-sm);background:#fff;color:var(--asphalt);font:600 13px var(--font-ui);text-decoration:none;cursor:pointer;white-space:nowrap}
 .filter-submit{border-color:var(--asphalt);background:var(--asphalt);color:#fff}
 .filter-submit:hover{background:#1f2225}
 .filter-reset:hover{background:var(--sand)}
@@ -23,9 +23,11 @@
 .supervisor-table th{color:var(--slate);font-size:12px;font-weight:600;white-space:nowrap}
 .supervisor-table tbody tr:hover{background:#fffcf5}
 .supervisor-table tbody tr:last-child td{border-bottom:0}
-.person-name{display:block;font-weight:700;color:var(--asphalt)}
+.person-name{display:block;font-weight:700;color:var(--asphalt);overflow-wrap:anywhere}
 .person-meta{display:block;margin-top:2px;color:var(--slate);font-size:12px;overflow-wrap:anywhere}
-.group-list{line-height:1.9}
+.group-list{line-height:1.9;overflow-wrap:anywhere}
+.capability-badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.capability-badge{padding:4px 8px;border:1px solid #ead9ae;border-radius:var(--r-sm);background:#fff9ec;color:var(--gold-ink);font-size:12px;line-height:1.7;overflow-wrap:anywhere}
 .status-pill,.self-pill{display:inline-block;padding:4px 10px;border-radius:99px;font-size:12px;font-weight:700;white-space:nowrap}
 .status-pill--active{background:#E4EFE5;color:var(--done)}
 .status-pill--inactive{background:#FBEEEA;color:var(--alert)}
@@ -39,9 +41,10 @@
 .action-button--danger:hover{background:#FBEEEA;border-color:var(--alert)}
 .pager{display:flex;align-items:center;justify-content:space-between;gap:var(--s2);flex-wrap:wrap;margin-top:var(--s2);color:var(--slate);font:12px var(--font-ui)}
 .pager-links{display:flex;gap:8px;flex-wrap:wrap}
-.page-link{min-height:36px;padding:6px 12px;border-color:var(--line);background:#fff;font-weight:600}
+.page-link{min-height:44px;padding:6px 12px;border-color:var(--line);background:#fff;font-weight:600}
 .page-link:hover{background:var(--sand);border-color:var(--asphalt)}
 .page-message{margin:0 0 var(--s2);padding:10px 13px;border:1px solid #c7ddca;border-radius:var(--r-sm);background:#E4EFE5;color:var(--done);font:13px var(--font-ui)}
+.add-button:focus-visible,.action-button:focus-visible,.page-link:focus-visible,.filter-submit:focus-visible,.filter-reset:focus-visible,.filter-field input:focus-visible,.filter-field select:focus-visible{outline:3px solid var(--gold-ink);outline-offset:3px}
 @media(max-width:840px){.filter-form{grid-template-columns:repeat(2,minmax(0,1fr))}.filter-submit,.filter-reset{width:100%}}
 @media(max-width:720px){.wrap{padding:16px}.card{padding:16px}.filter-form{grid-template-columns:1fr}.filter-submit,.filter-reset{width:100%}.add-button{width:100%}}
 {% endblock %}
@@ -50,7 +53,7 @@
   <div class="supervisor-heading">
     <div>
       <h1 class="page-title">إدارة المشرفين</h1>
-      <p class="page-sub">هنا مشرفو البيئات والمشرفون العامّون. تظهر الإجراءات المسموح بها لكل حساب، وتبقى بيانات الحسابات الإدارية محمية.</p>
+      <p class="page-sub">هنا مشرفو البيئات، والمشرفون بصلاحيات محددة، والمشرفون العامّون. تظهر الإجراءات المسموح بها لكل حساب، وتبقى بيانات الحسابات الإدارية محمية.</p>
     </div>
     <a class="add-button" href="{% url 'participants:supervisor_add' %}">إضافة مشرف</a>
   </div>
@@ -79,6 +82,7 @@
         <select id="supervisor-role" name="role">
           <option value="all"{% if not role or role == "all" %} selected{% endif %}>كل الأدوار</option>
           <option value="group_supervisor"{% if role == "group_supervisor" %} selected{% endif %}>مشرف بيئة</option>
+          <option value="limited_supervisor"{% if role == "limited_supervisor" %} selected{% endif %}>مشرف بصلاحيات محددة</option>
           <option value="general_supervisor"{% if role == "general_supervisor" %} selected{% endif %}>مشرف عام</option>
         </select>
       </div>
@@ -111,13 +115,28 @@
                   {% if request.user.pk == supervisor.pk %}<span class="self-pill">حسابك</span>{% endif %}
                 </td>
                 <td>{{ supervisor.national_id|default:"—" }}</td>
-                <td>{{ supervisor.get_role_display }}</td>
+                <td>
+                  {{ supervisor.get_role_display }}
+                  {% if supervisor.role == "limited_supervisor" %}
+                    <div class="capability-badges">
+                      {% for capability_label in supervisor.capabilities_labels %}
+                        <span class="capability-badge">{{ capability_label }}</span>
+                      {% empty %}
+                        <span class="person-meta">لم تُمنح صلاحيات محددة بعد</span>
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                </td>
                 <td class="group-list">
-                  {% for group in supervisor.group_set.all %}
-                    {{ group.name }}{% if not forloop.last %}، {% endif %}
-                  {% empty %}
-                    <span class="person-meta">لا توجد بيئات مسندة</span>
-                  {% endfor %}
+                  {% if supervisor.role == "limited_supervisor" %}
+                    <span class="person-meta">هذا الدور لا يحتاج إلى إسناد بيئات</span>
+                  {% else %}
+                    {% for group in supervisor.group_set.all %}
+                      {{ group.name }}{% if not forloop.last %}، {% endif %}
+                    {% empty %}
+                      <span class="person-meta">لا توجد بيئات مسندة</span>
+                    {% endfor %}
+                  {% endif %}
                 </td>
                 <td>
                   {% if supervisor.is_active %}
@@ -128,11 +147,14 @@
                 </td>
                 <td>
                   <div class="table-actions">
-                    {% if supervisor.can_edit_supervisor %}
+                    {% if supervisor.can_edit_supervisor and not supervisor.is_staff and not supervisor.is_superuser and not supervisor.has_participant_profile %}
                       <a class="action-button" href="{% url 'participants:supervisor_edit' pk=supervisor.pk %}">تعديل</a>
                       {% if request.user.pk != supervisor.pk %}
                         <a class="action-button action-button--danger" href="{% url 'participants:supervisor_delete' pk=supervisor.pk %}">حذف</a>
                       {% endif %}
+                    {% endif %}
+                    {% if supervisor.can_configure_capabilities %}
+                      <a class="action-button action-button--grant" href="{% url 'participants:supervisor_capabilities' pk=supervisor.pk %}">صلاحيات محددة</a>
                     {% endif %}
                     {% if supervisor.can_grant_general %}
                       <a class="action-button action-button--grant" href="{% url 'participants:supervisor_grant_general' pk=supervisor.pk %}">منح صلاحية المشرف العام</a>

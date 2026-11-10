@@ -37,11 +37,12 @@
       <span>الدور الحالي: {{ supervisor.get_role_display }}</span>
     </div>
 
-    <p class="grant-note">سيصبح هذا المشرف مشرفًا عامًا، ويتمكن من إدارة جميع البيئات والطلاب والمشرفين والتقارير، ومنح صلاحية المشرف العام لمشرف آخر.</p>
+    <p class="grant-note">سيصبح هذا المشرف مشرفًا عامًا بصلاحيات كاملة: إدارة جميع البيئات والطلاب والمشرفين والتقارير والمتجر والمهام، ومنح الأدوار والصلاحيات لمشرف آخر. هذا الإجراء ليس منحًا لإدارة المتجر أو متابعة المهام وحدهما.</p>
     <p class="grant-note">تبقى صلاحيات حسابك كما هي. لا تتغير كلمات المرور أو بيانات الطلاب أو الأرصدة أو السجلات السابقة. لا يحتاج المشرف العام إلى إسناد بيئات أو تفويض تصحيح منفصل.</p>
+    {% if supervisor.role == "limited_supervisor" %}<p class="grant-note">سيُستبدل الدور المحدود بدور المشرف العام؛ لن يكون الوصول مقيدًا بالصلاحيات المحددة الممنوحة سابقًا.</p>{% endif %}
     {% if supervisor.is_staff %}<p class="grant-note">يتغير دوره في رحّال فقط؛ صلاحيات حسابه الإدارية الحالية وكلمة مروره لا تتغير.</p>{% endif %}
 
-    {% if supervisor.role == "group_supervisor" %}
+    {% if supervisor.role == "group_supervisor" or supervisor.role == "limited_supervisor" %}
       <form method="post">
         {% csrf_token %}
         <label class="confirm-check" for="confirm-general-grant">
@@ -53,8 +54,11 @@
           <a class="cancel-button" href="{% url 'participants:supervisor_list' %}">إلغاء</a>
         </div>
       </form>
-    {% else %}
+    {% elif supervisor.role == "general_supervisor" %}
       <p class="grant-note">هذا المشرف يملك صلاحية المشرف العام بالفعل؛ لا حاجة لمنحها مجددًا.</p>
+      <a class="cancel-button" href="{% url 'participants:supervisor_list' %}">العودة إلى إدارة المشرفين</a>
+    {% else %}
+      <p class="grant-note grant-error">هذا الحساب غير مؤهل لمنح دور المشرف العام من هذه الصفحة.</p>
       <a class="cancel-button" href="{% url 'participants:supervisor_list' %}">العودة إلى إدارة المشرفين</a>
     {% endif %}
   </section>

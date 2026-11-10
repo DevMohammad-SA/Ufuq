@@ -17,6 +17,17 @@ from .forms import (
 from .models import PasswordResetRequest, Role, User
 
 
+def dashboard_route(role):
+    """Keep mandatory-password landing role-aware, including limited access."""
+    return {
+        Role.PARTICIPANT: "participants:dashboard",
+        Role.GROUP_SUPERVISOR: "participants:supervisor_dashboard",
+        Role.GENERAL_SUPERVISOR: "participants:general_supervisor_dashboard",
+        Role.SUPERADMIN: "participants:general_supervisor_dashboard",
+        Role.LIMITED_SUPERVISOR: "participants:limited_supervisor_dashboard",
+    }.get(role, "home")
+
+
 class ParticipantLoginView(LoginView):
     template_name = "accounts/login_participant.html"
     form_class = ParticipantAuthenticationForm
@@ -30,11 +41,7 @@ class SupervisorLoginView(LoginView):
 
     def get_success_url(self):
         role = self.request.user.role
-        if role == Role.GROUP_SUPERVISOR:
-            return reverse("participants:supervisor_dashboard")
-        if role in (Role.GENERAL_SUPERVISOR, Role.SUPERADMIN):
-            return reverse("participants:general_supervisor_dashboard")
-        return reverse("home")
+        return reverse("home" if role == Role.PARTICIPANT else dashboard_route(role))
 
 
 class RahhalLogoutView(LogoutView):
@@ -51,7 +58,7 @@ class SetPasswordView(LoginRequiredMixin, FormView):
         # nothing for this page to do — send them to their normal landing
         # page instead of showing a pointless form.
         if request.user.is_authenticated and not request.user.must_set_password:
-            return redirect("participants:dashboard")
+            return redirect(dashboard_route(request.user.role))
         return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
@@ -62,7 +69,7 @@ class SetPasswordView(LoginRequiredMixin, FormView):
         # Re-authenticate the session with the new password hash so the
         # user isn't logged out by Django's session auth hash check.
         update_session_auth_hash(self.request, user)
-        return redirect("participants:dashboard")
+        return redirect(dashboard_route(user.role))
 
 
 class SupervisorPasswordChangeView(LoginRequiredMixin, FormView):

@@ -9,7 +9,9 @@ from django.db.models import Q
 from accounts.models import Role, User
 from .models import AcademicStage, Group
 
-MANAGED_SUPERVISOR_ROLES = (Role.GROUP_SUPERVISOR, Role.GENERAL_SUPERVISOR)
+MANAGED_SUPERVISOR_ROLES = (
+    Role.GROUP_SUPERVISOR, Role.GENERAL_SUPERVISOR, Role.LIMITED_SUPERVISOR,
+)
 
 
 def validate_identifier(value, user_id=None):
@@ -123,8 +125,8 @@ class SupervisorManagementForm(forms.Form):
     def clean(self):
         data = super().clean()
         role = data.get("role")
-        if role == Role.GENERAL_SUPERVISOR and data.get("environments"):
-            self.add_error("environments", "المشرف العام لا يحتاج إسناد بيئات؛ ألغِ تحديد البيئات لهذا الدور")
+        if role in (Role.GENERAL_SUPERVISOR, Role.LIMITED_SUPERVISOR) and data.get("environments"):
+            self.add_error("environments", "هذا الدور لا يقبل إسناد بيئات؛ ألغِ تحديد البيئات")
         if self.supervisor is not None and self.supervisor.pk == self.actor.pk:
             if role is not None and role != self.actor.role:
                 self.add_error("role", "لا يمكنك تغيير دور حسابك من صفحة إدارة المشرفين")
@@ -146,4 +148,35 @@ class SupervisorManagementForm(forms.Form):
                 if self.supervisor is not None and self.supervisor.pk == self.actor.pk:
                     if not self.supervisor.check_password(data.get("current_password", "")):
                         self.add_error("current_password", "كلمة المرور الحالية غير صحيحة")
+        return data
+
+
+class SupervisorCapabilitiesForm(forms.Form):
+    """Only two delegations; privileged User fields are never accepted."""
+
+    manage_store = forms.BooleanField(
+        label="إدارة المتجر", required=False,
+        widget=forms.CheckboxInput(attrs={"value": "yes"}),
+    )
+    follow_tasks = forms.BooleanField(
+        label="متابعة المهام للقراءة فقط", required=False,
+        widget=forms.CheckboxInput(attrs={"value": "yes"}),
+    )
+    confirm = forms.BooleanField(
+        label="أؤكد حفظ الصلاحيات المحددة لهذا المشرف", required=True,
+        widget=forms.CheckboxInput(attrs={"value": "yes"}),
+    )
+
+    def clean(self):
+        data = super().clean()
+        for name in ("manage_store", "follow_tasks", "confirm"):
+            if hasattr(self.data, "getlist"):
+                values = self.data.getlist(name)
+            elif name in self.data:
+                value = self.data[name]
+                values = value if isinstance(value, list) else [value]
+            else:
+                values = []
+            if values not in ([], ["yes"]) or (name == "confirm" and values != ["yes"]):
+                self.add_error(name, "قيمة تأكيد غير صحيحة؛ استخدم مربع الاختيار")
         return data

@@ -1,0 +1,107 @@
+{% extends "participants/app_base.html" %}
+
+{% block title %}صلاحيات محددة للمشرف — رحّال{% endblock %}
+
+{% block extra_style %}
+.wrap{max-width:100%;min-width:0}
+.capabilities-card{max-width:860px;border-color:#ead9ae}
+.supervisor-summary{margin:0 0 var(--s2);padding:14px;border:1px solid var(--line);border-radius:var(--r-sm);background:#fcfbf8;overflow-wrap:anywhere}
+.supervisor-summary strong{display:block;color:var(--asphalt);font:800 18px var(--font-display)}
+.supervisor-summary span{display:block;margin-top:4px;color:var(--slate);font:13px var(--font-ui)}
+.capabilities-note{padding:12px 14px;border:1px solid #ead9ae;border-radius:var(--r-sm);background:#fff9ec;color:var(--gold-ink)!important;font:14px var(--font-ui);line-height:1.9;overflow-wrap:anywhere}
+.capabilities-warning{border-color:var(--alert);background:#FBEEEA;color:var(--alert)!important}
+.capability-options{margin:0;padding:0;border:0;min-width:0}
+.capability-options legend{margin-bottom:12px;color:var(--asphalt);font:700 16px var(--font-display)}
+.capability-option{margin-bottom:12px;padding:10px 14px;border:1px solid var(--line);border-radius:var(--r-sm);background:#fcfbf8;min-width:0;overflow-wrap:anywhere}
+.capability-check,.confirm-check{display:flex;align-items:center;gap:12px;min-height:44px;color:var(--asphalt);font:600 14px var(--font-ui);line-height:1.8;cursor:pointer}
+.capability-check input,.confirm-check input{width:20px;height:20px;margin:0;accent-color:var(--gold-ink);flex:none}
+.capability-check span,.confirm-check span{min-width:0;overflow-wrap:anywhere}
+.capability-option .field-help{margin:4px 0 0;padding-inline-start:32px;color:var(--slate);font:13px var(--font-ui);line-height:1.9;overflow-wrap:anywhere}
+.confirm-check{padding:12px 14px;border:1px solid #ead9ae;border-radius:var(--r-sm);background:#fff9ec}
+.field-errors,.form-errors{margin:6px 0 0;color:var(--alert);font:13px var(--font-ui);overflow-wrap:anywhere}
+.field-errors ul,.form-errors ul{margin:0;padding-inline-start:20px}
+.form-errors{margin-bottom:var(--s2);padding:12px 14px;border:1px solid var(--alert);border-radius:var(--r-sm);background:#FBEEEA}
+.page-message{margin:0 0 var(--s2);padding:12px 14px;border:1px solid #c7ddca;border-radius:var(--r-sm);background:#E4EFE5;color:var(--done);font:13px var(--font-ui);overflow-wrap:anywhere}
+.page-message--error{border-color:var(--alert);background:#FBEEEA;color:var(--alert)}
+.form-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:var(--s3)}
+.save-button,.cancel-button{display:inline-flex;align-items:center;justify-content:center;min-height:44px;max-width:100%;padding:10px 18px;border:1px solid var(--gold);border-radius:99px;background:var(--gold);color:var(--asphalt);font:700 14px var(--font-display);text-decoration:none;text-align:center;overflow-wrap:anywhere;cursor:pointer}
+.save-button:hover{background:#b88b32;border-color:#b88b32}
+.cancel-button{border-color:var(--line);background:#fff}
+.cancel-button:hover{background:var(--sand);border-color:var(--asphalt)}
+.save-button:focus-visible,.cancel-button:focus-visible,.capability-check:focus-within,.confirm-check:focus-within{outline:3px solid var(--gold-ink);outline-offset:3px}
+@media(max-width:720px){.wrap{padding:16px}.card{padding:16px}.capability-option{padding:10px}.capability-option .field-help{padding-inline-start:0}.form-actions{align-items:stretch}.save-button,.cancel-button{flex:1 1 100%}}
+{% endblock %}
+
+{% block content %}
+  <h1 class="page-title">صلاحيات محددة للمشرف</h1>
+  <p class="page-sub">إدارة المتجر ومتابعة المهام صلاحيتان مستقلتان. اختر إحداهما أو كلتيهما، أو ألغِ الاختيارين لسحب الصلاحيات المحددة، ثم أكّد الحفظ يدويًا.</p>
+
+  {% if messages %}
+    {% for message in messages %}<div class="page-message{% if 'error' in message.tags %} page-message--error{% endif %}" role="{% if 'error' in message.tags %}alert{% else %}status{% endif %}">{{ message }}</div>{% endfor %}
+  {% endif %}
+
+  <section class="card capabilities-card" aria-labelledby="capabilities-title">
+    <h2 id="capabilities-title">تحديد نطاق الوصول</h2>
+    <div class="supervisor-summary">
+      <strong>{{ supervisor.full_name|default:supervisor.username|default:"مشرف بدون اسم" }}</strong>
+      <span>اسم الدخول: {{ supervisor.username|default:"—" }}</span>
+      <span>الدور الحالي: {{ supervisor.get_role_display }}</span>
+      <span>حالة الحساب: {% if supervisor.is_active %}نشط{% else %}غير نشط{% endif %}</span>
+    </div>
+
+    <p class="capabilities-note">لا تمنح هذه الخيارات دور المشرف العام أو صلاحيات مشرف البيئة، ولا تسمح بإدارة المشرفين أو الطلاب أو منح الصلاحيات. تبقى صلاحيات حسابك أنت كما هي، ولا تتغير كلمات المرور أو السجلات السابقة.</p>
+    {% if supervisor.is_staff or supervisor.is_superuser %}
+      <p class="capabilities-note">يتغير دور الحساب في رحّال وصلاحياته المحددة فقط؛ تبقى خصائص الحساب الإدارية وكلمة مروره كما هي.</p>
+    {% endif %}
+    {% if supervisor.role == "group_supervisor" %}
+      <p class="capabilities-note capabilities-warning">عند الحفظ يتحول هذا الحساب إلى «مشرف بصلاحيات محددة»، وتُلغى صلاحيات مشرف البيئة وإسناد البيئات وتفويض تصحيح المهام؛ يبقى التاريخ والسجلات السابقة محفوظين. هذا التغيير يطبق حتى عند إلغاء الاختيارين.</p>
+    {% elif supervisor.role == "limited_supervisor" %}
+      <p class="capabilities-note">يبقى الحساب «مشرفًا بصلاحيات محددة»؛ يُحفظ فقط اختيار إدارة المتجر ومتابعة المهام. إلغاء الاختيارين يسحب الصلاحيتين دون تغيير كلمة المرور.</p>
+    {% endif %}
+    {% if not supervisor.is_active %}
+      <p class="capabilities-note capabilities-warning" role="alert">هذا الحساب غير نشط: لا يمكن حفظ صلاحيات ممنوحة له قبل تفعيله. ألغِ الاختيارين ثم احفظ لسحب جميع صلاحياته المحددة؛ إعادة تفعيل الحساب لا تمنح صلاحيات جديدة تلقائيًا.</p>
+    {% endif %}
+
+    {% if form.non_field_errors %}
+      <div class="form-errors" role="alert">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <form method="post">
+      {% csrf_token %}
+      <fieldset class="capability-options">
+        <legend>الصلاحيات الممنوحة</legend>
+        <div class="capability-option">
+          <label class="capability-check" for="{{ form.manage_store.id_for_label }}">
+            {{ form.manage_store }}
+            <span>إدارة المتجر</span>
+          </label>
+          <p class="field-help">إدارة جميع منتجات المتجر وطلباته، بما فيها إتمام الطلبات واستردادها. تقتصر الصلاحية على المتجر ولا تمنح الوصول لإدارة الطلاب أو البيئات أو المهام.</p>
+          {% if form.manage_store.help_text %}<p class="field-help">{{ form.manage_store.help_text }}</p>{% endif %}
+          {% if form.manage_store.errors %}<div class="field-errors" role="alert">{{ form.manage_store.errors }}</div>{% endif %}
+        </div>
+        <div class="capability-option">
+          <label class="capability-check" for="{{ form.follow_tasks.id_for_label }}">
+            {{ form.follow_tasks }}
+            <span>متابعة المهام — قراءة ومعاينة فقط</span>
+          </label>
+          <p class="field-help">عرض المهام وتسليماتها ومعاينتها فقط، دون قبول أو رفض أو إنشاء أو تعديل أو إعادة فتح أو إلغاء تقييم، ودون منح أو تعديل نقاط.</p>
+          {% if form.follow_tasks.help_text %}<p class="field-help">{{ form.follow_tasks.help_text }}</p>{% endif %}
+          {% if form.follow_tasks.errors %}<div class="field-errors" role="alert">{{ form.follow_tasks.errors }}</div>{% endif %}
+        </div>
+      </fieldset>
+
+      <p class="capabilities-note">يمكن ترك الخيارين دون تحديد لسحب جميع الصلاحيات المحددة. لا يحدث أي تغيير بمجرد تحديد الخيارات؛ يلزم التأكيد ثم الضغط على «حفظ الصلاحيات».</p>
+      <label class="confirm-check" for="{{ form.confirm.id_for_label }}">
+        {{ form.confirm }}
+        <span>أؤكد حفظ الصلاحيات المحددة لهذا الحساب، وفهمت أثر تغيير الدور أو سحب الصلاحيات.</span>
+      </label>
+      {% if form.confirm.help_text %}<p class="capabilities-note">{{ form.confirm.help_text }}</p>{% endif %}
+      {% if form.confirm.errors %}<div class="field-errors" role="alert">{{ form.confirm.errors }}</div>{% endif %}
+
+      <div class="form-actions">
+        <button type="submit" class="save-button">حفظ الصلاحيات</button>
+        <a class="cancel-button" href="{% url 'participants:supervisor_list' %}">إلغاء</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

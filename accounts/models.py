@@ -42,13 +42,14 @@ class UserManager(BaseUserManager):
 class Role(models.TextChoices):
     PARTICIPANT = "participant", "مشارك"
     GROUP_SUPERVISOR = "group_supervisor", "مشرف بيئة"
+    LIMITED_SUPERVISOR = "limited_supervisor", "مشرف بصلاحيات محددة"
     GENERAL_SUPERVISOR = "general_supervisor", "مشرف عام"
     SUPERADMIN = "superadmin", "مشرف النظام"
 
 
 class User(AbstractBaseUser, PermissionsMixin):
     """
-    Custom user model for all four roles.
+    Custom user model for all platform roles.
 
     USERNAME_FIELD is technically fixed to "username" (Django requires exactly
     one field here). The actual login check for a Participant (via national_id)

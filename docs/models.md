@@ -28,7 +28,8 @@
 
 ### `Role` — `accounts/models.py`, كلاس `Role` (`TextChoices`)
 
-`participant` / `group_supervisor` / `general_supervisor` / `superadmin`.
+`participant` / `group_supervisor` / `general_supervisor` / `superadmin` /
+`limited_supervisor` (مشرف بصلاحيات محددة، بلا منح افتراضي).
 راجع [`roles-and-permissions.md`](roles-and-permissions.md).
 
 ### `PasswordResetRequest` — `accounts/models.py`, كلاس `PasswordResetRequest`
@@ -379,3 +380,20 @@ SUBMISSION_FORMAT_EXTENSIONS = {
 (تُدار/تُعرض عبر واجهات التطبيق
 المخصصة فقط — مثلًا `PointsLedgerEntry` تُعرض في `PointsLedgerView`، لا في
 الأدمن).
+
+### `SupervisorCapability` — الصلاحيات المحددة للمشرف
+
+| الحقل | النوع | المعنى |
+|---|---|---|
+| `supervisor` | `OneToOneField(AUTH_USER_MODEL, CASCADE, related_name="limited_capabilities")` | صف واحد للمشرف؛ غياب الصف لا يمنح شيئًا. |
+| `manage_store` | `BooleanField(default=False)` | إدارة المتجر ومنتجاته وطلباته فقط. |
+| `follow_tasks` | `BooleanField(default=False)` | متابعة تسليمات المهام ومعاينتها للقراءة فقط. |
+| `granted_by` | `FK(AUTH_USER_MODEL, SET_NULL, null=True, related_name="+")` | المشرف العام الذي عدّل المنح، أو مدير سحبها ضمن تغيير الحساب. |
+| `updated_at` | `DateTimeField(auto_now=True)` | تاريخ آخر تغيير فعلي؛ لا يحدّثه تكرار النتيجة نفسها. |
+
+تُطبّق العلامات للدور `LIMITED_SUPERVISOR` النشط فقط. تغيّر الدور أو إيقاف
+الحساب يسحبها دون حذف المستخدم أو كلمات المرور أو إسنادات تدقيق الطلاب؛
+إعادة التفعيل لا تعيد المنح. هجرة إضافة choices في accounts وإنشاء هذا
+الجدول في participants فقط، بلا تحويل أدوار أو نسخ grants أو إعادة حساب أرصدة
+قديمة. تحقق الفاعل والهدف والتأكيد والأقفال في عرض الصلاحيات، والتدقيق في
+`LogEntry` وفق إدارة الحسابات القائمة، لا في حقل كلمة المرور أو signals.

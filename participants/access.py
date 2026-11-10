@@ -35,6 +35,9 @@ def can_prepare_elite_trip(user):
 
 
 def can_review_task_submissions(user):
+    # A review delegation must never turn limited follow-up into grading.
+    if user.role == Role.LIMITED_SUPERVISOR:
+        return False
     if can_manage_tasks(user):
         return True
     return user.role == Role.GROUP_SUPERVISOR and TaskReviewPermission.objects.filter(
@@ -43,4 +46,23 @@ def can_review_task_submissions(user):
 
 
 def scoped_submissions(user):
-    return TaskSubmission.objects.filter(participant__in=scoped_participants(user))
+    if user.role in REPORT_ROLES:
+        return TaskSubmission.objects.filter(participant__in=scoped_participants(user))
+    from .capabilities import can_follow_tasks
+    if user.role == Role.LIMITED_SUPERVISOR and can_follow_tasks(user):
+        return TaskSubmission.objects.filter(participant__user__role=Role.PARTICIPANT)
+    return TaskSubmission.objects.none()
+
+
+def task_participants(user):
+    """Task-only roster; reporting/student profiles keep their original scope."""
+    from .capabilities import can_follow_tasks
+    from .models import Participant
+    if user.role == Role.LIMITED_SUPERVISOR and can_follow_tasks(user):
+        return Participant.objects.filter(user__role=Role.PARTICIPANT)
+    return scoped_participants(user)
+
+
+def can_view_task_submissions(user):
+    from .capabilities import can_follow_tasks
+    return bool(user.is_active and user.role in REPORT_ROLES) or can_follow_tasks(user)

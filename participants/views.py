@@ -164,6 +164,12 @@ def store_orders_for_user(user):
     """Scope both order tables and badges without trusting request filters."""
     if user.role in (Role.GENERAL_SUPERVISOR, Role.SUPERADMIN):
         return StoreOrder.objects.all()
+    if user.role == Role.LIMITED_SUPERVISOR:
+        from .capabilities import can_manage_store
+
+        if can_manage_store(user):
+            return StoreOrder.objects.all()
+        return StoreOrder.objects.none()
     if user.role == Role.GROUP_SUPERVISOR:
         return StoreOrder.objects.filter(participant__group__in=user.group_set.all())
     return StoreOrder.objects.none()
@@ -194,6 +200,18 @@ def get_notification_counts(user):
         counts["store_management"] = store_orders_for_user(user).filter(
             status=StoreOrder.Status.PENDING
         ).count()
+
+    elif user.role == Role.LIMITED_SUPERVISOR:
+        from .capabilities import can_follow_tasks, can_manage_store
+        if can_follow_tasks(user):
+            counts["tasks"] = TaskSubmission.objects.filter(
+                participant__user__role=Role.PARTICIPANT,
+                status=TaskSubmission.Status.PENDING,
+            ).count()
+        if can_manage_store(user):
+            counts["store_management"] = store_orders_for_user(user).filter(
+                status=StoreOrder.Status.PENDING,
+            ).count()
 
     elif user.role == Role.PARTICIPANT:
         participant = getattr(user, "participant", None)
@@ -273,6 +291,25 @@ def build_navbar(user, active_key):
             ),
             ("store", "المتجر", "participants:store", ICON_STORE, "main", True),
         ]
+    elif user.role == Role.LIMITED_SUPERVISOR:
+        from .capabilities import can_follow_tasks, can_manage_store
+        entries = [
+            ("home", "الرئيسية", "participants:limited_supervisor_dashboard", ICON_HOME, "main", True),
+        ]
+        if can_follow_tasks(user):
+            entries.append((
+                "tasks", "متابعة المهام", "participants:weekly_task_review",
+                ICON_TASKS, "tasks", True,
+            ))
+        if can_manage_store(user):
+            entries.append((
+                "store_management", "إدارة المتجر", "participants:store_management",
+                ICON_CART, "store", True,
+            ))
+        entries.append((
+            "change_password", "تغيير كلمة المرور", "accounts:change_password",
+            ICON_LOCK, "account", False,
+        ))
     elif user.role == Role.GROUP_SUPERVISOR:
         # A group supervisor has no dashboard separate from the attendance
         # roster, so "الرئيسية" and "التحضير" would be the exact same link.
@@ -2198,9 +2235,8 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
     login_url = "accounts:login_supervisor"
 
     def test_func(self):
-        return self.request.user.role in (
-            Role.GROUP_SUPERVISOR, Role.GENERAL_SUPERVISOR, Role.SUPERADMIN,
-        )
+        from .access import can_view_task_submissions
+        return can_view_task_submissions(self.request.user)
 
     def render_to_response(self, context, **response_kwargs):
         response = super().render_to_response(context, **response_kwargs)
@@ -2211,12 +2247,30 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
         context = super().get_context_data(**kwargs)
         from .access import (
             can_manage_tasks, can_review_task_submissions,
-            scoped_participants, scoped_submissions,
+            task_participants, scoped_submissions,
+        )
+        limited = self.request.user.role == Role.LIMITED_SUPERVISOR
+        context["limited_task_followup"] = limited
+        context["can_view_student_detail"] = not limited and self.request.user.role in (
+            Role.GROUP_SUPERVISOR, Role.GENERAL_SUPERVISOR, Role.SUPERADMIN,
         )
         context["can_manage_tasks"] = can_manage_tasks(self.request.user)
         context["can_review_submissions"] = can_review_task_submissions(self.request.user)
         from .task_grading import can_revise_grades
-        context["can_revise_grades"] = can_revise_grades(self.request.user)
+        context["can_revise_grades"] = not limited and can_revise_grades(self.request.user)
+        status_options = (
+            ("all", "الكل"), ("pending", "تحت المعالجة"),
+            ("rejected", "المرفوضة"), ("accepted", "المقبولة"),
+            ("returned", "المعادة للتعديل"),
+        )
+        status = self.request.GET.get("status", "all")
+        if status not in dict(status_options):
+            status = "all"
+        context["selected_status"] = status
+        context["status_label"] = dict(status_options)[status]
+        context["status_options"] = status_options
+        context["show_not_submitted"] = status == "all"
+        full_scope = scoped_submissions(self.request.user)
         if context["can_manage_tasks"]:
             context.setdefault("create_form", WeeklyTaskForm())
             edit_task_id = self.request.GET.get("edit_task", "")
@@ -2230,12 +2284,17 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
                     instance=edit_task,
                     auto_id=f"edit_task_{edit_task.pk}_%s",
                 )
-        if context["can_manage_tasks"]:
+        if status != "all":
+            # Status search includes preserved work on expired/inactive tasks,
+            # but task IDs come only from submissions in this user's scope.
+            matching_task_ids = full_scope.filter(status=status).values("task_id")
+            tasks = WeeklyTask.objects.filter(pk__in=matching_task_ids).order_by("due_date", "-created_at")
+        elif context["can_manage_tasks"]:
             # A due date controls *student upload availability*.  It must not
             # make an already-received, pending submission disappear from the
             # reviewer.  Keep normally open tasks, then append exactly the
             # tasks that still need a decision in this user's allowed scope.
-            pending_task_ids = scoped_submissions(self.request.user).filter(
+            pending_task_ids = full_scope.filter(
                 status=TaskSubmission.Status.PENDING,
             ).values("task_id")
             tasks = (
@@ -2249,18 +2308,21 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
             if not raw_task.isdecimal():
                 from django.http import Http404
                 raise Http404("مهمة غير متاحة")
-            tasks = WeeklyTask.objects.filter(pk=raw_task)
+            # Explicit task selection retains the old all-status behavior;
+            # it must intersect, not replace, a status-scoped task selection.
+            tasks = tasks.filter(pk=raw_task) if status != "all" else WeeklyTask.objects.filter(pk=raw_task)
+        context["selected_task"] = raw_task or ""
 
         tasks_with_submissions = []
         tasks = list(tasks)
         # Evaluate the active roster once; a returned/re-uploaded submission
         # still counts as submitted, irrespective of status or award history.
         available_participants = list(
-            scoped_participants(self.request.user).filter(user__is_active=True)
+            task_participants(self.request.user).filter(user__is_active=True)
             .select_related("user", "group").order_by("user__full_name", "pk")
         )
         submissions_by_task = {task.pk: [] for task in tasks}
-        for submission in scoped_submissions(self.request.user).filter(
+        for submission in full_scope.filter(
             task_id__in=submissions_by_task,
         ).select_related("participant__user", "participant__group").order_by("-submitted_at", "-pk"):
             submissions_by_task[submission.task_id].append(submission)
@@ -2270,9 +2332,13 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
             not_submitted = [
                 p for p in available_participants if p.pk not in submitted_ids
             ]
+            if status != "all":
+                submissions = [s for s in submissions if s.status == status]
+                if not submissions:
+                    continue
             group_names = sorted(
                 {s.participant.group.name for s in submissions if s.participant.group}
-                | {p.group.name for p in not_submitted if p.group}
+                | ({p.group.name for p in not_submitted if p.group} if status == "all" else set())
             )
             tasks_with_submissions.append(
                 {
@@ -2282,10 +2348,44 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
             )
         context["tasks_with_submissions"] = tasks_with_submissions
         context["all_tasks"] = WeeklyTask.objects.all().order_by("-created_at")
+        context["task_review_url"] = self.task_review_url()
+        if context["can_manage_tasks"]:
+            for task in context["all_tasks"]:
+                task.review_filter_url = self.task_review_url(task_id=task.pk)
+                task.edit_filter_url = self.task_review_url(edit_task_id=task.pk)
         context["navbar_items"] = build_navbar(self.request.user, "tasks")
         return context
 
+    def task_review_url(self, task_id=None, edit_task_id=None):
+        """Carry only the two recognized filters; never accept a return URL."""
+        from urllib.parse import urlencode
+        query = {}
+        status = self.request.GET.get("status")
+        if status in ("all", "pending", "rejected", "accepted", "returned"):
+            query["status"] = status
+        raw_task = self.request.GET.get("task", "")
+        if raw_task and raw_task.isdecimal():
+            query["task"] = raw_task
+        if task_id is not None:
+            query["task"] = str(task_id)
+        if edit_task_id is not None:
+            query["edit_task"] = str(edit_task_id)
+        url = reverse("participants:weekly_task_review")
+        return f"{url}?{urlencode(query)}" if query else url
+
+    def task_review_redirect(self, task_id=None):
+        url = self.task_review_url(task_id=task_id)
+        # Preserve exactly the historical no-query redirect (including the
+        # cancellation exception selecting its original submission task).
+        if url == reverse("participants:weekly_task_review"):
+            return redirect("participants:weekly_task_review")
+        return redirect(url)
+
     def post(self, request, *args, **kwargs):
+        # Deny every action before reading an action/ID or consulting any
+        # legacy delegation. Follow-up is always read/preview-only.
+        if request.user.role == Role.LIMITED_SUPERVISOR:
+            raise PermissionDenied("متابعة المهام تتيح الاطلاع والمعاينة فقط.")
         action = request.POST.get("action")
         from .access import can_manage_tasks, scoped_submissions
         may_manage = can_manage_tasks(request.user)
@@ -2304,8 +2404,8 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
             messages.success(request, message)
             submission = TaskSubmission.objects.filter(pk=request.POST.get("submission_id")).first()
             if submission:
-                return redirect(f"{reverse('participants:weekly_task_review')}?task={submission.task_id}")
-            return redirect("participants:weekly_task_review")
+                return self.task_review_redirect(task_id=submission.task_id)
+            return self.task_review_redirect()
         elif action == "create_task":
             form = WeeklyTaskForm(request.POST)
             if form.is_valid():
@@ -2336,7 +2436,7 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
             if form.is_valid():
                 form.save()
                 messages.success(request, "تم تعديل بيانات المهمة بنجاح.")
-                return redirect("participants:weekly_task_review")
+                return self.task_review_redirect()
             context = self.get_context_data()
             context["edit_task"] = task
             context["edit_form"] = form
@@ -2361,7 +2461,7 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
                 )
                 if submission.status != TaskSubmission.Status.PENDING:
                     messages.warning(request, "لم يُحفظ قرار جديد: هذا التسليم لم يعد قيد المراجعة. حدّث الصفحة للاطلاع على حالته.")
-                    return redirect("participants:weekly_task_review")
+                    return self.task_review_redirect()
 
                 if action == "return_for_revision":
                     if not WeeklyTask.get_active_tasks().filter(pk=submission.task_id).exists():
@@ -2369,11 +2469,11 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
                             request,
                             "لا يمكن إعادة المهمة للتعديل بعد انتهاء موعدها أو تعطيلها. استخدم إعادة الفتح عند الحاجة.",
                         )
-                        return redirect("participants:weekly_task_review")
+                        return self.task_review_redirect()
                     revision_form = TaskReturnForRevisionForm(request.POST)
                     if not revision_form.is_valid():
                         messages.error(request, revision_form.errors["revision_note"][0])
-                        return redirect("participants:weekly_task_review")
+                        return self.task_review_redirect()
                     submission.status = TaskSubmission.Status.REVISION_REQUIRED
                     submission.revision_note = revision_form.cleaned_data["revision_note"]
                     submission.rejection_reason = ""
@@ -2386,7 +2486,7 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
                         historical_award = request.POST.get("historical_award")
                         if historical_award not in ("already_awarded", "not_awarded"):
                             messages.error(request, "تحقق أولًا هل صُرفت نقاط هذا التسليم القديم، ثم حدد القرار قبل القبول.")
-                            return redirect("participants:weekly_task_review")
+                            return self.task_review_redirect()
                         submission.points_awarded = historical_award == "already_awarded"
                     submission.status = (
                         TaskSubmission.Status.ACCEPTED
@@ -2429,7 +2529,7 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
                 elif action == "reject":
                     messages.success(request, "تم رفض التسليم وحفظ سبب الرفض إن وُجد، دون منح نقاط.")
 
-        return redirect("participants:weekly_task_review")
+        return self.task_review_redirect()
 
 
 class TaskSubmissionView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
@@ -2739,12 +2839,15 @@ class StoreManagementView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
     login_url = "accounts:login_supervisor"
 
     def test_func(self):
-        return self.request.user.role in (
-            Role.GROUP_SUPERVISOR, Role.GENERAL_SUPERVISOR, Role.SUPERADMIN,
+        return self.request.user.is_active and (
+            self.request.user.role == Role.GROUP_SUPERVISOR
+            or self.can_manage_store()
         )
 
     def can_manage_store(self):
-        return self.request.user.role in (Role.GENERAL_SUPERVISOR, Role.SUPERADMIN)
+        from .capabilities import can_manage_store
+
+        return can_manage_store(self.request.user)
 
     def render_to_response(self, context, **response_kwargs):
         response = super().render_to_response(context, **response_kwargs)
@@ -2789,10 +2892,19 @@ class StoreManagementView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
         return context
 
     def post(self, request, *args, **kwargs):
-        # Hiding buttons is not authorization: reject every write before any
-        # action/ID lookup so forged requests cannot mutate orders or stock.
-        if not self.can_manage_store():
-            raise PermissionDenied("الاطلاع فقط؛ معالجة الطلبات متاحة للمشرف العام ومشرف النظام.")
+        from .capabilities import can_manage_store
+
+        # Use the same User-first lock order as capability grants/revocations.
+        # A previously opened page (or a cached user/relation) cannot authorize
+        # any write after a revocation, role change, or account deactivation.
+        with transaction.atomic():
+            actor = User.objects.select_for_update(no_key=True).get(pk=request.user.pk)
+            if not can_manage_store(actor):
+                raise PermissionDenied("ليست لديك صلاحية إدارة المتجر.")
+            request.user = actor
+            return self._post_authorized(request, *args, **kwargs)
+
+    def _post_authorized(self, request, *args, **kwargs):
         action = request.POST.get("action")
 
         # --- Product management actions (add / edit / delete) ---------------
@@ -2880,9 +2992,11 @@ class StoreManagementView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
             return redirect("participants:store_management")
 
         if action == "complete" and order.status == StoreOrder.Status.PENDING:
-            order.status = StoreOrder.Status.COMPLETED
-            order.completed_at = timezone.now()
-            order.save(update_fields=["status", "completed_at"])
+            # Two operators lock different User rows. Recheck the order state
+            # in the write itself so a stale completion cannot undo a refund.
+            StoreOrder.objects.filter(
+                pk=order.pk, status=StoreOrder.Status.PENDING,
+            ).update(status=StoreOrder.Status.COMPLETED, completed_at=timezone.now())
 
         elif action == "refund" and order.status != StoreOrder.Status.REFUNDED:
             # Refund is allowed from BOTH pending and completed (a participant

@@ -767,6 +767,26 @@ class TaskReviewPermission(models.Model):
         verbose_name_plural = "أذونات تصحيح المهام"
 
 
+class SupervisorCapability(models.Model):
+    """Independent capabilities; effective only for an active LIMITED role."""
+
+    supervisor = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="limited_capabilities", verbose_name="المشرف",
+    )
+    manage_store = models.BooleanField(default=False, verbose_name="إدارة المتجر")
+    follow_tasks = models.BooleanField(default=False, verbose_name="متابعة المهام للقراءة فقط")
+    granted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+        related_name="+", verbose_name="حدّث الصلاحيات",
+    )
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="آخر تحديث")
+
+    class Meta:
+        verbose_name = "صلاحيات مشرف محددة"
+        verbose_name_plural = "صلاحيات المشرفين المحددة"
+
+
 class MeetingNote(models.Model):
     """Private staff note independent of attendance and points calculations."""
     participant = models.ForeignKey(
