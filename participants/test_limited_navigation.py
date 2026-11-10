@@ -60,6 +60,7 @@ class LimitedNavigationTests(TestCase):
                     expected.add("store_management")
                 if tasks:
                     expected.add("tasks")
+                    self.assertEqual(by_key["tasks"]["label"], "متابعة وتصحيح المهام")
                 self.assertEqual(set(by_key), expected)
                 self.assertFalse(set(by_key) & forbidden)
                 self.assertEqual(by_key["home"]["url"], reverse("participants:limited_supervisor_dashboard"))
@@ -118,6 +119,10 @@ class LimitedNavigationTests(TestCase):
                     self.assertNotContains(response, reverse("participants:store_management"))
                 if tasks:
                     self.assertContains(response, reverse("participants:weekly_task_review"))
+                    self.assertContains(response, "متابعة وتصحيح المهام")
+                    self.assertContains(response, "معاينة وقبول ورفض")
+                    self.assertContains(response, "فتح متابعة وتصحيح المهام")
+                    self.assertNotContains(response, "متابعة المهام للقراءة والمعاينة فقط")
                 else:
                     self.assertNotContains(response, reverse("participants:weekly_task_review"))
                 self.assertNotContains(response, self.student.user.full_name)

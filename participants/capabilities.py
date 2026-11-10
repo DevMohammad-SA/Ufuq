@@ -30,7 +30,12 @@ def can_manage_store(user):
 
 
 def can_follow_tasks(user):
-    """This is limited read-only delegation, not general review permission."""
+    """Allow limited task follow-up and pending acceptance/rejection only.
+
+    This existing flag includes ordinary/featured acceptance and rejection,
+    not returns, task management, grade corrections or historical-award
+    decisions. Always recheck the persisted role, activity and grant.
+    """
     if not _authenticated_active(user):
         return False
     return User.objects.filter(

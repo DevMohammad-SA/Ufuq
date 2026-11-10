@@ -31,6 +31,7 @@ class CapabilityFormTests(SimpleTestCase):
     def test_fields_are_exactly_two_independent_flags_and_required_confirmation(self):
         form = SupervisorCapabilitiesForm()
         self.assertEqual(set(form.fields), {"manage_store", "follow_tasks", "confirm"})
+        self.assertEqual(form.fields["follow_tasks"].label, "متابعة وتصحيح المهام")
         for field in ("manage_store", "follow_tasks"):
             self.assertFalse(form.fields[field].required)
             self.assertEqual(form.fields[field].widget.attrs["value"], "yes")
@@ -442,6 +443,8 @@ class LimitedCapabilityTests(TestCase):
         self.assertTrue(row.can_configure_capabilities)
         self.assertTrue(row.can_grant_general)
         self.assertEqual(len(row.capabilities_labels), 2)
+        self.assertEqual(set(row.capabilities_labels), {"إدارة المتجر", "متابعة وتصحيح المهام"})
+        self.assertNotContains(response, "متابعة المهام للقراءة فقط")
         for index in range(12):
             self.capability(self.user(f"limited-list-{index}", Role.LIMITED_SUPERVISOR), follow_tasks=True)
         with CaptureQueriesContext(connection) as queries:

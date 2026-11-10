@@ -159,7 +159,7 @@ class SupervisorCapabilitiesForm(forms.Form):
         widget=forms.CheckboxInput(attrs={"value": "yes"}),
     )
     follow_tasks = forms.BooleanField(
-        label="متابعة المهام للقراءة فقط", required=False,
+        label="متابعة وتصحيح المهام", required=False,
         widget=forms.CheckboxInput(attrs={"value": "yes"}),
     )
     confirm = forms.BooleanField(

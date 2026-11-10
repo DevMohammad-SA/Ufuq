@@ -298,7 +298,7 @@ def build_navbar(user, active_key):
         ]
         if can_follow_tasks(user):
             entries.append((
-                "tasks", "متابعة المهام", "participants:weekly_task_review",
+                "tasks", "متابعة وتصحيح المهام", "participants:weekly_task_review",
                 ICON_TASKS, "tasks", True,
             ))
         if can_manage_store(user):
@@ -2256,6 +2256,7 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
         )
         context["can_manage_tasks"] = can_manage_tasks(self.request.user)
         context["can_review_submissions"] = can_review_task_submissions(self.request.user)
+        context["can_return_submissions"] = not limited and context["can_review_submissions"]
         from .task_grading import can_revise_grades
         context["can_revise_grades"] = not limited and can_revise_grades(self.request.user)
         status_options = (
@@ -2382,11 +2383,36 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
         return redirect(url)
 
     def post(self, request, *args, **kwargs):
-        # Deny every action before reading an action/ID or consulting any
-        # legacy delegation. Follow-up is always read/preview-only.
-        if request.user.role == Role.LIMITED_SUPERVISOR:
-            raise PermissionDenied("متابعة المهام تتيح الاطلاع والمعاينة فقط.")
+        if not request.user.is_authenticated or not request.user.is_active:
+            raise PermissionDenied
+        with transaction.atomic():
+            # Match capability grants/revocations: User -> submission ->
+            # participant. NO KEY UPDATE permits audit FK KEY SHARE checks.
+            # Recheck other callers too: a stale GENERAL/GROUP object must
+            # not bypass LIMITED boundaries after a persisted role change.
+            actor = User.objects.select_for_update(no_key=True).get(pk=request.user.pk)
+            if not actor.is_active or actor.role != request.user.role:
+                raise PermissionDenied("لم تعد صلاحية مراجعة المهام متاحة لهذا الحساب.")
+            if actor.role == Role.LIMITED_SUPERVISOR:
+                from .capabilities import can_follow_tasks
+                if not can_follow_tasks(actor):
+                    raise PermissionDenied("لم تعد صلاحية متابعة وتصحيح المهام متاحة لك.")
+            request.user = actor
+            return self._post_authorized(request, *args, **kwargs)
+
+    def _post_authorized(self, request, *args, **kwargs):
+        from .capabilities import can_follow_tasks
+        from django.db import connection
+        if not connection.in_atomic_block or not request.user.is_authenticated:
+            raise PermissionDenied
+        limited = request.user.role == Role.LIMITED_SUPERVISOR
+        # Recheck inside the transaction, even for callers of this private
+        # helper. The authenticated POST retains the actor lock until commit.
+        if limited and not can_follow_tasks(request.user):
+            raise PermissionDenied("لم تعد صلاحية متابعة وتصحيح المهام متاحة لك.")
         action = request.POST.get("action")
+        if limited and action not in ("accept", "reject"):
+            raise PermissionDenied("يمكنك قبول التسليمات المعلقة أو رفضها فقط.")
         from .access import can_manage_tasks, scoped_submissions
         may_manage = can_manage_tasks(request.user)
         if not may_manage and action not in ("accept", "reject", "return_for_revision"):
@@ -2448,16 +2474,17 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
             from .models import TaskReviewPermission
             from django.http import Http404
             with transaction.atomic():
-                if not may_manage and not TaskReviewPermission.objects.select_for_update().filter(
+                if not may_manage and not limited and not TaskReviewPermission.objects.select_for_update().filter(
                     supervisor=request.user, enabled=True,
                 ).first():
                     messages.error(request, "لم يُحفظ القرار: التصحيح غير مفعّل لك من المشرف العام أو أُلغي تفويضك. يمكنك المعاينة فقط.")
                     return self.render_to_response(self.get_context_data(), status=403)
                 submission_id = request.POST.get("submission_id", "")
-                if not submission_id.isdecimal():
+                if (not submission_id.isdecimal() or len(submission_id) > 19
+                        or int(submission_id) > 9223372036854775807):
                     raise Http404("تسليم غير متاح")
                 submission = get_object_or_404(
-                    scoped_submissions(request.user).select_for_update(), pk=submission_id,
+                    scoped_submissions(request.user).select_for_update(of=("self",)), pk=submission_id,
                 )
                 if submission.status != TaskSubmission.Status.PENDING:
                     messages.warning(request, "لم يُحفظ قرار جديد: هذا التسليم لم يعد قيد المراجعة. حدّث الصفحة للاطلاع على حالته.")
@@ -2503,12 +2530,14 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
                     submission.is_featured = is_featured
                 submission.reviewed_by = request.user
                 submission.reviewed_at = timezone.now()
+                participant = None
+                if limited or (action == "accept" and not submission.points_awarded):
+                    participant = Participant.objects.select_for_update().get(pk=submission.participant_id)
                 submission.save()
 
                 if action == "return_for_revision":
                     messages.success(request, "أُعيدت المهمة للتعديل مع ملاحظة للمشارك.")
                 if action == "accept" and not submission.points_awarded:
-                    participant = Participant.objects.select_for_update().get(pk=submission.participant_id)
                     points = 12 if is_featured else 10
                     description = f'قبول مهمة "{submission.task.title}"'
                     if is_featured:

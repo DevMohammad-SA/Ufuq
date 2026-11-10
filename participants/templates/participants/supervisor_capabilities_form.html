@@ -34,7 +34,7 @@
 
 {% block content %}
   <h1 class="page-title">صلاحيات محددة للمشرف</h1>
-  <p class="page-sub">إدارة المتجر ومتابعة المهام صلاحيتان مستقلتان. اختر إحداهما أو كلتيهما، أو ألغِ الاختيارين لسحب الصلاحيات المحددة، ثم أكّد الحفظ يدويًا.</p>
+  <p class="page-sub">إدارة المتجر ومتابعة وتصحيح المهام صلاحيتان مستقلتان. اختر إحداهما أو كلتيهما، أو ألغِ الاختيارين لسحب الصلاحيات المحددة، ثم أكّد الحفظ يدويًا.</p>
 
   {% if messages %}
     {% for message in messages %}<div class="page-message{% if 'error' in message.tags %} page-message--error{% endif %}" role="{% if 'error' in message.tags %}alert{% else %}status{% endif %}">{{ message }}</div>{% endfor %}
@@ -56,7 +56,7 @@
     {% if supervisor.role == "group_supervisor" %}
       <p class="capabilities-note capabilities-warning">عند الحفظ يتحول هذا الحساب إلى «مشرف بصلاحيات محددة»، وتُلغى صلاحيات مشرف البيئة وإسناد البيئات وتفويض تصحيح المهام؛ يبقى التاريخ والسجلات السابقة محفوظين. هذا التغيير يطبق حتى عند إلغاء الاختيارين.</p>
     {% elif supervisor.role == "limited_supervisor" %}
-      <p class="capabilities-note">يبقى الحساب «مشرفًا بصلاحيات محددة»؛ يُحفظ فقط اختيار إدارة المتجر ومتابعة المهام. إلغاء الاختيارين يسحب الصلاحيتين دون تغيير كلمة المرور.</p>
+      <p class="capabilities-note">يبقى الحساب «مشرفًا بصلاحيات محددة»؛ يُحفظ فقط اختيار إدارة المتجر ومتابعة وتصحيح المهام. إلغاء الاختيارين يسحب الصلاحيتين دون تغيير كلمة المرور.</p>
     {% endif %}
     {% if not supervisor.is_active %}
       <p class="capabilities-note capabilities-warning" role="alert">هذا الحساب غير نشط: لا يمكن حفظ صلاحيات ممنوحة له قبل تفعيله. ألغِ الاختيارين ثم احفظ لسحب جميع صلاحياته المحددة؛ إعادة تفعيل الحساب لا تمنح صلاحيات جديدة تلقائيًا.</p>
@@ -82,9 +82,9 @@
         <div class="capability-option">
           <label class="capability-check" for="{{ form.follow_tasks.id_for_label }}">
             {{ form.follow_tasks }}
-            <span>متابعة المهام — قراءة ومعاينة فقط</span>
+            <span>متابعة وتصحيح المهام</span>
           </label>
-          <p class="field-help">عرض المهام وتسليماتها ومعاينتها فقط، دون قبول أو رفض أو إنشاء أو تعديل أو إعادة فتح أو إلغاء تقييم، ودون منح أو تعديل نقاط.</p>
+          <p class="field-help">معاينة تسليمات جميع البيئات وقبولها عاديًا أو مع التميز، أو رفضها مع السبب. لا تشمل إنشاء المهام أو تعديلها أو إعادتها للطالب أو إعادة فتحها أو إلغاء تقييم سابق أو منح نقاط يدويًا.</p>
           {% if form.follow_tasks.help_text %}<p class="field-help">{{ form.follow_tasks.help_text }}</p>{% endif %}
           {% if form.follow_tasks.errors %}<div class="field-errors" role="alert">{{ form.follow_tasks.errors }}</div>{% endif %}
         </div>

@@ -20,14 +20,14 @@
 
 {% block content %}
   <h1 class="page-title">لوحة المشرف بصلاحيات محددة</h1>
-  <p class="page-sub">تظهر هنا الخدمات الممنوحة لحسابك فقط. إدارة المتجر ومتابعة المهام صلاحيتان مستقلتان يحددهما المشرف العام.</p>
+  <p class="page-sub">تظهر هنا الخدمات الممنوحة لحسابك فقط. إدارة المتجر ومتابعة وتصحيح المهام صلاحيتان مستقلتان يحددهما المشرف العام.</p>
 
   {% if messages %}
     {% for message in messages %}<div class="page-message{% if 'error' in message.tags %} page-message--error{% endif %}" role="{% if 'error' in message.tags %}alert{% else %}status{% endif %}">{{ message }}</div>{% endfor %}
   {% endif %}
 
   {% if can_manage_store or can_follow_tasks %}
-    <p class="limited-intro">هذه الصلاحيات لا تمنح دور المشرف العام أو مشرف البيئة. متابعة المهام للقراءة والمعاينة فقط، وإجراءات إدارة المتجر محصورة بمنتجاته وطلباته.</p>
+    <p class="limited-intro">هذه الصلاحيات لا تمنح دور المشرف العام أو مشرف البيئة. صلاحية المهام تتيح المعاينة والقبول والرفض، وإدارة المتجر محصورة بمنتجاته وطلباته.</p>
     <div class="capability-grid">
       {% if can_manage_store %}
         <section class="card capability-card" aria-labelledby="store-capability-title">
@@ -39,17 +39,17 @@
       {% endif %}
       {% if can_follow_tasks %}
         <section class="card capability-card" aria-labelledby="tasks-capability-title">
-          <span class="capability-kind">قراءة ومعاينة فقط</span>
-          <h2 id="tasks-capability-title">متابعة المهام</h2>
-          <p>عرض المهام وتسليماتها ومعاينتها فقط. لا تشمل هذه الصلاحية القبول أو الرفض أو إنشاء المهام أو تعديلها أو إعادة فتحها أو إلغاء التقييم أو تعديل النقاط.</p>
-          <a class="capability-link" href="{% url 'participants:weekly_task_review' %}">فتح متابعة المهام</a>
+          <span class="capability-kind">معاينة وقبول ورفض</span>
+          <h2 id="tasks-capability-title">متابعة وتصحيح المهام</h2>
+          <p>معاينة تسليمات الطلاب وقبولها عاديًا أو مع التميز، أو رفضها مع السبب. لا تشمل إنشاء المهام أو تعديلها أو إعادتها للطالب أو إعادة فتحها أو إلغاء تقييم سابق.</p>
+          <a class="capability-link" href="{% url 'participants:weekly_task_review' %}">فتح متابعة وتصحيح المهام</a>
         </section>
       {% endif %}
     </div>
   {% else %}
     <section class="card limited-empty" aria-labelledby="limited-empty-title">
       <h2 id="limited-empty-title">لم تُمنح لك صلاحيات بعد</h2>
-      <p>لم تُمنح لك صلاحيات إدارة المتجر أو متابعة المهام بعد. تواصل مع المشرف العام لتحديد الصلاحيات المناسبة لحسابك.</p>
+      <p>لم تُمنح لك صلاحيات إدارة المتجر أو متابعة وتصحيح المهام بعد. تواصل مع المشرف العام لتحديد الصلاحيات المناسبة لحسابك.</p>
     </section>
   {% endif %}
 {% endblock %}

@@ -218,7 +218,7 @@ class SupervisorListView(AccountManagementView):
                 if capability.manage_store:
                     supervisor.capabilities_labels.append("إدارة المتجر")
                 if capability.follow_tasks:
-                    supervisor.capabilities_labels.append("متابعة المهام للقراءة فقط")
+                    supervisor.capabilities_labels.append("متابعة وتصحيح المهام")
             if supervisor.is_superuser:
                 supervisor.protection_note = "حساب إداري محمي؛ يُدار من مشرف النظام."
             elif supervisor.has_participant_profile:

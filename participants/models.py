@@ -775,7 +775,7 @@ class SupervisorCapability(models.Model):
         related_name="limited_capabilities", verbose_name="المشرف",
     )
     manage_store = models.BooleanField(default=False, verbose_name="إدارة المتجر")
-    follow_tasks = models.BooleanField(default=False, verbose_name="متابعة المهام للقراءة فقط")
+    follow_tasks = models.BooleanField(default=False, verbose_name="متابعة وتصحيح المهام")
     granted_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
         related_name="+", verbose_name="حدّث الصلاحيات",

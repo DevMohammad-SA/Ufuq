@@ -35,9 +35,10 @@ def can_prepare_elite_trip(user):
 
 
 def can_review_task_submissions(user):
-    # A review delegation must never turn limited follow-up into grading.
+    # LIMITED uses the explicit fresh flag, never legacy group delegation.
     if user.role == Role.LIMITED_SUPERVISOR:
-        return False
+        from .capabilities import can_follow_tasks
+        return can_follow_tasks(user)
     if can_manage_tasks(user):
         return True
     return user.role == Role.GROUP_SUPERVISOR and TaskReviewPermission.objects.filter(

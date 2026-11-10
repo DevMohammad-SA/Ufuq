@@ -387,7 +387,7 @@ SUBMISSION_FORMAT_EXTENSIONS = {
 |---|---|---|
 | `supervisor` | `OneToOneField(AUTH_USER_MODEL, CASCADE, related_name="limited_capabilities")` | صف واحد للمشرف؛ غياب الصف لا يمنح شيئًا. |
 | `manage_store` | `BooleanField(default=False)` | إدارة المتجر ومنتجاته وطلباته فقط. |
-| `follow_tasks` | `BooleanField(default=False)` | متابعة تسليمات المهام ومعاينتها للقراءة فقط. |
+| `follow_tasks` | `BooleanField(default=False)` | متابعة ومعاينة التسليمات وقبول المعلّق عاديًا/متميزًا أو رفضه، دون إدارة المهمة أو الإعادة أو إلغاء التقييم. |
 | `granted_by` | `FK(AUTH_USER_MODEL, SET_NULL, null=True, related_name="+")` | المشرف العام الذي عدّل المنح، أو مدير سحبها ضمن تغيير الحساب. |
 | `updated_at` | `DateTimeField(auto_now=True)` | تاريخ آخر تغيير فعلي؛ لا يحدّثه تكرار النتيجة نفسها. |
 
@@ -397,3 +397,8 @@ SUBMISSION_FORMAT_EXTENSIONS = {
 الجدول في participants فقط، بلا تحويل أدوار أو نسخ grants أو إعادة حساب أرصدة
 قديمة. تحقق الفاعل والهدف والتأكيد والأقفال في عرض الصلاحيات، والتدقيق في
 `LogEntry` وفق إدارة الحسابات القائمة، لا في حقل كلمة المرور أو signals.
+
+منذ توسيع الصلاحية في10 نوفمبر2026، يستعمل التصحيح العلم نفسه والمنح الموجودة؛
+`0026_limited_task_grading_label` تغير وصف الحقل فقط بـ`AlterField` ولا تنقل
+بيانات أو تعدّل أعلام منح أو أرصدة أو حسابات. الإذن الفعلي يعاد فحصه تحت
+قفل حساب المشرف قبل أي قبول أو رفض.
