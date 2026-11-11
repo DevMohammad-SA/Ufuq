@@ -1731,6 +1731,9 @@ class AddParticipantView(LoginRequiredMixin, UserPassesTestMixin, FormView):
     template_name = "participants/add_participant.html"
     form_class = SingleParticipantForm
 
+    def get_login_url(self):
+        return reverse("accounts:login_supervisor")
+
     def test_func(self):
         from .capabilities import can_manage_students
         return can_manage_students(self.request.user)

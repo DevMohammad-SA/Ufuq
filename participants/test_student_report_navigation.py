@@ -149,3 +149,12 @@ class StudentReportNavigationTests(TestCase):
                             self.assertNotContains(response, detail_href)
                             self.assertNotContains(response, data_href)
                         self.assertContains(response, "data-roster-form")
+
+    def test_anonymous_add_student_uses_real_supervisor_login_route(self):
+        url = reverse("participants:add_participant")
+        before = (User.objects.count(), Participant.objects.count())
+        response = self.client.get(url)
+        self.assertRedirects(
+            response, reverse("accounts:login_supervisor") + "?next=" + url,
+        )
+        self.assertEqual((User.objects.count(), Participant.objects.count()), before)
