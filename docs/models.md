@@ -402,3 +402,15 @@ SUBMISSION_FORMAT_EXTENSIONS = {
 `0026_limited_task_grading_label` تغير وصف الحقل فقط بـ`AlterField` ولا تنقل
 بيانات أو تعدّل أعلام منح أو أرصدة أو حسابات. الإذن الفعلي يعاد فحصه تحت
 قفل حساب المشرف قبل أي قبول أو رفض.
+
+### صلاحيات الطلاب والتقارير — 11 نوفمبر2026
+
+الهجرة`0027_supervisor_student_report_permissions` تضيف
+`SupervisorCapability.manage_students` (`BooleanField(default=False)`) ونموذج
+`SupervisorReportPermission`: علاقةOneToOne للمشرف باسم`report_permissions`،
+وعلما`view_reports` و`prepare_reports` افتراضيهماFalse، و`granted_by` و`updated_at`.
+غياب السجل يعني وراثة السلوك السابق، وFalse الصريح منع قابل للتطبيق حتى على
+العام؛ الإعداد يتطلب الاطلاع. علم الطلاب للمحدود أو البيئة المفوضين فقط،
+بينما إدارة العام/النظام موروثة. علمَا المتجر والمهام يبقيان للمحدود فقط.
+لا بيانات تحويل أو سياسات تلقائية أو تعديلUser/أرصدة، والسحب يحفظ سجل المنع.
+تفاصيل النطاق والتأكيد في[صلاحيات الطلاب والتقارير](student-report-permissions.md).

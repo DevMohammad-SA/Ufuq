@@ -117,7 +117,7 @@
                 <td>{{ supervisor.national_id|default:"—" }}</td>
                 <td>
                   {{ supervisor.get_role_display }}
-                  {% if supervisor.role == "limited_supervisor" %}
+                  {% if supervisor.role == "limited_supervisor" or supervisor.capabilities_labels %}
                     <div class="capability-badges">
                       {% for capability_label in supervisor.capabilities_labels %}
                         <span class="capability-badge">{{ capability_label }}</span>
@@ -126,6 +126,7 @@
                       {% endfor %}
                     </div>
                   {% endif %}
+                  <span class="person-meta">التقارير: {% if supervisor.report_view_allowed %}{% if supervisor.report_prepare_allowed %}اطلاع وإعداد{% else %}اطلاع فقط{% endif %}{% else %}غير متاحة{% endif %}</span>
                 </td>
                 <td class="group-list">
                   {% if supervisor.role == "limited_supervisor" %}
@@ -155,6 +156,9 @@
                     {% endif %}
                     {% if supervisor.can_configure_capabilities %}
                       <a class="action-button action-button--grant" href="{% url 'participants:supervisor_capabilities' pk=supervisor.pk %}">صلاحيات محددة</a>
+                    {% endif %}
+                    {% if supervisor.can_configure_student_reports %}
+                      <a class="action-button action-button--grant" href="{% url 'participants:supervisor_student_reports' pk=supervisor.pk %}">صلاحيات الطلاب والتقارير</a>
                     {% endif %}
                     {% if supervisor.can_grant_general %}
                       <a class="action-button action-button--grant" href="{% url 'participants:supervisor_grant_general' pk=supervisor.pk %}">منح صلاحية المشرف العام</a>

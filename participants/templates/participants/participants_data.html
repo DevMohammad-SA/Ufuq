@@ -172,7 +172,7 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
     {% if not participants %}
       <p class="empty-note">لا توجد بيانات مشاركين لعرضها حتى الآن.</p>
     {% else %}
-      <a href="#" id="export-pdf-btn" class="export-pdf-btn">تصدير PDF</a>
+      {% if can_prepare_reports %}<a href="#" id="export-pdf-btn" class="export-pdf-btn">تصدير PDF</a>{% endif %}
 
       <input type="text" id="roster-search" class="roster-search" placeholder="ابحث بالاسم أو رقم الهوية…" autocomplete="off">
 

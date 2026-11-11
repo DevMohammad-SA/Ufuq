@@ -20,6 +20,11 @@ from .management_views import (
     record_management,
 )
 from .models import Participant
+from .capabilities import student_management_role
+from .student_management import (
+    ACCOUNT_MANAGER_ROLES, can_manage_students, can_view_student_reports,
+    student_management_participants,
+)
 
 
 PARTICIPANT_STATUS_VALUES = ("active", "inactive", "all")
@@ -56,22 +61,41 @@ class ParticipantStatusView(AccountManagementView):
     success_message = ""
     unchanged_message = ""
 
+    def test_func(self):
+        # Restoration never inherits delegated student-management authority.
+        if self.desired_is_active:
+            return student_management_role(self.request.user) in ACCOUNT_MANAGER_ROLES
+        return can_manage_students(self.request.user)
+
+    def actor_check(self, user):
+        if self.desired_is_active:
+            return can_manage_accounts(user)
+        return can_manage_students(user)
+
     def target(self, pk):
         return get_object_or_404(
-            Participant.objects.select_related("user", "group").filter(
-                user__role=Role.PARTICIPANT,
-                user__is_staff=False,
-                user__is_superuser=False,
-            ),
+            student_management_participants(self.request.user).select_related("user", "group"),
             pk=pk,
         )
 
     def confirmation_context(self, participant):
+        destination = "participants:student_management"
+        if student_management_role(self.request.user) in ACCOUNT_MANAGER_ROLES and can_view_student_reports(self.request.user):
+            destination = "participants:participants_data"
+        cancel_url = "{}?status={}".format(
+            reverse(destination), "inactive" if self.desired_is_active else "active",
+        )
         return self.context(
             "data",
             participant=participant,
             is_restore=self.desired_is_active,
             action_label=self.action_label,
+            can_manage_accounts=student_management_role(self.request.user) in ACCOUNT_MANAGER_ROLES,
+            can_manage_students=can_manage_students(self.request.user),
+            can_restore_students=student_management_role(self.request.user) in ACCOUNT_MANAGER_ROLES,
+            can_view_reports=can_view_student_reports(self.request.user),
+            status_cancel_url=cancel_url,
+            management_return_url=cancel_url,
         )
 
     def render_confirmation(self, participant, status=200):
@@ -89,7 +113,7 @@ class ParticipantStatusView(AccountManagementView):
         # The target is read once for a helpful confirmation-error response.
         # Its identity and privileges are checked again under row locks below.
         participant = self.target(pk)
-        if request.POST.get("confirm") != "yes":
+        if request.POST.getlist("confirm") != ["yes"]:
             messages.error(request, "يجب تأكيد الإجراء أولًا؛ لم تتغير حالة الحساب")
             return self.render_confirmation(participant, status=400)
 
@@ -97,7 +121,10 @@ class ParticipantStatusView(AccountManagementView):
         with transaction.atomic():
             # ``locked_users`` takes actor/target locks in primary-key order and
             # rechecks the actor's active management authority inside the lock.
-            actor, user = locked_users(request.user.pk, participant.user_id)
+            actor, user = locked_users(
+                request.user.pk, participant.user_id, no_key=True,
+                actor_check=self.actor_check,
+            )
             if actor.pk == user.pk:
                 raise PermissionDenied("لا يمكنك تغيير حالة حسابك من هذه الصفحة")
             if (
@@ -110,8 +137,10 @@ class ParticipantStatusView(AccountManagementView):
             # Lock the program row only after the consistently ordered User
             # locks.  It must still be the same participant target at commit.
             participant = get_object_or_404(
-                Participant.objects.select_for_update(), pk=pk, user_id=user.pk
+                student_management_participants(actor).select_for_update(of=("self",)),
+                pk=pk, user_id=user.pk,
             )
+            request.user = actor
             if user.is_active != self.desired_is_active:
                 user.is_active = self.desired_is_active
                 user.save(update_fields=["is_active"])
@@ -122,9 +151,12 @@ class ParticipantStatusView(AccountManagementView):
             messages.success(request, self.success_message)
         else:
             messages.info(request, self.unchanged_message)
+        destination = "participants:student_management"
+        if actor.role in ACCOUNT_MANAGER_ROLES and can_view_student_reports(actor):
+            destination = "participants:participants_data"
         return redirect(
             "{}?status={}".format(
-                reverse("participants:participants_data"),
+                reverse(destination),
                 "active" if self.desired_is_active else "inactive",
             )
         )

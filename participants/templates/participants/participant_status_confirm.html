@@ -13,7 +13,7 @@
 .confirm-check input{width:18px;height:18px;margin:3px 0 0;accent-color:{% if is_restore %}var(--gold-ink){% else %}var(--alert){% endif %};flex:none}
 .confirm-check span{color:var(--asphalt)}
 .form-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:var(--s3)}
-.status-button,.cancel-button{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:9px 18px;border:1px solid {% if is_restore %}var(--gold){% else %}var(--alert){% endif %};border-radius:99px;background:{% if is_restore %}var(--gold){% else %}var(--alert){% endif %};color:{% if is_restore %}var(--asphalt){% else %}#fff{% endif %};font:700 14px var(--font-display);text-decoration:none;cursor:pointer}
+.status-button,.cancel-button{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:9px 18px;border:1px solid {% if is_restore %}var(--gold){% else %}var(--alert){% endif %};border-radius:99px;background:{% if is_restore %}var(--gold){% else %}var(--alert){% endif %};color:{% if is_restore %}var(--asphalt){% else %}#fff{% endif %};font:700 14px var(--font-display);text-decoration:none;cursor:pointer}
 .status-button:hover{background:{% if is_restore %}var(--gold-soft){% else %}#963e29{% endif %};border-color:{% if is_restore %}var(--gold-ink){% else %}#963e29{% endif %}}
 .cancel-button{border-color:var(--line);background:#fff;color:var(--asphalt)}
 .cancel-button:hover{background:var(--sand);border-color:var(--asphalt)}
@@ -59,7 +59,7 @@
 
       <div class="form-actions">
         <button type="submit" class="status-button">{% if is_restore %}إعادة تفعيل الحساب{% else %}أرشفة الحساب{% endif %}</button>
-        <a class="cancel-button" href="{% url 'participants:participants_data' %}?status={% if is_restore %}inactive{% else %}active{% endif %}">إلغاء</a>
+        <a class="cancel-button" href="{{ status_cancel_url|default:management_return_url }}">إلغاء</a>
       </div>
     </form>
   </section>

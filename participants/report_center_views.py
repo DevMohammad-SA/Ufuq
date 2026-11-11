@@ -1,35 +1,32 @@
-"""General-only report presentation and exports; no domain writes."""
+"""Independent report viewing/preparation permissions; no domain writes."""
 import logging
 
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.http import HttpResponse, HttpResponseBadRequest
 from django.utils import timezone
 from django.utils.cache import patch_cache_control
 from django.views.generic import TemplateView, View
 
+from .capabilities import current_report_access
 from .report_center import (
     ReportCenterFilterForm, build_filter_labels, build_reports,
     can_access_report_center,
 )
+from .reporting import PrivateReportResponseMixin
 from .views import build_navbar
 from .report_group_charts import build_group_comparison
 
 logger = logging.getLogger(__name__)
 
 
-class ReportCenterAccessMixin(LoginRequiredMixin, UserPassesTestMixin):
+class ReportCenterAccessMixin(PrivateReportResponseMixin, LoginRequiredMixin, UserPassesTestMixin):
     login_url = "accounts:login_supervisor"
     http_method_names = ["get", "head", "options"]
 
     def test_func(self):
         return can_access_report_center(self.request.user)
-
-    def dispatch(self, request, *args, **kwargs):
-        response = super().dispatch(request, *args, **kwargs)
-        # Includes redirects, filter errors, OPTIONS and method-not-allowed.
-        patch_cache_control(response, private=True, no_store=True)
-        return response
 
 
 class ReportCenterView(ReportCenterAccessMixin, TemplateView):
@@ -37,6 +34,13 @@ class ReportCenterView(ReportCenterAccessMixin, TemplateView):
     page_size = 50
 
     def get_context_data(self, **kwargs):
+        access = current_report_access(self.request.user)
+        if not (access["can_view"] and access["can_center"]):
+            return {
+                "form": None, "reports": [], "group_comparison": None,
+                "filter_labels": [], "filters_valid": False,
+                "navbar_items": [], "can_prepare_reports": False,
+            }
         form = ReportCenterFilterForm(self.request.GET, user=self.request.user)
         valid = form.is_valid()
         reports = build_reports(self.request.user, form.cleaned_data) if valid else []
@@ -61,11 +65,20 @@ class ReportCenterView(ReportCenterAccessMixin, TemplateView):
             "pagination_query": query + "&" if query else "",
             "filters_valid": valid,
             "navbar_items": build_navbar(self.request.user, "report_center"),
+            "can_prepare_reports": access["can_prepare"],
         }
 
 
 class ReportCenterExportView(ReportCenterAccessMixin, View):
+    def test_func(self):
+        access = current_report_access(self.request.user)
+        return bool(access["can_view"] and access["can_prepare"] and access["can_center"])
+
     def get(self, request, *args, **kwargs):
+        # Also protect direct calls and recheck before validation/data/imports.
+        access = current_report_access(request.user)
+        if not (access["can_view"] and access["can_prepare"] and access["can_center"]):
+            raise PermissionDenied("لا تملك صلاحية إعداد وتصدير التقارير.")
         formats = request.GET.getlist("format")
         if len(formats) != 1 or formats[0] not in ("pdf", "xlsx"):
             return HttpResponseBadRequest("صيغة التصدير غير صالحة؛ اختر PDF أو Excel.")

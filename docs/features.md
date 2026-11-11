@@ -247,15 +247,22 @@
 - **صلاحيات محددة:** `SupervisorCapabilitiesView` — المسار
   `participants:supervisor_capabilities` (`supervisors/<pk>/capabilities/`)،
   والقالب `participants/supervisor_capabilities_form.html`. العام النشط فقط
-  يختار إدارة المتجر أو متابعة وتصحيح المهام (قبول عادي/متميز ورفض) أو كليهما، ويسحبهما من
+  يختار المتجر أو تصحيح المهام أو إدارة الطلاب مستقلاً، ويسحب الأعلام من
   حساب مؤهل. التحويل من البيئة يوضح إزالة الصلاحيات السابقة ويحتاج تأكيدًا؛
   الحساب محدود لا عام ولا بيئة ولا يحصل على امتياز أدمن أو بيانات عامة.
   لا هدف ذاتي/عام/نظام/superuser/ملف مشارك، ولا منح تلقائي عند إعادة التفعيل.
 - **بداية المشرف المحدود:** `LimitedSupervisorDashboardView` — المسار
   `participants:limited_supervisor_dashboard` (`limited-supervisor/dashboard/`)،
   والقالب `participants/limited_supervisor_dashboard.html`. بداية خاصة للدور
-  النشط تُظهر بطاقتي المتجر/المهام الممنوحتين فقط، أو تنبيه عدم وجود منح؛
+  النشط تُظهر الأقسام الممنوحة فقط: المتجر/المهام/إدارة الطلاب/التقارير؛
   وتوجيه الدخول والتنقل والشارات يطابقان نطاقه دون fallback قائمة العام.
+- **الطلاب والتقارير دون تغيير الدور:** `SupervisorStudentReportsView`
+  و`StudentManagementListView`؛ العام يمنح الطلاب ويسحب الاطلاع أو إصدار ملفات
+  التقارير من مشرف آخر، بما فيه العام كهدف آخر، دون تغيير الدور أو البيئات.
+  قائمة بيانات أساسية للمفوّض دون أرصدة أو سجلات، وإضافة/تعديل/تعطيل ناعم
+  ضمن بيئاتGroup أو جميع بيئاتLimited؛ الاستعادة والاستيراد ليسا مفوضين.
+  لا تجاوز لتقارير محجوبة عبر الملف أوPDF أو رسوم العام، وتبقى الأعمال
+  التشغيلية مستقلة. راجع[السياسة التفصيلية](student-report-permissions.md).
 - **تعطيل مشرف:** `SupervisorDeleteView` — المسار
   `participants:supervisor_delete` (`supervisors/<pk>/delete/`) والقالب
   `participants/supervisor_delete_confirm.html`. يعرض `GET` تأكيدًا فقط؛ لا يتم
@@ -592,6 +599,7 @@
 | `student-report/` **(غير موسوم بعد)** | `participants:student_report` |
 | `reports/` | `participants:report_center` |
 | `reports/export/` | `participants:report_center_export` |
+| `students/manage/` | `participants:student_management` |
 | `students/<int:pk>/` **(غير موسوم بعد)** | `participants:student_detail` |
 | `students/<int:pk>/edit/` | `participants:participant_edit` |
 | `students/<int:pk>/delete/` | `participants:participant_delete` |
@@ -609,7 +617,8 @@
 | `data/export-pdf/` | `participants:participants_data_pdf` |
 | `supervisors/` | `participants:supervisor_list` |
 | `supervisors/add/` | `participants:supervisor_add` |
-| `supervisors/<int:pk>/edit/` | `participants:supervisor_edit` |
+| `supervisors/<int:pk>/` | `participants:supervisor_edit` |
+| `supervisors/<int:pk>/student-reports/` | `participants:supervisor_student_reports` |
 | `supervisors/<int:pk>/delete/` | `participants:supervisor_delete` |
 | `supervisors/<int:pk>/grant-general/` | `participants:supervisor_grant_general` |
 | `supervisors/<int:pk>/capabilities/` | `participants:supervisor_capabilities` |

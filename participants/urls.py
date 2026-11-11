@@ -10,6 +10,8 @@ from .management_views import (
     SupervisorGrantGeneralView, SupervisorCapabilitiesView, LimitedSupervisorDashboardView,
 )
 from .participant_lifecycle import ParticipantDeleteView, ParticipantRestoreView
+from .student_management import StudentManagementListView
+from .supervisor_permissions import SupervisorStudentReportsView
 
 app_name = "participants"
 
@@ -29,6 +31,7 @@ urlpatterns = [
     path("student-report/", StudentReportView.as_view(), name="student_report"),
     path("reports/", ReportCenterView.as_view(), name="report_center"),
     path("reports/export/", ReportCenterExportView.as_view(), name="report_center_export"),
+    path("students/manage/", StudentManagementListView.as_view(), name="student_management"),
     path("students/<int:pk>/", StudentDetailView.as_view(), name="student_detail"),
     path("students/<int:pk>/edit/", ParticipantEditView.as_view(), name="participant_edit"),
     path("students/<int:pk>/delete/", ParticipantDeleteView.as_view(), name="participant_delete"),
@@ -39,6 +42,7 @@ urlpatterns = [
     path("supervisors/<int:pk>/delete/", SupervisorDeleteView.as_view(), name="supervisor_delete"),
     path("supervisors/<int:pk>/grant-general/", SupervisorGrantGeneralView.as_view(), name="supervisor_grant_general"),
     path("supervisors/<int:pk>/capabilities/", SupervisorCapabilitiesView.as_view(), name="supervisor_capabilities"),
+    path("supervisors/<int:pk>/student-reports/", SupervisorStudentReportsView.as_view(), name="supervisor_student_reports"),
     path("limited-supervisor/dashboard/", LimitedSupervisorDashboardView.as_view(), name="limited_supervisor_dashboard"),
     path("data/export-pdf/", views.ParticipantsDataPDFExportView.as_view(), name="participants_data_pdf"),
     path("tasks/review/", views.WeeklyTaskReviewView.as_view(), name="weekly_task_review"),

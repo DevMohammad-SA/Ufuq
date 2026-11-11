@@ -1,4 +1,4 @@
-"""Read-only general-supervisor report centre.
+"""Read-only report centre with fresh permissions and persisted-role scope.
 
 All inputs passed to build_reports must be the valid filter form's cleaned_data.
 Each activity is aggregated independently: no multi-relation joins, guessed
@@ -17,13 +17,15 @@ from django.db.models import Count, Q, Sum
 from django.urls import reverse
 from django.utils import timezone
 
-from accounts.models import Role
+from .capabilities import can_view_report_center, current_report_access
 from .models import (
     AcademicStage, CircleAttendance, EliteTripAttendance, Group, MeetingAttendance, MeetingNote,
     Participant, PointsLedgerEntry, TaskSubmission, WeeklyActivityAttendance,
     WeeklyTask,
 )
-from .reporting import allowed_groups, date_window, scoped_participants
+from .reporting import (
+    allowed_groups, can_view_private_report_notes, date_window, scoped_participants,
+)
 
 RIYADH = ZoneInfo("Asia/Riyadh")
 REPORT_CHOICES = (
@@ -91,11 +93,8 @@ BALANCE_NOTE = (
 
 
 def can_access_report_center(user):
-    return bool(
-        getattr(user, "is_authenticated", False)
-        and getattr(user, "is_active", False)
-        and getattr(user, "role", None) == Role.GENERAL_SUPERVISOR
-    )
+    """Compatibility entry point; permission policy is owned by capabilities."""
+    return can_view_report_center(user)
 
 
 class ISODateField(forms.DateField):
@@ -203,13 +202,13 @@ class ReportCenterFilterForm(forms.Form):
                 supplied["reports"] = ["summary"]
         super().__init__(data=supplied, **kwargs)
         self.initial.update({**DEFAULTS, "reports": ["summary"], "include_private": False})
-        if getattr(user, "is_authenticated", False) and getattr(user, "is_active", False):
+        access = current_report_access(user)
+        if access["can_view"]:
             # All inactive participant accounts remain selectable; status
             # compatibility is a clean-time error, not a hidden option filter.
-            self.fields["group"].queryset = allowed_groups(user)
-            self.fields["participant"].queryset = scoped_participants(user).select_related("user").order_by("user__full_name", "pk")
-            if getattr(user, "role", None) in (Role.GROUP_SUPERVISOR, Role.GENERAL_SUPERVISOR, Role.SUPERADMIN):
-                self.fields["task"].queryset = WeeklyTask.objects.order_by("-due_date", "pk")
+            self.fields["group"].queryset = allowed_groups(user, _access=access)
+            self.fields["participant"].queryset = scoped_participants(user, _access=access).select_related("user").order_by("user__full_name", "pk")
+            self.fields["task"].queryset = WeeklyTask.objects.order_by("-due_date", "pk")
 
     def clean(self):
         data = super().clean()
@@ -270,8 +269,8 @@ def _window(queryset, field, filters, *, timestamp=False):
         return date_window(queryset, field, filters.get("start_date"), filters.get("end_date"), timestamp=timestamp)
 
 
-def _cohort(user, filters):
-    students = scoped_participants(user)
+def _cohort(user, filters, *, _access=None):
+    students = scoped_participants(user, _access=_access)
     if filters.get("group"):
         students = students.filter(group=filters["group"])
     if filters.get("academic_stage"):
@@ -332,8 +331,8 @@ def _status_label(item):
     return item.get_status_display()
 
 
-def _load_data(user, filters):
-    cohort = _cohort(user, filters)
+def _load_data(user, filters, *, _access=None):
+    cohort = _cohort(user, filters, _access=_access)
     students = list(cohort.select_related("user", "group").order_by("user__full_name", "pk"))
     ids = cohort.order_by().values("pk")
     data = {
@@ -472,7 +471,7 @@ def _student_summary_sections(data):
     return sections
 
 
-def _attendance_detail_sections(data, user, filters):
+def _attendance_detail_sections(data, user, filters, *, _access=None):
     """Bulk saved rows and missing rows on observed CURRENT group dates only."""
     students_by_group = defaultdict(list)
     for p in data["students"]:
@@ -501,7 +500,7 @@ def _attendance_detail_sections(data, user, filters):
             # Deliberately independent of participant/stage/status filters:
             # evidence of an observed date can come from a cohort-excluded peer.
             observed = _window(model.objects.filter(
-                participant__in=scoped_participants(user), participant__group_id__in=group_ids,
+                participant__in=scoped_participants(user, _access=_access), participant__group_id__in=group_ids,
             ), field, filters).order_by(field, "participant__group_id").values_list(
                 "participant__group_id", field,
             ).distinct()
@@ -550,12 +549,16 @@ def _ledger_section(data, include_private):
     return _section("حركات الدفتر المطابقة لأساس التاريخ المختار", columns, rows)
 
 
-def _private_sections(data, filters):
+def _private_sections(data, filters, *, include_meeting_notes):
     # Never called or queried when the explicit private-data checkbox is off.
     sections = [_section("بيانات الهوية والتواصل الخاصة — تضمين صريح", [
         "الطالب", "الهوية", "جوال الطالب", "جوال ولي الأمر",
     ], [_student_row(p, [p.user.national_id or "—", p.phone or "—", p.guardian_phone or "—"])
         for p in data["students"]])]
+    if not include_meeting_notes:
+        # LIMITED/SUPERADMIN may see contact data on explicit request, but must
+        # never query MeetingNote.text, even with include_private enabled.
+        return sections
     notes = _window(MeetingNote.objects.filter(participant_id__in=list(data["by_id"])), "meeting_date", filters)
     sections.append(_section("ملاحظات اللقاء الخاصة — تضمين صريح", ["الطالب", "تاريخ اللقاء", "الملاحظة"], [
         _student_row(data["by_id"][item["participant_id"]], [item["meeting_date"], item["text"]])
@@ -687,7 +690,7 @@ def _students_report(data, filters):
                      ("صافي نقاط الفترة", _point_counts(data)["net"])]), sections, []
 
 
-def _attendance_report(data, user, filters):
+def _attendance_report(data, user, filters, *, _access=None):
     sections = []
     metrics = []
     for key, label, model, field, extra, extra_label in ATTENDANCE_SOURCES:
@@ -699,7 +702,7 @@ def _attendance_report(data, user, filters):
     sections = _student_summary_sections(data)[2:]
     notes = ["إنجاز الحلقة والحضور المبكر مستقلان عن الحضور؛ إنجاز الفعالية هو علم attended المحفوظ."]
     if filters.get("detail") == "detailed":
-        sections.extend(_attendance_detail_sections(data, user, filters))
+        sections.extend(_attendance_detail_sections(data, user, filters, _access=_access))
         notes.append(MISSING_NOTE)
         missing = sum(len(s["rows"]) for s in sections if "صفوف غير مسجلة" in s["title"])
         notes.append(f"عدد الصفوف غير المسجلة على تواريخ التحضير الملاحظة فقط: {missing}؛ لا يدخل في الغياب أو مقام أي نسبة.")
@@ -745,8 +748,8 @@ def _tasks_report(data, user, filters):
                      *zip(STATUS_LABELS, [totals[key] for key in STATUS_KEYS])]), sections, notes
 
 
-def _groups_report(data, user, filters):
-    groups = allowed_groups(user)
+def _groups_report(data, user, filters, *, _access=None):
+    groups = allowed_groups(user, _access=_access)
     if filters.get("group"):
         groups = groups.filter(pk=filters["group"].pk)
     buckets = {group.pk: (group.name, []) for group in groups}
@@ -790,15 +793,18 @@ def _groups_report(data, user, filters):
 
 
 def build_reports(user, filters):
-    """Build COMPLETE reports without pagination. Strict general-only boundary."""
-    if not can_access_report_center(user):
-        raise PermissionDenied("مركز التقارير متاح للمشرف العام النشط فقط.")
+    """Build COMPLETE reports behind one fresh access and persisted-role scope."""
+    access = current_report_access(user)
+    if not (access["can_view"] and access["can_center"]):
+        raise PermissionDenied("لا تملك صلاحية الاطلاع على مركز التقارير.")
     selected = list(dict.fromkeys(filters.get("reports", ["summary"])))
     if not selected or any(key not in dict(REPORT_CHOICES) for key in selected):
         raise forms.ValidationError("اختر تقارير صالحة من القائمة المتاحة.")
-    data = _load_data(user, filters)
+    data = _load_data(user, filters, _access=access)
     common_notes = _common_notes(data, filters)
-    private = _private_sections(data, filters) if filters.get("include_private") else []
+    private = _private_sections(
+        data, filters, include_meeting_notes=can_view_private_report_notes(user, _access=access),
+    ) if filters.get("include_private") else []
     reports = []
     descriptions = {
         "summary": "نظرة عامة على النشاط الفعلي وحالات التسليم والنقاط ضمن الفلاتر.",
@@ -813,11 +819,11 @@ def build_reports(user, filters):
         elif key == "students":
             metrics, sections, notes = _students_report(data, filters)
         elif key == "attendance":
-            metrics, sections, notes = _attendance_report(data, user, filters)
+            metrics, sections, notes = _attendance_report(data, user, filters, _access=access)
         elif key == "tasks":
             metrics, sections, notes = _tasks_report(data, user, filters)
         else:
-            metrics, sections, notes = _groups_report(data, user, filters)
+            metrics, sections, notes = _groups_report(data, user, filters, _access=access)
         # Copy containers because display pagination must not mutate another
         # report's shared private sections; exports always call this afresh.
         sections = sections + [{"title": s["title"], "columns": s["columns"][:], "rows": s["rows"][:]} for s in private]

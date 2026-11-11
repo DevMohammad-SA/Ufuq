@@ -28,11 +28,11 @@ from participants.models import (
 
 
 class CapabilityFormTests(SimpleTestCase):
-    def test_fields_are_exactly_two_independent_flags_and_required_confirmation(self):
+    def test_fields_are_exactly_three_independent_flags_and_required_confirmation(self):
         form = SupervisorCapabilitiesForm()
-        self.assertEqual(set(form.fields), {"manage_store", "follow_tasks", "confirm"})
+        self.assertEqual(set(form.fields), {"manage_store", "follow_tasks", "manage_students", "confirm"})
         self.assertEqual(form.fields["follow_tasks"].label, "متابعة وتصحيح المهام")
-        for field in ("manage_store", "follow_tasks"):
+        for field in ("manage_store", "follow_tasks", "manage_students"):
             self.assertFalse(form.fields[field].required)
             self.assertEqual(form.fields[field].widget.attrs["value"], "yes")
         self.assertTrue(form.fields["confirm"].required)
@@ -50,7 +50,7 @@ class CapabilityFormTests(SimpleTestCase):
                 self.assertEqual((form.cleaned_data["manage_store"], form.cleaned_data["follow_tasks"]), (store, follow))
 
     def test_malformed_and_duplicate_flags_or_confirm_are_rejected(self):
-        for field in ("manage_store", "follow_tasks", "confirm"):
+        for field in ("manage_store", "follow_tasks", "manage_students", "confirm"):
             for value in ("no", "true", "1", "YES", " yes ", ["yes", "yes"], ["no", "yes"]):
                 with self.subTest(field=field, value=value):
                     form = SupervisorCapabilitiesForm({"confirm": "yes", field: value})
@@ -450,7 +450,9 @@ class LimitedCapabilityTests(TestCase):
         with CaptureQueriesContext(connection) as queries:
             response = self.client.get(reverse("participants:supervisor_list"), {"status": "all"})
         capability_selects = [entry["sql"] for entry in queries if "participants_supervisorcapability" in entry["sql"] and entry["sql"].lstrip().upper().startswith("SELECT")]
-        self.assertEqual(len(capability_selects), 1)
+        # One bulk supervisor fetch and one fresh actor authorization for the
+        # student-management navbar, never one query per displayed supervisor.
+        self.assertEqual(len(capability_selects), 2)
         staff_row = next(user for user in response.context["supervisors"] if user.pk == self.staff.pk)
         self.assertFalse(staff_row.can_edit_supervisor)
         self.assertTrue(staff_row.can_configure_capabilities)

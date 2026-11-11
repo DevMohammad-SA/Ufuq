@@ -137,6 +137,7 @@
   </section>
   {% endif %}
 
+  {% if can_view_reports %}
   <h2 class="page-title" style="font-size:20px; margin-top:var(--s2)">نظرة عامة على البرنامج</h2>
 
   <div class="chart-grid">
@@ -166,6 +167,7 @@
   </div>
 
   {{ charts_data|json_script:"charts-data" }}
+  {% endif %}
 
   <section class="card">
     <h2>استيراد المشاركين</h2>
@@ -173,11 +175,19 @@
     <a class="btn" href="{% url 'participants:import_participants' %}">فتح صفحة الاستيراد</a>
   </section>
 
+  {% if can_view_reports %}
   <section class="card">
     <h2>بيانات المشاركين</h2>
     <p>عرض تفصيلي لجميع المشاركين في كل البيئات، مع إمكانية البحث والفرز.</p>
     <a class="btn" href="{% url 'participants:participants_data' %}">فتح صفحة البيانات</a>
   </section>
+  {% else %}
+  <section class="card">
+    <h2>إدارة الطلاب</h2>
+    <p>إضافة الطلاب وتعديل بياناتهم وتعطيل حساباتهم دون فتح التقارير المحجوبة.</p>
+    <a class="btn" href="{% url 'participants:student_management' %}">فتح إدارة الطلاب</a>
+  </section>
+  {% endif %}
 
   <section class="card">
     <h2>طلبات استرجاع كلمة المرور ({{ pending_password_resets|length }})</h2>
@@ -210,14 +220,17 @@
       <input type="hidden" name="action" value="reset_points">
       <button type="submit" class="btn btn-danger">تصفير نقاط جميع المشاركين</button>
     </form>
+    {% if can_view_reports %}
     <p style="margin-top:var(--s2)">
       <a href="{% url 'participants:points_snapshot_history' %}"
          style="display:inline-block;border:1.5px solid var(--line);background:#fff;color:var(--asphalt);font-family:var(--font-ui);font-weight:600;font-size:13px;padding:9px 20px;border-radius:99px;text-decoration:none">عرض سجل عمليات التصفير السابقة</a>
     </p>
+    {% endif %}
   </section>
 {% endblock %}
 
 {% block scripts %}
+{% if can_view_reports %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script>
 (function () {
@@ -297,4 +310,5 @@
   });
 })();
 </script>
+{% endif %}
 {% endblock %}

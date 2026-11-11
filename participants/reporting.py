@@ -2,11 +2,15 @@
 import datetime
 
 from django import forms
+from django.core.exceptions import PermissionDenied
 from django.core.validators import MinValueValidator
 from django.db.models import Count, Q, Sum
+from django.http import Http404, HttpResponseForbidden, HttpResponseNotFound
 from django.utils import timezone
+from django.utils.cache import patch_cache_control
 
 from accounts.models import Role
+from .capabilities import current_report_access
 from .models import (
     CircleAttendance, Group, MeetingAttendance, Participant,
     PointsLedgerEntry, TaskSubmission, WeeklyActivityAttendance,
@@ -27,19 +31,53 @@ COUNT_COLUMNS = (
 )
 
 
-def allowed_groups(user):
-    if user.role == Role.GROUP_SUPERVISOR:
-        return user.group_set.all().order_by("name")
-    if user.role in REPORT_ROLES:
+class PrivateReportResponseMixin:
+    """Make successful and rejected read-only report responses non-cacheable."""
+
+    def dispatch(self, request, *args, **kwargs):
+        try:
+            response = super().dispatch(request, *args, **kwargs)
+        except PermissionDenied:
+            response = HttpResponseForbidden("لا تملك صلاحية الاطلاع على هذا التقرير.")
+        except Http404:
+            response = HttpResponseNotFound("الطالب أو البيانات المطلوبة غير متاحة.")
+        patch_cache_control(response, private=True, no_store=True)
+        return response
+
+
+def allowed_groups(user, *, _access=None):
+    # Internal builders share one freshly read state, never the caller's cached
+    # role/capability or prefetched group_set. REPORT_ROLES alone grants nothing.
+    access = current_report_access(user) if _access is None else _access
+    if not access["can_view"]:
+        return Group.objects.none()
+    role = access["role"]
+    if role == Role.GROUP_SUPERVISOR:
+        return Group.objects.filter(supervisor__pk=user.pk).order_by("name")
+    if role in (Role.GENERAL_SUPERVISOR, Role.SUPERADMIN, Role.LIMITED_SUPERVISOR):
         return Group.objects.all().order_by("name")
     return Group.objects.none()
 
 
-def scoped_participants(user):
+def scoped_participants(user, *, _access=None):
+    access = current_report_access(user) if _access is None else _access
     students = Participant.objects.filter(user__role=Role.PARTICIPANT)
-    if user.role == Role.GROUP_SUPERVISOR:
-        return students.filter(group__in=allowed_groups(user))
-    return students if user.role in REPORT_ROLES else students.none()
+    if not access["can_view"]:
+        return students.none()
+    role = access["role"]
+    if role == Role.GROUP_SUPERVISOR:
+        return students.filter(group__in=allowed_groups(user, _access=access))
+    if role in (Role.GENERAL_SUPERVISOR, Role.SUPERADMIN, Role.LIMITED_SUPERVISOR):
+        return students
+    return students.none()
+
+
+def can_view_private_report_notes(user, *, _access=None):
+    """Meeting notes remain private to authorized general/group supervisors."""
+    access = current_report_access(user) if _access is None else _access
+    return bool(access["can_view"] and access["role"] in (
+        Role.GENERAL_SUPERVISOR, Role.GROUP_SUPERVISOR,
+    ))
 
 
 class StudentReportFilterForm(forms.Form):
@@ -97,13 +135,16 @@ def date_window(queryset, field, start, end, *, timestamp=False):
 
 
 def build_student_report(user, filters):
-    """Six bulk queries independent of student count, all tied to the same scope.
+    """One fresh access check and six bulk queries independent of student count.
 
     Activity counts use activity dates. Points use actual signed ledger deltas
     at grant/correction time, not a recomputed score or a historical balance.
     TaskSubmission only retains its first submitted_at, not resubmission history.
     """
-    students = scoped_participants(user)
+    access = current_report_access(user)
+    if not access["can_view"]:
+        return []
+    students = scoped_participants(user, _access=access)
     if filters.get("group"):
         students = students.filter(group=filters["group"])
     if filters.get("q"):

@@ -25,6 +25,10 @@ from .management_forms import (
 )
 from .management_locking import lock_login_identifiers
 from .models import Participant, SupervisorCapability, TaskReviewPermission
+from .student_management import (
+    can_manage_students, can_view_student_reports, student_management_groups,
+    student_management_participants,
+)
 from .views import build_navbar
 
 
@@ -74,7 +78,7 @@ def can_configure_capabilities(user):
     )
 
 
-def locked_users(actor_id, target_id=None, *, no_key=False):
+def locked_users(actor_id, target_id=None, *, no_key=False, actor_check=can_manage_accounts):
     # Consistent order prevents managers editing each other from deadlocking.
     # Promotions do not change keys: allow concurrent historical actor FKs.
     ids = {actor_id}
@@ -85,7 +89,7 @@ def locked_users(actor_id, target_id=None, *, no_key=False):
         .filter(pk__in=ids).order_by("pk")
     }
     actor = rows.get(actor_id)
-    if actor is None or not can_manage_accounts(actor):
+    if actor is None or not actor_check(actor):
         raise PermissionDenied
     target = rows.get(target_id)
     if target_id is not None and target is None:
@@ -130,33 +134,58 @@ class AccountManagementView(LoginRequiredMixin, UserPassesTestMixin, View):
 class ParticipantEditView(AccountManagementView):
     template_name = "participants/participant_edit.html"
 
+    def test_func(self):
+        return can_manage_students(self.request.user)
+
     def participant(self, pk):
         return get_object_or_404(
-            Participant.objects.select_related("user", "group").filter(
-                user__role=Role.PARTICIPANT, user__is_staff=False, user__is_superuser=False,
-            ), pk=pk,
+            student_management_participants(self.request.user).select_related("user", "group"), pk=pk,
         )
 
+    def participant_form(self, participant, data=None, *, actor=None):
+        actor = actor or self.request.user
+        form = ParticipantEditForm(data, participant=participant)
+        form.fields["group"].queryset = student_management_groups(actor)
+        # A group delegate cannot move a student out of scope by clearing group.
+        from .capabilities import student_management_role
+        form.fields["group"].required = student_management_role(actor) == Role.GROUP_SUPERVISOR
+        return form
+
     def show(self, form, participant):
+        from .capabilities import student_management_role
         return render(self.request, self.template_name, self.context(
             "data", form=form, participant=participant,
+            can_manage_accounts=student_management_role(self.request.user) in (
+                Role.GENERAL_SUPERVISOR, Role.SUPERADMIN,
+            ),
+            can_manage_students=can_manage_students(self.request.user),
+            can_view_reports=can_view_student_reports(self.request.user),
         ))
 
     def get(self, request, pk):
         participant = self.participant(pk)
-        return self.show(ParticipantEditForm(participant=participant), participant)
+        return self.show(self.participant_form(participant), participant)
 
     def post(self, request, pk):
         participant = self.participant(pk)
         form = None
         try:
             with transaction.atomic():
-                actor, user = locked_users(request.user.pk, participant.user_id)
+                actor, user = locked_users(
+                    request.user.pk, participant.user_id, no_key=True,
+                    actor_check=can_manage_students,
+                )
                 if user.role != Role.PARTICIPANT or user.is_staff or user.is_superuser:
                     raise PermissionDenied
-                participant = get_object_or_404(Participant.objects.select_for_update(), pk=pk, user_id=user.pk)
+                if actor.pk == user.pk:
+                    raise PermissionDenied
+                participant = get_object_or_404(
+                    student_management_participants(actor).select_for_update(of=("self",)),
+                    pk=pk, user_id=user.pk,
+                )
                 participant.user = user
-                form = ParticipantEditForm(request.POST, participant=participant)
+                request.user = actor
+                form = self.participant_form(participant, request.POST, actor=actor)
                 lock_login_identifiers(request.POST)
                 if form.is_valid():
                     user.full_name = form.cleaned_data["full_name"]
@@ -167,7 +196,9 @@ class ParticipantEditView(AccountManagementView):
                     participant.save(update_fields=["group", "academic_stage", "phone", "guardian_phone"])
                     record_management(actor, participant, "بيانات المشارك الأساسية")
                     messages.success(request, "تم تحديث بيانات المشارك دون تغيير أرصدته أو سجلاته")
-                    return redirect("participants:student_detail", pk=participant.pk)
+                    if can_view_student_reports(actor):
+                        return redirect("participants:student_detail", pk=participant.pk)
+                    return redirect("participants:student_management")
         except IntegrityError:
             form.add_error(None, "تعذر الحفظ بسبب معرّف مكرر أو تغيير متزامن؛ راجع البيانات وحاول مجددًا")
         return self.show(form, participant)
@@ -184,7 +215,7 @@ class SupervisorListView(AccountManagementView):
         role = request.GET.get("role", "")
         if role not in MANAGED_SUPERVISOR_ROLES:
             role = ""
-        supervisors = visible_supervisors().select_related("limited_capabilities").prefetch_related("group_set").order_by("full_name", "pk")
+        supervisors = visible_supervisors().select_related("limited_capabilities", "report_permissions").prefetch_related("group_set").order_by("full_name", "pk")
         if q:
             supervisors = supervisors.filter(
                 Q(full_name__icontains=q) | Q(username__icontains=q) | Q(national_id__icontains=q),
@@ -196,6 +227,8 @@ class SupervisorListView(AccountManagementView):
         page = Paginator(supervisors, 30).get_page(request.GET.get("page"))
         rows = list(page.object_list)
         actor_can_configure = can_configure_capabilities(request.user)
+        from .supervisor_permissions import can_configure_student_reports
+        actor_can_configure_reports = can_configure_student_reports(request.user)
         for supervisor in rows:
             supervisor.can_edit_supervisor = not (
                 supervisor.is_staff or supervisor.is_superuser or supervisor.has_participant_profile
@@ -212,6 +245,10 @@ class SupervisorListView(AccountManagementView):
                 and not supervisor.is_superuser and not supervisor.has_participant_profile
                 and supervisor.pk != request.user.pk
             )
+            supervisor.can_configure_student_reports = bool(
+                actor_can_configure_reports and supervisor.pk != request.user.pk
+                and not supervisor.is_superuser and not supervisor.has_participant_profile
+            )
             capability = getattr(supervisor, "limited_capabilities", None)
             supervisor.capabilities_labels = []
             if supervisor.role == Role.LIMITED_SUPERVISOR and capability is not None:
@@ -219,6 +256,16 @@ class SupervisorListView(AccountManagementView):
                     supervisor.capabilities_labels.append("إدارة المتجر")
                 if capability.follow_tasks:
                     supervisor.capabilities_labels.append("متابعة وتصحيح المهام")
+            if supervisor.is_active and capability is not None and capability.manage_students:
+                supervisor.capabilities_labels.append("إدارة الطلاب")
+            policy = getattr(supervisor, "report_permissions", None)
+            inherited = supervisor.role in (Role.GROUP_SUPERVISOR, Role.GENERAL_SUPERVISOR)
+            supervisor.report_view_allowed = supervisor.is_active and (
+                policy.view_reports if policy is not None else inherited
+            )
+            supervisor.report_prepare_allowed = supervisor.report_view_allowed and (
+                policy.prepare_reports if policy is not None else inherited
+            )
             if supervisor.is_superuser:
                 supervisor.protection_note = "حساب إداري محمي؛ يُدار من مشرف النظام."
             elif supervisor.has_participant_profile:
@@ -297,6 +344,8 @@ class SupervisorFormView(AccountManagementView):
                         or previous_active != supervisor.is_active
                     ):
                         revoke_capabilities(supervisor, actor)
+                        from .capabilities import revoke_report_grants
+                        revoke_report_grants(supervisor, actor)
                     record_management(actor, supervisor, "إضافة مشرف" if is_new else "بيانات المشرف", ADDITION if is_new else CHANGE)
                     if supervisor.pk == request.user.pk and password:
                         update_session_auth_hash(request, supervisor)
@@ -346,6 +395,8 @@ class SupervisorGrantGeneralView(AccountManagementView):
                 supervisor.group_set.clear()
                 revoke_review(supervisor, actor)
                 revoke_capabilities(supervisor, actor)
+                from .capabilities import revoke_report_grants
+                revoke_report_grants(supervisor, actor)
                 record_management(actor, supervisor, "منح صلاحية المشرف العام")
 
         if already_general:
@@ -383,6 +434,8 @@ class SupervisorDeleteView(AccountManagementView):
             supervisor.save(update_fields=["is_active"])
             revoke_review(supervisor, actor)
             revoke_capabilities(supervisor, actor)
+            from .capabilities import revoke_report_grants
+            revoke_report_grants(supervisor, actor)
             record_management(actor, supervisor, "حذف آمن للمشرف: تعطيل الحساب مع حفظ السجلات")
         messages.success(request, "تم حذف المشرف من الحسابات النشطة؛ حُفظت سجلاته ويمكن إعادة تفعيله من الحسابات المعطلة")
         return redirect("participants:supervisor_list")
@@ -409,9 +462,12 @@ class SupervisorCapabilitiesView(AccountManagementView):
     def get(self, request, pk):
         supervisor = self.target(pk)
         capability = SupervisorCapability.objects.filter(supervisor=supervisor).first()
-        initial = {"manage_store": False, "follow_tasks": False}
+        initial = {"manage_store": False, "follow_tasks": False, "manage_students": False}
         if supervisor.role == Role.LIMITED_SUPERVISOR and capability is not None:
-            initial = {"manage_store": capability.manage_store, "follow_tasks": capability.follow_tasks}
+            initial = {
+                "manage_store": capability.manage_store, "follow_tasks": capability.follow_tasks,
+                "manage_students": capability.manage_students,
+            }
         return self.show(SupervisorCapabilitiesForm(initial=initial), supervisor)
 
     def post(self, request, pk):
@@ -433,7 +489,8 @@ class SupervisorCapabilitiesView(AccountManagementView):
                 raise PermissionDenied
             manage_store = form.cleaned_data["manage_store"]
             follow_tasks = form.cleaned_data["follow_tasks"]
-            if not supervisor.is_active and (manage_store or follow_tasks):
+            manage_students = form.cleaned_data["manage_students"]
+            if not supervisor.is_active and (manage_store or follow_tasks or manage_students):
                 form.add_error(None, "لا يمكن منح صلاحيات لحساب معطل؛ يمكن سحب الصلاحيات فقط")
                 return self.show(form, supervisor, status=400)
 
@@ -443,23 +500,28 @@ class SupervisorCapabilitiesView(AccountManagementView):
                 supervisor.save(update_fields=["role"])
                 supervisor.group_set.clear()
                 revoke_review(supervisor, actor)
+                from .capabilities import revoke_report_grants
+                revoke_report_grants(supervisor, actor)
 
             capability = SupervisorCapability.objects.select_for_update().filter(
                 supervisor_id=supervisor.pk,
             ).first()
             flags_changed = False
             if capability is None:
-                if manage_store or follow_tasks:
+                if manage_store or follow_tasks or manage_students:
                     SupervisorCapability.objects.create(
                         supervisor=supervisor, manage_store=manage_store,
-                        follow_tasks=follow_tasks, granted_by=actor,
+                        follow_tasks=follow_tasks, manage_students=manage_students, granted_by=actor,
                     )
                     flags_changed = True
-            elif (capability.manage_store, capability.follow_tasks) != (manage_store, follow_tasks):
+            elif (capability.manage_store, capability.follow_tasks, capability.manage_students) != (
+                manage_store, follow_tasks, manage_students,
+            ):
                 capability.manage_store = manage_store
                 capability.follow_tasks = follow_tasks
+                capability.manage_students = manage_students
                 capability.granted_by = actor
-                capability.save(update_fields=["manage_store", "follow_tasks", "granted_by", "updated_at"])
+                capability.save(update_fields=["manage_store", "follow_tasks", "manage_students", "granted_by", "updated_at"])
                 flags_changed = True
 
             changed = role_changed or flags_changed
@@ -491,4 +553,9 @@ class LimitedSupervisorDashboardView(LoginRequiredMixin, UserPassesTestMixin, Te
         context["navbar_items"] = build_navbar(self.request.user, "home")
         context["can_manage_store"] = can_manage_store(self.request.user)
         context["can_follow_tasks"] = can_follow_tasks(self.request.user)
+        from .capabilities import can_manage_students, current_report_access
+        access = current_report_access(self.request.user)
+        context["can_manage_students"] = can_manage_students(self.request.user)
+        context["can_view_reports"] = access["can_view"]
+        context["can_prepare_reports"] = access["can_prepare"]
         return context

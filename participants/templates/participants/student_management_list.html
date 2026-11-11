@@ -1,0 +1,51 @@
+{% extends "participants/app_base.html" %}
+{% load static %}
+
+{% block title %}إدارة الطلاب — رحّال{% endblock %}
+{% block extra_style %}.wrap{max-width:100%;min-width:0}{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/student-permissions.css' %}?v=20261111-permissions1">
+<main class="student-permissions student-permissions--wide">
+  <header class="student-management-heading">
+    <div><h1 class="page-title">إدارة الطلاب</h1><p class="page-sub">إضافة الطلاب وتحديث بياناتهم وتعطيل حساباتهم، ضمن نطاق صلاحياتك.</p></div>
+    <a class="permission-button" href="{% url 'participants:add_participant' %}">إضافة طالب</a>
+  </header>
+  {% if messages %}{% for message in messages %}<p class="permission-note" role="status">{{ message }}</p>{% endfor %}{% endif %}
+  <section class="card" aria-labelledby="student-filter-title">
+    <h2 id="student-filter-title">البحث والتصفية</h2>
+    <form method="get" class="student-management-filters">
+      <div><label for="student-management-query">البحث</label><input id="student-management-query" name="q" type="search" value="{{ q }}" placeholder="الاسم أو رقم الهوية"></div>
+      <div><label for="student-management-status">حالة الحساب</label><select id="student-management-status" name="status"><option value="active"{% if status == 'active' %} selected{% endif %}>النشطون</option><option value="inactive"{% if status == 'inactive' %} selected{% endif %}>المعطّلون</option><option value="all"{% if status == 'all' %} selected{% endif %}>الكل</option></select></div>
+      <div><label for="student-management-group">البيئة</label><select id="student-management-group" name="group"><option value="">كل البيئات المسموحة</option>{% for group in groups %}<option value="{{ group.pk }}"{% if group_value == group.pk|stringformat:'s' %} selected{% endif %}>{{ group.name }}</option>{% endfor %}</select></div>
+      <button type="submit" class="permission-button">تطبيق</button>
+      <a class="permission-button permission-button--plain" href="{% url 'participants:student_management' %}">إعادة ضبط</a>
+    </form>
+  </section>
+  <section class="card" aria-labelledby="student-list-title">
+    <h2 id="student-list-title">الطلاب</h2>
+    {% if students %}
+    <table class="student-management-table">
+      <thead><tr><th scope="col">الطالب</th><th scope="col">رقم الهوية</th><th scope="col">التواصل</th><th scope="col">الدراسة والبيئة</th><th scope="col">الحالة</th><th scope="col">إجراءات</th></tr></thead>
+      <tbody>
+        {% for student in students %}
+        <tr>
+          <td data-label="الطالب"><strong>{{ student.user.full_name|default:'—' }}</strong></td>
+          <td data-label="رقم الهوية">{{ student.user.national_id|default:'—' }}</td>
+          <td data-label="التواصل"><span class="student-management-meta">جوال الطالب: {{ student.phone|default:'—' }}</span><span class="student-management-meta">جوال ولي الأمر: {{ student.guardian_phone|default:'—' }}</span></td>
+          <td data-label="الدراسة والبيئة"><span class="student-management-meta">{{ student.get_academic_stage_display|default:'—' }}</span><span class="student-management-meta">{{ student.group.name|default:'بدون بيئة' }}</span></td>
+          <td data-label="الحالة">{% if student.user.is_active %}<span class="student-management-status">نشط</span>{% else %}<span class="student-management-status student-management-status--inactive">معطّل</span>{% endif %}</td>
+          <td data-label="إجراءات"><div class="permission-actions">
+            <a class="permission-button permission-button--plain" href="{% url 'participants:participant_edit' pk=student.pk %}">تعديل البيانات</a>
+            {% if student.user.is_active %}<a class="permission-button permission-button--danger" href="{% url 'participants:participant_delete' pk=student.pk %}">تعطيل الحساب</a>{% elif can_restore_students %}<a class="permission-button permission-button--plain" href="{% url 'participants:participant_restore' pk=student.pk %}">إعادة التفعيل</a>{% endif %}
+            {% if can_view_reports %}<a class="permission-button permission-button--plain" href="{% url 'participants:student_detail' pk=student.pk %}">ملف الطالب</a>{% endif %}
+          </div></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if page_obj.has_other_pages %}<nav class="student-management-pager" aria-label="صفحات الطلاب"><span>الصفحة {{ page_obj.number }} من {{ page_obj.paginator.num_pages }}</span><div class="permission-actions">{% if page_obj.has_previous %}<a class="permission-button permission-button--plain" href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page_obj.previous_page_number }}">السابق</a>{% endif %}{% if page_obj.has_next %}<a class="permission-button permission-button--plain" href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page_obj.next_page_number }}">التالي</a>{% endif %}</div></nav>{% endif %}
+    {% else %}<p class="empty-note">لا يوجد طلاب يطابقون هذه الخيارات ضمن نطاق صلاحياتك.</p>{% endif %}
+  </section>
+</main>
+{% endblock %}

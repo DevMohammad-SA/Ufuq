@@ -17,7 +17,7 @@
       <h1 class="page-title">مركز التقارير</h1>
       <p class="page-sub">الفترة والطلاب والتقارير التي تحتاجها، في عرض واحد أو ملف واحد.</p>
     </div>
-    <span class="rc-scope">للمشرف العام · قراءة فقط</span>
+    <span class="rc-scope">ضمن نطاق صلاحياتك · {% if can_prepare_reports %}عرض وتصدير{% else %}اطلاع فقط{% endif %}</span>
   </header>
 
   <section class="card rc-settings" aria-labelledby="rc-settings-title">
@@ -128,6 +128,7 @@
       </div>
       <div class="rc-actions">
         <button type="submit" class="rc-button rc-button--primary" id="rc-view-button">عرض التقرير</button>
+        {% if can_prepare_reports %}
         <button type="submit" class="rc-button" name="format" value="pdf"
                 formaction="{% url 'participants:report_center_export' %}"
                 {% if not filters_valid %}disabled aria-describedby="rc-validation-errors"{% endif %}>
@@ -138,11 +139,12 @@
                 {% if not filters_valid %}disabled aria-describedby="rc-validation-errors"{% endif %}>
           <span data-export-label="Excel">Excel</span>
         </button>
+        {% endif %}
         <a class="rc-reset" href="{% url 'participants:report_center' %}">إعادة الإعدادات</a>
       </div>
-      <p class="rc-hint" id="rc-export-help">التصدير يستخدم إعدادات النموذج الحالية والتقارير المختارة، ويشمل كل الصفوف لا الصفحة المعروضة فقط. يتحقق الخادم منها قبل إصدار الملف.</p>
+      <p class="rc-hint" id="rc-export-help">{% if can_prepare_reports %}التصدير يستخدم إعدادات النموذج الحالية والتقارير المختارة، ويشمل كل الصفوف لا الصفحة المعروضة فقط. يتحقق الخادم منها قبل إصدار الملف.{% else %}صلاحيتك للاطلاع فقط. يمكنك عرض التقارير وتغيير الفلاتر، ولا يمكنك إعداد ملفات PDF أو Excel إلا بعد منح صلاحية إعداد التقارير.{% endif %}</p>
       <p class="rc-submit-status" id="rc-submit-status" role="status" aria-live="polite"></p>
-      <noscript><p class="rc-hint">العرض والتصدير يعملان دون JavaScript. عند تغيير الإعدادات اضغط «عرض التقرير» لتحديث النتائج؛ أزرار التصدير تستخدم إعداداتك الحالية.</p></noscript>
+      <noscript><p class="rc-hint">العرض{% if can_prepare_reports %} والتصدير{% endif %} يعمل دون JavaScript. عند تغيير الإعدادات اضغط «عرض التقرير» لتحديث النتائج.</p></noscript>
     </form>
   </section>
 

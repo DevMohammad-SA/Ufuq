@@ -22,6 +22,7 @@ from django.views import View
 from django.views.generic import FormView, TemplateView
 
 from accounts.models import PasswordResetRequest, Role, User
+from .capabilities import can_view_reports
 from .forms import (
     CircleAttendanceForm,
     ExtraPointsForm,
@@ -48,6 +49,7 @@ from .models import (
     WeeklyActivityAttendance,
     WeeklyTask,
 )
+from .reporting import PrivateReportResponseMixin
 
 # Official weekly points table values for the Horizon program.
 CIRCLE_DAY_POINTS = 3
@@ -162,17 +164,20 @@ ICON_ADD_PARTICIPANT = (
 
 def store_orders_for_user(user):
     """Scope both order tables and badges without trusting request filters."""
-    if user.role in (Role.GENERAL_SUPERVISOR, Role.SUPERADMIN):
+    from .access import allowed_groups, operational_role
+    role = operational_role(user)
+    if role in (Role.GENERAL_SUPERVISOR, Role.SUPERADMIN):
         return StoreOrder.objects.all()
-    if user.role == Role.LIMITED_SUPERVISOR:
+    if role == Role.LIMITED_SUPERVISOR:
         from .capabilities import can_manage_store
-
         if can_manage_store(user):
             return StoreOrder.objects.all()
         return StoreOrder.objects.none()
-    if user.role == Role.GROUP_SUPERVISOR:
-        return StoreOrder.objects.filter(participant__group__in=user.group_set.all())
+    if role == Role.GROUP_SUPERVISOR:
+        return StoreOrder.objects.filter(participant__group__in=allowed_groups(user, _role=role))
     return StoreOrder.objects.none()
+
+
 
 
 def get_notification_counts(user):
@@ -504,19 +509,46 @@ def build_navbar(user, active_key):
             ),
         ]
 
-    # Keep the report within the adjacent students section for all
-    # supervisor roles, without changing the participant's navigation.
-    if user.role in (Role.GROUP_SUPERVISOR, Role.GENERAL_SUPERVISOR, Role.SUPERADMIN):
-        data_index = next(index for index, entry in enumerate(entries) if entry[0] == "data")
-        entries.insert(data_index + 1, (
-            "student_report", "تقرير الطلاب التفصيلي", "participants:student_report",
-            ICON_LEDGER, "students", False,
-        ))
-        if user.role == Role.GENERAL_SUPERVISOR and user.is_active:
-            entries.insert(data_index + 2, (
+    if user.role != Role.PARTICIPANT:
+        from .capabilities import can_manage_students, current_report_access
+
+        report_access = current_report_access(user)
+        if not report_access["can_view"]:
+            entries = [entry for entry in entries if entry[0] != "data"]
+        student_entries = []
+        if can_manage_students(user):
+            student_entries.append((
+                "student_management", "إدارة الطلاب", "participants:student_management",
+                ICON_DATA, "students", False,
+            ))
+            if not any(entry[0] == "add_participant" for entry in entries):
+                student_entries.append((
+                    "add_participant", "إضافة طالب", "participants:add_participant",
+                    ICON_ADD_PARTICIPANT, "students", False,
+                ))
+        if report_access["can_view"]:
+            if not any(entry[0] == "data" for entry in entries):
+                student_entries.append((
+                    "data", "بيانات المشاركين", "participants:participants_data",
+                    ICON_DATA, "students", False,
+                ))
+            student_entries.append((
+                "student_report", "تقرير الطلاب التفصيلي", "participants:student_report",
+                ICON_LEDGER, "students", False,
+            ))
+        if report_access["can_center"]:
+            student_entries.append((
                 "report_center", "التقارير", "participants:report_center",
                 ICON_LEDGER, "students", False,
             ))
+        # Insert immediately after the existing students run, or before the
+        # next section, so Django's consecutive regroup keeps one heading.
+        student_indices = [i for i, entry in enumerate(entries) if entry[4] == "students"]
+        insert_at = student_indices[-1] + 1 if student_indices else next(
+            (i for i, entry in enumerate(entries) if entry[4] in ("points", "account")),
+            len(entries),
+        )
+        entries[insert_at:insert_at] = student_entries
 
     return [
         {
@@ -759,9 +791,8 @@ class SupervisorDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateV
     login_url = "accounts:login_supervisor"
 
     def test_func(self):
-        return self.request.user.role in (
-            Role.GROUP_SUPERVISOR, Role.GENERAL_SUPERVISOR, Role.SUPERADMIN,
-        )
+        from .access import can_access_operational_roster
+        return can_access_operational_roster(self.request.user)
 
     def get_group(self):
         from .access import attendance_group
@@ -831,6 +862,7 @@ class SupervisorDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateV
         else:
             context["roster"] = []
 
+        context["can_view_student_detail"] = can_view_reports(self.request.user)
         context["navbar_items"] = build_navbar(self.request.user, "attendance")
         return context
 
@@ -1019,11 +1051,8 @@ class QuranCircleAttendanceView(LoginRequiredMixin, UserPassesTestMixin, Templat
     login_url = "accounts:login_supervisor"
 
     def test_func(self):
-        return self.request.user.role in (
-            Role.GROUP_SUPERVISOR,
-            Role.GENERAL_SUPERVISOR,
-            Role.SUPERADMIN,
-        )
+        from .access import can_access_operational_roster
+        return can_access_operational_roster(self.request.user)
 
     def get_selected_date(self):
         raw = self.request.POST.get("date") or self.request.GET.get("date")
@@ -1051,6 +1080,7 @@ class QuranCircleAttendanceView(LoginRequiredMixin, UserPassesTestMixin, Templat
         context["show_group_selector"] = (
             not context["is_group_locked"] or context["all_groups"].count() > 1
         )
+        context["can_view_student_detail"] = can_view_reports(self.request.user)
         context["navbar_items"] = build_navbar(self.request.user, "quran")
 
         if group:
@@ -1191,11 +1221,8 @@ class WeeklyActivityAttendanceView(LoginRequiredMixin, UserPassesTestMixin, Temp
     login_url = "accounts:login_supervisor"
 
     def test_func(self):
-        return self.request.user.role in (
-            Role.GROUP_SUPERVISOR,
-            Role.GENERAL_SUPERVISOR,
-            Role.SUPERADMIN,
-        )
+        from .access import can_access_operational_roster
+        return can_access_operational_roster(self.request.user)
 
     def get_selected_date(self):
         raw = self.request.POST.get("date") or self.request.GET.get("date")
@@ -1223,6 +1250,7 @@ class WeeklyActivityAttendanceView(LoginRequiredMixin, UserPassesTestMixin, Temp
             self.request.user.role == Role.GROUP_SUPERVISOR
             and context["all_groups"].count() <= 1
         )
+        context["can_view_student_detail"] = can_view_reports(self.request.user)
         context["navbar_items"] = build_navbar(self.request.user, "weekly_activity")
 
         if group:
@@ -1372,6 +1400,7 @@ class EliteTripAttendanceView(LoginRequiredMixin, UserPassesTestMixin, TemplateV
             self.request.user.role == Role.GROUP_SUPERVISOR
         )
         context["status_choices"] = EliteTripAttendance.Status.choices
+        context["can_view_student_detail"] = can_view_reports(self.request.user)
         context["navbar_items"] = build_navbar(self.request.user, "elite_trip")
         context["statistics"] = {
             "total": 0,
@@ -1703,22 +1732,14 @@ class AddParticipantView(LoginRequiredMixin, UserPassesTestMixin, FormView):
     form_class = SingleParticipantForm
 
     def test_func(self):
-        return self.request.user.role in (Role.GENERAL_SUPERVISOR, Role.SUPERADMIN)
-
-    def get_locked_group(self):
-        if self.request.user.role == Role.GROUP_SUPERVISOR:
-            return self.request.user.group_set.first()
-        return None
+        from .capabilities import can_manage_students
+        return can_manage_students(self.request.user)
 
     def get_form_kwargs(self):
+        from .student_management import student_management_groups
         kwargs = super().get_form_kwargs()
-        locked_group = self.get_locked_group()
-        kwargs["group_queryset"] = (
-            Group.objects.filter(id=locked_group.id)
-            if locked_group
-            else Group.objects.all()
-        )
-        kwargs["lock_group"] = locked_group
+        kwargs["group_queryset"] = student_management_groups(self.request.user)
+        kwargs["lock_group"] = None
         return kwargs
 
     def get_context_data(self, **kwargs):
@@ -1726,37 +1747,45 @@ class AddParticipantView(LoginRequiredMixin, UserPassesTestMixin, FormView):
         context["navbar_items"] = build_navbar(self.request.user, "home")
         return context
 
+    @transaction.atomic
+    def post(self, request, *args, **kwargs):
+        from .capabilities import can_manage_students
+        actor = User.objects.select_for_update(no_key=True).filter(pk=request.user.pk).first()
+        if actor is None or not can_manage_students(actor):
+            raise PermissionDenied
+        request.user = actor
+        return super().post(request, *args, **kwargs)
+
     def form_valid(self, form):
-        # Security: never trust the disabled `group` field alone — a direct
-        # POST bypassing the UI could still submit a different group id, so
-        # a group supervisor's own environment is force-applied here
-        # regardless of what cleaned_data claims.
-        locked_group = self.get_locked_group()
-        group = locked_group if locked_group else form.cleaned_data["group"]
+        from .management_locking import lock_login_identifiers
+        from .management_views import record_management
+        from .student_management import student_management_groups
 
-        # Same pattern as ParticipantImportView._process_import: initial
-        # password is the participant's own national_id, forced to change it
-        # on first login.
-        user = User.objects.create_user(
-            national_id=form.cleaned_data["national_id"],
-            full_name=form.cleaned_data["full_name"],
-            role=Role.PARTICIPANT,
-            password=form.cleaned_data["national_id"],
-        )
-        user.must_set_password = True
-        user.save(update_fields=["must_set_password"])
-
-        Participant.objects.create(
-            user=user,
-            group=group,
-            academic_stage=form.cleaned_data["academic_stage"],
-            phone=form.cleaned_data.get("phone", ""),
-            guardian_phone=form.cleaned_data.get("guardian_phone", ""),
-        )
-
-        messages.success(
-            self.request, f"تمت إضافة {form.cleaned_data['full_name']} بنجاح ✅"
-        )
+        group = form.cleaned_data["group"]
+        if not student_management_groups(self.request.user).filter(pk=group.pk).exists():
+            raise PermissionDenied
+        try:
+            with transaction.atomic():
+                lock_login_identifiers(form.cleaned_data)
+                user = User.objects.create_user(
+                    national_id=form.cleaned_data["national_id"],
+                    full_name=form.cleaned_data["full_name"],
+                    role=Role.PARTICIPANT,
+                    password=form.cleaned_data["national_id"],
+                )
+                user.must_set_password = True
+                user.save(update_fields=["must_set_password"])
+                participant = Participant.objects.create(
+                    user=user, group=group,
+                    academic_stage=form.cleaned_data["academic_stage"],
+                    phone=form.cleaned_data.get("phone", ""),
+                    guardian_phone=form.cleaned_data.get("guardian_phone", ""),
+                )
+                record_management(self.request.user, participant, "إضافة طالب")
+        except IntegrityError:
+            form.add_error("national_id", "تعذر الحفظ؛ تحقق من عدم استخدام رقم الهوية لحساب آخر.")
+            return self.form_invalid(form)
+        messages.success(self.request, f"تمت إضافة {form.cleaned_data['full_name']} بنجاح")
         return redirect("participants:add_participant")
 
 
@@ -1772,14 +1801,31 @@ class GeneralSupervisorDashboardView(
     login_url = "accounts:login_supervisor"
 
     def test_func(self):
-        return self.request.user.role in (Role.GENERAL_SUPERVISOR, Role.SUPERADMIN)
+        from .capabilities import student_management_role
+        return student_management_role(self.request.user) in (
+            Role.GENERAL_SUPERVISOR, Role.SUPERADMIN,
+        )
 
     def get_context_data(self, **kwargs):
+        from .capabilities import current_report_access
         context = super().get_context_data(**kwargs)
+        report_access = current_report_access(self.request.user)
+        if not self.test_func():
+            raise PermissionDenied
         context["navbar_items"] = build_navbar(self.request.user, "home")
-        context["can_compare_groups"] = (
-            self.request.user.is_active and self.request.user.role == Role.GENERAL_SUPERVISOR
-        )
+        context["can_compare_groups"] = report_access["can_center"]
+        context["can_view_reports"] = report_access["can_view"]
+        if not report_access["can_view"]:
+            # Basic operational counters remain part of the general role;
+            # no group/points/status breakdown or chart dataset is queried.
+            context["charts_data"] = {}
+            context["kpi_total_participants"] = Participant.objects.filter(user__is_active=True).count()
+            context["kpi_open_tasks"] = TaskSubmission.objects.filter(status=TaskSubmission.Status.PENDING).count()
+            context["kpi_pending_orders"] = StoreOrder.objects.filter(status=StoreOrder.Status.PENDING).count()
+            context["pending_password_resets"] = PasswordResetRequest.objects.filter(
+                resolved=False,
+            ).select_related("user")
+            return context
 
         # ----------------------------------------------------------------
         # Overview charts. Every series below is derived from existing
@@ -1930,7 +1976,7 @@ class GeneralSupervisorDashboardView(
         return redirect("participants:general_supervisor_dashboard")
 
 
-class PointsSnapshotHistoryView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+class PointsSnapshotHistoryView(PrivateReportResponseMixin, LoginRequiredMixin, UserPassesTestMixin, TemplateView):
     """
     Read-only history of every program-wide points reset. Each reset click
     writes one PointsResetSnapshot row per participant (see
@@ -1943,9 +1989,15 @@ class PointsSnapshotHistoryView(LoginRequiredMixin, UserPassesTestMixin, Templat
     login_url = "accounts:login_supervisor"
 
     def test_func(self):
-        return self.request.user.role in (Role.GENERAL_SUPERVISOR, Role.SUPERADMIN)
+        from .capabilities import current_report_access
+        access = current_report_access(self.request.user)
+        return access["can_view"] and access["role"] in (
+            Role.GENERAL_SUPERVISOR, Role.SUPERADMIN,
+        )
 
     def get_context_data(self, **kwargs):
+        if not self.test_func():
+            raise PermissionDenied
         context = super().get_context_data(**kwargs)
 
         # Group distinct reset events by truncating reset_at to the second
@@ -2052,22 +2104,22 @@ class PointsLedgerView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
     login_url = "accounts:login_supervisor"
 
     def test_func(self):
-        return self.request.user.role in (
-            Role.GROUP_SUPERVISOR,
-            Role.GENERAL_SUPERVISOR,
-            Role.SUPERADMIN,
-        )
+        from .access import can_access_operational_roster
+        return can_access_operational_roster(self.request.user)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        if self.request.user.role == Role.GROUP_SUPERVISOR:
-            from .access import allowed_groups
+        from .access import allowed_groups, operational_role
+        role = operational_role(self.request.user)
+        if role == Role.GROUP_SUPERVISOR:
             entries = PointsLedgerEntry.objects.filter(
-                participant__group__in=allowed_groups(self.request.user),
+                participant__group__in=allowed_groups(self.request.user, _role=role),
             )
-        else:
+        elif role in (Role.GENERAL_SUPERVISOR, Role.SUPERADMIN):
             entries = PointsLedgerEntry.objects.all()
+        else:
+            entries = PointsLedgerEntry.objects.none()
 
         context["entries"] = entries.select_related(
             "participant__user", "participant__group", "granted_by"
@@ -2082,7 +2134,7 @@ class PointsLedgerView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
 # ---------------------------------------------------------------------------
 
 
-class ParticipantsDataView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+class ParticipantsDataView(PrivateReportResponseMixin, LoginRequiredMixin, UserPassesTestMixin, TemplateView):
     """
     Read-only, searchable/sortable table of participant data.
 
@@ -2102,23 +2154,25 @@ class ParticipantsDataView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
     login_url = "accounts:login_supervisor"
 
     def test_func(self):
-        return self.request.user.role in (
-            Role.GROUP_SUPERVISOR,
-            Role.GENERAL_SUPERVISOR,
-            Role.SUPERADMIN,
-        )
+        from .capabilities import can_view_reports
+        return can_view_reports(self.request.user)
 
     def get_queryset(self):
-        if self.request.user.role == Role.GROUP_SUPERVISOR:
-            from .access import allowed_groups
+        from .capabilities import current_report_access
+        access = current_report_access(self.request.user)
+        if not access["can_view"]:
+            raise PermissionDenied
+        if access["role"] == Role.GROUP_SUPERVISOR:
             base_queryset = Participant.objects.filter(
-                group__in=allowed_groups(self.request.user),
+                group__supervisor__pk=self.request.user.pk,
             )
         else:
             base_queryset = Participant.objects.all()
 
         from .participant_lifecycle import filter_participant_status
-        base_queryset = filter_participant_status(base_queryset, self.request)
+        base_queryset = filter_participant_status(
+            base_queryset.filter(user__role=Role.PARTICIPANT), self.request,
+        )
 
         # CircleAttendance.participant / MeetingAttendance.participant carry
         # explicit related_name values ("circle_attendances" /
@@ -2139,7 +2193,8 @@ class ParticipantsDataView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["participants"] = self.get_queryset()
-        context["is_scoped_to_group"] = self.request.user.role == Role.GROUP_SUPERVISOR
+        from .capabilities import current_report_access
+        context["is_scoped_to_group"] = current_report_access(self.request.user)["role"] == Role.GROUP_SUPERVISOR
         # Unique environment names present in the rows above, for the
         # client-side environment filter dropdown. Built from the already
         # evaluated queryset — get_queryset() itself is untouched.
@@ -2148,13 +2203,16 @@ class ParticipantsDataView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
         )
         context["navbar_items"] = build_navbar(self.request.user, "data")
         from .management_views import can_manage_accounts
+        from .capabilities import can_manage_students, can_prepare_reports
         context["can_manage_accounts"] = can_manage_accounts(self.request.user)
+        context["can_manage_students"] = can_manage_students(self.request.user)
+        context["can_prepare_reports"] = can_prepare_reports(self.request.user)
         from .participant_lifecycle import participant_status
         context["participant_status"] = participant_status(self.request)
         return context
 
 
-class ParticipantsDataPDFExportView(LoginRequiredMixin, UserPassesTestMixin, View):
+class ParticipantsDataPDFExportView(PrivateReportResponseMixin, LoginRequiredMixin, UserPassesTestMixin, View):
     """
     Exports the participants roster as a PDF on the official association
     letterhead. Scoped by role exactly like ParticipantsDataView (a group
@@ -2173,18 +2231,18 @@ class ParticipantsDataPDFExportView(LoginRequiredMixin, UserPassesTestMixin, Vie
     login_url = "accounts:login_supervisor"
 
     def test_func(self):
-        return self.request.user.role in (
-            Role.GROUP_SUPERVISOR,
-            Role.GENERAL_SUPERVISOR,
-            Role.SUPERADMIN,
-        )
+        from .capabilities import can_prepare_reports
+        return can_prepare_reports(self.request.user)
 
     def _get_participants(self, request):
-        if request.user.role == Role.GROUP_SUPERVISOR:
+        from .capabilities import current_report_access
+        access = current_report_access(request.user)
+        if not access["can_prepare"]:
+            raise PermissionDenied
+        if access["role"] == Role.GROUP_SUPERVISOR:
             # Keep the original untrusted-name-filter behavior, but include
             # every assigned environment rather than just the first one.
-            from .access import allowed_groups
-            queryset = Participant.objects.filter(group__in=allowed_groups(request.user))
+            queryset = Participant.objects.filter(group__supervisor__pk=request.user.pk)
         else:
             queryset = Participant.objects.all()
             selected_group_names = request.GET.getlist("group")
@@ -2192,7 +2250,7 @@ class ParticipantsDataPDFExportView(LoginRequiredMixin, UserPassesTestMixin, Vie
                 queryset = queryset.filter(group__name__in=selected_group_names)
 
         from .participant_lifecycle import filter_participant_status
-        queryset = filter_participant_status(queryset, request)
+        queryset = filter_participant_status(queryset.filter(user__role=Role.PARTICIPANT), request)
         return queryset.select_related("user", "group").order_by("-miles")
 
     def get(self, request, *args, **kwargs):
@@ -2247,13 +2305,12 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
         context = super().get_context_data(**kwargs)
         from .access import (
             can_manage_tasks, can_review_task_submissions,
-            task_participants, scoped_submissions,
+            task_participants, scoped_submissions, operational_role,
         )
-        limited = self.request.user.role == Role.LIMITED_SUPERVISOR
+        limited = operational_role(self.request.user) == Role.LIMITED_SUPERVISOR
         context["limited_task_followup"] = limited
-        context["can_view_student_detail"] = not limited and self.request.user.role in (
-            Role.GROUP_SUPERVISOR, Role.GENERAL_SUPERVISOR, Role.SUPERADMIN,
-        )
+        from .capabilities import can_view_reports
+        context["can_view_student_detail"] = can_view_reports(self.request.user)
         context["can_manage_tasks"] = can_manage_tasks(self.request.user)
         context["can_review_submissions"] = can_review_task_submissions(self.request.user)
         context["can_return_submissions"] = not limited and context["can_review_submissions"]
@@ -2868,9 +2925,12 @@ class StoreManagementView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
     login_url = "accounts:login_supervisor"
 
     def test_func(self):
-        return self.request.user.is_active and (
-            self.request.user.role == Role.GROUP_SUPERVISOR
-            or self.can_manage_store()
+        from .access import operational_role
+        role = operational_role(self.request.user)
+        return (
+            role == Role.GROUP_SUPERVISOR
+            or (role in (Role.GENERAL_SUPERVISOR, Role.SUPERADMIN, Role.LIMITED_SUPERVISOR)
+                and self.can_manage_store())
         )
 
     def can_manage_store(self):

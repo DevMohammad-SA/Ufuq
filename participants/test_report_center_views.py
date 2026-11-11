@@ -102,8 +102,10 @@ class ReportCenterIntegrationTests(TestCase):
         for view in (ReportCenterView, ReportCenterExportView):
             request = RequestFactory().get('/participants/reports/', self.params(format='xlsx'))
             request.user = self.inactive_general
-            with self.assertRaises(PermissionDenied):
-                view.as_view()(request)
+            response = view.as_view()(request)
+            self.assertEqual(response.status_code, 403)
+            self.assertIn('private', response['Cache-Control'])
+            self.assertIn('no-store', response['Cache-Control'])
 
     def test_invalidated_inactive_session_cannot_read_exports(self):
         self.client.force_login(self.inactive_general)

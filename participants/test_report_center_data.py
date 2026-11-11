@@ -209,10 +209,11 @@ class ReportCenterDataTests(TestCase):
         self.assertIn("task", form.errors)
         self.assertEqual(self.filters(task=self.tasks[4].pk, period="all")["task"].pk, self.tasks[4].pk)
 
-    def test_engine_denies_every_role_except_active_general_before_queries(self):
+    def test_engine_denies_legacy_ungranted_roles_after_one_fresh_policy_read(self):
         from django.contrib.auth.models import AnonymousUser
         for user in (self.group_supervisor, self.admin, self.disabled_general, self.student.user, AnonymousUser()):
-            with self.subTest(user=user), self.assertNumQueries(0), self.assertRaises(PermissionDenied):
+            expected = 1 if user.is_authenticated else 0
+            with self.subTest(user=user), self.assertNumQueries(expected), self.assertRaises(PermissionDenied):
                 build_reports(user, {"reports": ["summary"]})
 
     def test_all_cohort_filters_apply_and_null_group_is_retained(self):

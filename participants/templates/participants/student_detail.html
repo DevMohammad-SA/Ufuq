@@ -62,11 +62,11 @@
     <p class="page-sub">سجل الطالب الكامل ضمن نطاق صلاحياتك. جميع السجلات أدناه للعرض فقط.</p>
   </div>
   <div class="detail-actions">
-    {% if can_manage_accounts %}
+    {% if can_manage_students or can_manage_accounts %}
       {% if participant.user.is_active %}
         <a class="detail-back detail-edit" href="{% url 'participants:participant_edit' pk=participant.pk %}">تعديل بيانات المشارك</a>
         <a class="detail-back detail-delete" href="{% url 'participants:participant_delete' pk=participant.pk %}">أرشفة الحساب</a>
-      {% else %}
+      {% elif can_manage_accounts %}
         <a class="detail-back detail-restore" href="{% url 'participants:participant_restore' pk=participant.pk %}">إعادة تفعيل الحساب</a>
       {% endif %}
     {% endif %}

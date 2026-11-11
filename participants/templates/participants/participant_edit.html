@@ -19,7 +19,7 @@
 .field-errors ul,.form-errors ul{margin:0;padding-inline-start:20px}
 .form-errors{margin-bottom:var(--s2);padding:10px 12px;border:1px solid var(--alert);border-radius:var(--r-sm);background:#FBEEEA}
 .form-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:var(--s3)}
-.form-button{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:9px 18px;border:1px solid var(--gold);border-radius:99px;background:var(--gold);color:var(--asphalt);font:700 14px var(--font-display);text-decoration:none;cursor:pointer}
+.form-button{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:9px 18px;border:1px solid var(--gold);border-radius:99px;background:var(--gold);color:var(--asphalt);font:700 14px var(--font-display);text-decoration:none;cursor:pointer}
 .form-button:hover{background:#b88b32;border-color:#b88b32}
 .form-button--plain{background:#fff;border-color:var(--line)}
 .form-button--plain:hover{background:var(--sand);border-color:var(--asphalt)}
@@ -86,7 +86,7 @@
 
       <div class="form-actions">
         <button type="submit" class="form-button">حفظ التعديلات</button>
-        <a class="form-button form-button--plain" href="{% url 'participants:student_detail' pk=participant.pk %}">إلغاء</a>
+        <a class="form-button form-button--plain" href="{% if can_view_reports %}{% url 'participants:student_detail' pk=participant.pk %}{% else %}{% url 'participants:student_management' %}{% endif %}">إلغاء</a>
       </div>
     </form>
   </section>

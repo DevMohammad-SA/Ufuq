@@ -15,7 +15,9 @@
 
     {% include "participants/_attendance_messages.html" %}
 
+    {% if can_view_student_detail %}
     <p><a href="{% url 'participants:participants_data' %}" class="btn-inline roster-nav-link">بيانات المشاركين</a></p>
+    {% endif %}
 
     <section class="card roster-card">
       <h2>تحضير اللقاء الأسبوعي{% if group %} — بيئة {{ group.name }}{% endif %}</h2>
@@ -112,9 +114,13 @@
                   <tr data-participant-id="{{ entry.participant.id }}" data-recorded="{{ entry.recorded|yesno:'true,false' }}" data-search="{{ entry.participant.user.full_name|default:''|lower }} {{ entry.participant.user.national_id|default:''|lower }}">
                     <td class="student-name-cell" data-sort-value="{{ entry.participant.user.full_name|default:'' }}">
                       <div class="student-name-line">
+                        {% if can_view_student_detail %}
                         <a class="student-name-link" href="{% url 'participants:student_detail' pk=entry.participant.pk %}" aria-label="فتح ملف {{ entry.participant.user.full_name|default:'المشارك' }}">
                           {{ entry.participant.user.full_name|default:"—" }}
                         </a>
+                        {% else %}
+                        <span class="student-name-link">{{ entry.participant.user.full_name|default:"—" }}</span>
+                        {% endif %}
                       </div>
                       <span class="roster-row-state" data-row-state>{% if entry.recorded %}محفوظ{% else %}لم يُحدّد{% endif %}</span>
                     </td>

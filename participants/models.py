@@ -768,7 +768,7 @@ class TaskReviewPermission(models.Model):
 
 
 class SupervisorCapability(models.Model):
-    """Independent capabilities; effective only for an active LIMITED role."""
+    """Store/tasks require LIMITED; student management also supports GROUP."""
 
     supervisor = models.OneToOneField(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
@@ -776,6 +776,7 @@ class SupervisorCapability(models.Model):
     )
     manage_store = models.BooleanField(default=False, verbose_name="إدارة المتجر")
     follow_tasks = models.BooleanField(default=False, verbose_name="متابعة وتصحيح المهام")
+    manage_students = models.BooleanField(default=False, verbose_name="إدارة الطلاب")
     granted_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
         related_name="+", verbose_name="حدّث الصلاحيات",
@@ -785,6 +786,26 @@ class SupervisorCapability(models.Model):
     class Meta:
         verbose_name = "صلاحيات مشرف محددة"
         verbose_name_plural = "صلاحيات المشرفين المحددة"
+
+
+class SupervisorReportPermission(models.Model):
+    """An explicit report policy, including durable denials of inherited access."""
+
+    supervisor = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="report_permissions", verbose_name="المشرف",
+    )
+    view_reports = models.BooleanField(default=False, verbose_name="الاطلاع على التقارير")
+    prepare_reports = models.BooleanField(default=False, verbose_name="إعداد وتصدير التقارير")
+    granted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+        related_name="+", verbose_name="حدّث أذونات التقارير",
+    )
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="آخر تحديث")
+
+    class Meta:
+        verbose_name = "إذن تقارير مشرف"
+        verbose_name_plural = "أذونات تقارير المشرفين"
 
 
 class MeetingNote(models.Model):

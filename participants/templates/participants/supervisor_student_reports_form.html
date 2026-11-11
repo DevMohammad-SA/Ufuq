@@ -1,0 +1,49 @@
+{% extends "participants/app_base.html" %}
+{% load static %}
+
+{% block title %}صلاحيات الطلاب والتقارير — رحّال{% endblock %}
+{% block extra_style %}.wrap{max-width:100%;min-width:0}{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/student-permissions.css' %}?v=20261111-permissions1">
+<main class="student-permissions">
+  <h1 class="page-title">صلاحيات الطلاب والتقارير</h1>
+  <p class="page-sub">امنح ما يحتاجه المشرف، أو ألغِ اختياره لسحب الصلاحية. لا يتغير دور أي منكما أو البيئات المسندة إليه.</p>
+  {% if messages %}{% for message in messages %}<p class="permission-note" role="status">{{ message }}</p>{% endfor %}{% endif %}
+  <section class="card permission-card" aria-labelledby="permissions-target">
+    <h2 id="permissions-target">{{ supervisor.full_name|default:supervisor.username }}</h2>
+    <p class="permission-meta">{{ supervisor.get_role_display }} · {% if supervisor.is_active %}حساب نشط{% else %}حساب غير نشط{% endif %}</p>
+    {% if is_inactive %}<p class="permission-note permission-note--warning">الحساب غير نشط؛ يمكنك سحب الصلاحيات منه فقط. تفعيله لاحقًا لا يعيد الصلاحيات المسحوبة.</p>{% endif %}
+    {% if supervisor.is_staff %}<p class="permission-note">تبقى خصائص الحساب الإدارية السابقة وكلمة مروره كما هي. هذه الخيارات تخص صلاحيات رحّال فقط.</p>{% endif %}
+    {% if form.non_field_errors %}<div class="permission-errors" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+    <form method="post">
+      {% csrf_token %}
+      <fieldset class="permission-fields">
+        <legend>الصلاحيات الممنوحة</legend>
+        <div class="permission-option">
+          <label class="permission-check" for="{{ form.manage_students.id_for_label }}">{{ form.manage_students }}<span>إدارة الطلاب</span></label>
+          {% if is_general %}<p class="permission-help">إدارة الطلاب من صلاحيات دوره العام أصلًا؛ لا يغيّر هذا الخيار دوره أو صلاحياته الإدارية.</p>{% else %}<p class="permission-help">إضافة طالب، وتعديل بياناته، وتعطيل حسابه دون حذف سجلاته. مشرف البيئة لطلابه فقط، والمشرف المحدود لجميع البيئات. لا تمنح استيرادًا جماعيًا أو استعادة حساب أو تعديل نقاط.</p>{% endif %}
+          {% if form.manage_students.errors %}<div class="permission-errors" role="alert">{{ form.manage_students.errors }}</div>{% endif %}
+        </div>
+        <div class="permission-option">
+          <label class="permission-check" for="{{ form.view_reports.id_for_label }}">{{ form.view_reports }}<span>الاطلاع على التقارير</span></label>
+          <p class="permission-help">عرض التقارير وملف الطالب وتغيير الفلاتر ضمن نطاق المشرف. إلغاء هذا الخيار يمنع الوصول إلى التقارير وروابطها حتى لو كان دوره مشرفًا عامًا.</p>
+          {% if form.view_reports.errors %}<div class="permission-errors" role="alert">{{ form.view_reports.errors }}</div>{% endif %}
+        </div>
+        <div class="permission-option">
+          <label class="permission-check" for="{{ form.prepare_reports.id_for_label }}">{{ form.prepare_reports }}<span>إعداد وتصدير التقارير</span></label>
+          <p class="permission-help">إصدار ملفات PDF وExcel من التقارير. يتطلب تفعيل الاطلاع؛ يمكنك إبقاء الاطلاع وحده دون السماح بإصدار الملفات.</p>
+          {% if form.prepare_reports.errors %}<div class="permission-errors" role="alert">{{ form.prepare_reports.errors }}</div>{% endif %}
+        </div>
+      </fieldset>
+      <p class="permission-note">لا يتغير شيء بمجرد تحديد الخيارات. تحقّق منها، ثم أكّد الحفظ. تبقى إدارة المتجر وتصحيح المهام بحسب أذوناتهما السابقة.</p>
+      <label class="permission-confirm" for="{{ form.confirm.id_for_label }}">{{ form.confirm }}<span>أؤكد حفظ هذه الصلاحيات لهذا المشرف، بما فيها الصلاحيات التي اخترت سحبها.</span></label>
+      {% if form.confirm.errors %}<div class="permission-errors" role="alert">{{ form.confirm.errors }}</div>{% endif %}
+      <div class="permission-actions">
+        <button type="submit" class="permission-button">حفظ الصلاحيات</button>
+        <a class="permission-button permission-button--plain" href="{% url 'participants:supervisor_list' %}">إلغاء</a>
+      </div>
+    </form>
+  </section>
+</main>
+{% endblock %}

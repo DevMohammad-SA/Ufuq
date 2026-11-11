@@ -152,7 +152,7 @@ class SupervisorManagementForm(forms.Form):
 
 
 class SupervisorCapabilitiesForm(forms.Form):
-    """Only two delegations; privileged User fields are never accepted."""
+    """Independent delegations; privileged User fields are never accepted."""
 
     manage_store = forms.BooleanField(
         label="إدارة المتجر", required=False,
@@ -162,6 +162,10 @@ class SupervisorCapabilitiesForm(forms.Form):
         label="متابعة وتصحيح المهام", required=False,
         widget=forms.CheckboxInput(attrs={"value": "yes"}),
     )
+    manage_students = forms.BooleanField(
+        label="إدارة الطلاب", required=False,
+        widget=forms.CheckboxInput(attrs={"value": "yes"}),
+    )
     confirm = forms.BooleanField(
         label="أؤكد حفظ الصلاحيات المحددة لهذا المشرف", required=True,
         widget=forms.CheckboxInput(attrs={"value": "yes"}),
@@ -169,7 +173,7 @@ class SupervisorCapabilitiesForm(forms.Form):
 
     def clean(self):
         data = super().clean()
-        for name in ("manage_store", "follow_tasks", "confirm"):
+        for name in ("manage_store", "follow_tasks", "manage_students", "confirm"):
             if hasattr(self.data, "getlist"):
                 values = self.data.getlist(name)
             elif name in self.data:

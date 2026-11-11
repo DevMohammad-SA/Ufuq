@@ -1,13 +1,13 @@
 """Read-only, scoped detail page for a single participant."""
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db.models import Count, Q, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import formats, timezone
-from django.utils.cache import patch_cache_control
 from django.views.generic import TemplateView
 
-from .access import can_view_meeting_notes
+from .capabilities import can_view_reports, current_report_access
 from .models import (
     CircleAttendance,
     MeetingAttendance,
@@ -18,7 +18,10 @@ from .models import (
     TaskSubmission,
     WeeklyActivityAttendance,
 )
-from .reporting import REPORT_ROLES, StudentReportFilterForm, date_window, scoped_participants
+from .reporting import (
+    PrivateReportResponseMixin, StudentReportFilterForm,
+    can_view_private_report_notes, date_window, scoped_participants,
+)
 from .views import build_navbar
 
 
@@ -31,7 +34,7 @@ class StudentDetailFilterForm(StudentReportFilterForm):
         self.fields.pop("q")
 
 
-class StudentDetailView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+class StudentDetailView(PrivateReportResponseMixin, LoginRequiredMixin, UserPassesTestMixin, TemplateView):
     """A supervisor-only, private audit view scoped before object lookup."""
 
     template_name = "participants/student_detail.html"
@@ -40,15 +43,14 @@ class StudentDetailView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
     page_size = 20
 
     def test_func(self):
-        return self.request.user.role in REPORT_ROLES
+        return can_view_reports(self.request.user)
 
     def get_participant(self):
-        if not hasattr(self, "_participant"):
-            self._participant = get_object_or_404(
-                scoped_participants(self.request.user).select_related("user", "group"),
-                pk=self.kwargs["pk"],
-            )
-        return self._participant
+        # Never retain an object authorized under an earlier role/assignment.
+        return get_object_or_404(
+            scoped_participants(self.request.user).select_related("user", "group"),
+            pk=self.kwargs["pk"],
+        )
 
     @staticmethod
     def _display(value, empty="—"):
@@ -90,6 +92,12 @@ class StudentDetailView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
 
     def _build_tables(self, participant, start_date, end_date, include_notes):
         """Paginate every independently-filtered queryset, with no history cap."""
+        access = current_report_access(self.request.user)
+        if not access["can_view"] or not scoped_participants(
+            self.request.user, _access=access,
+        ).filter(pk=participant.pk).exists():
+            raise PermissionDenied("الطالب غير متاح ضمن صلاحياتك.")
+        include_notes = include_notes and can_view_private_report_notes(self.request.user, _access=access)
         circle = date_window(
             CircleAttendance.objects.filter(participant=participant).select_related("recorded_by"),
             "date", start_date, end_date,
@@ -255,12 +263,27 @@ class StudentDetailView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        access = current_report_access(self.request.user)
+        if not access["can_view"]:
+            context.update({
+                "participant": None, "filter_form": None, "filters_valid": False,
+                "tables": [], "summary": None, "navbar_items": [],
+                "can_manage_accounts": False, "can_manage_students": False,
+                "can_prepare_reports": False,
+            })
+            return context
         participant = self.get_participant()
-        from .management_views import can_manage_accounts
-        context["can_manage_accounts"] = can_manage_accounts(self.request.user)
+        from .capabilities import can_manage_students
+        # Report grants never imply permission to edit participant accounts.
+        context["can_manage_students"] = can_manage_students(self.request.user)
+        context["can_manage_accounts"] = (
+            context["can_manage_students"]
+            and access["role"] in ("general_supervisor", "superadmin")
+        )
+        context["can_prepare_reports"] = access["can_prepare"]
         form = StudentDetailFilterForm(self.request.GET, user=self.request.user)
         filters_valid = form.is_valid()
-        include_notes = can_view_meeting_notes(self.request.user)
+        include_notes = can_view_private_report_notes(self.request.user, _access=access)
         context.update({
             "participant": participant,
             "filter_form": form,
@@ -289,8 +312,3 @@ class StudentDetailView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
         })
         context.update({f"{key}_page": page for key, page in pages.items()})
         return context
-
-    def render_to_response(self, context, **response_kwargs):
-        response = super().render_to_response(context, **response_kwargs)
-        patch_cache_control(response, private=True, no_store=True)
-        return response

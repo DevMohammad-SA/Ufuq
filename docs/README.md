@@ -14,7 +14,8 @@
 | الملف | المحتوى |
 |-------|---------|
 | [`architecture.md`](architecture.md) | نظرة معمارية: التطبيقان (`accounts` / `participants`)، اتجاه الاعتماد، فلسفة الفصل بين الهوية (`User`) والبيانات البرنامجية (`Participant`)، طبقة العرض، تحويل الحضور لنقاط، **إعداد النشر الإنتاجي عبر Docker**. |
-| [`roles-and-permissions.md`](roles-and-permissions.md) | الأدوار الأربعة، كيف يدخل كل دور، ومصفوفة كاملة لصلاحيات كل View مستخرجة من `test_func()`، وضوابط إدارة المشاركين وحسابات المشرفين. |
+| [`roles-and-permissions.md`](roles-and-permissions.md) | الأدوار الخمسة، الدخول والصلاحيات الافتراضية والأذونات الصريحة، وضوابط إدارة المشاركين والمشرفين. |
+| [`student-report-permissions.md`](student-report-permissions.md) | تفويض إضافة الطلاب وتعديلهم وتعطيلهم دون تغيير الدور، ومنع الاطلاع أو إصدار التقارير مستقلاً مع النطاق والخصوصية والسحب. |
 | [`points-system.md`](points-system.md) | العملات الثلاث (نقاط/أميال/نقاط شرائية)، معادلة `apply_points_delta`، القيَم الرقمية الفعلية لكل مصدر نقاط (اللقاء، الحلقة، فعالية الأسبوع، المهمة، النقاط الإضافية)، وسجل النقاط (`PointsLedgerEntry`). |
 | [`models.md`](models.md) | كل الموديلات حقلًا حقلًا، القيود (`UniqueConstraint`)، العلاقات (`related_name`)، وما هو مسجَّل في الأدمن. |
 | [`authentication.md`](authentication.md) | `NationalIDOrUsernameBackend`، كلمة مرور المشارك (`must_set_password` + `ForcePasswordSetupMiddleware`)، واسترجاع كلمة المرور بموافقة المشرف العام، وضوابط كلمة مرور نموذج إدارة المشرفين. |

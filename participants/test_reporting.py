@@ -213,9 +213,15 @@ class StudentReportingTests(TestCase):
         self.assertContains(response, "أبرز 15 طالبًا")
 
     def test_sql_query_count_is_constant_not_per_student(self):
-        with self.assertNumQueries(6):
+        # One persisted policy/role read plus the six shared aggregate queries.
+        with self.assertNumQueries(7):
             rows = build_student_report(self.general, self.filters())
         self.assertEqual(len(rows), 4)
+        for i in range(12):
+            self.make_student(str(8000000800 + i), f"طالب اختبار استعلام {i}", self.group)
+        with self.assertNumQueries(7):
+            expanded = build_student_report(self.general, self.filters())
+        self.assertEqual(len(expanded), 16)
 
     def test_unknown_and_oversized_filters_fail_safely(self):
         for params in [{"group": "not-an-id"}, {"q": "x" * 101}]:
