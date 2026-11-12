@@ -4,8 +4,7 @@
 {% block title %}بيانات المشاركين — رحّال{% endblock %}
 
 {% block extra_style %}
-/* عرض نسبي لمنطقة المحتوى، لا لعرض الشاشة: مع الـ Sidebar المفتوح
-   (248px) كان 96vw يتجاوز المساحة المتاحة ويُحدث تمريرًا أفقيًا للصفحة. */
+/* عرض نسبي لمنطقة المحتوى، لا لعرض الشاشة مع القائمة الجانبية. */
 .wrap{max-width:100%}
 
 table.roster{
@@ -89,7 +88,6 @@ table.roster th.num-col{text-align:center}
   cursor:pointer;
   accent-color:var(--gold-ink);
 }
-/* نفس نمط .select-all في supervisor_dashboard.html */
 .select-all{
   background:none;
   border:none;
@@ -109,6 +107,7 @@ th.sortable{
   white-space:nowrap;
 }
 th.sortable:hover{color:var(--asphalt)}
+th.sortable:focus-visible{outline:2px solid var(--gold-ink);outline-offset:-2px}
 th.sortable .sort-arrow{
   display:inline-block;
   margin-inline-start:4px;
@@ -122,7 +121,7 @@ th.sortable.sort-asc .sort-arrow:after{content:"▲"}
 th.sortable.sort-desc .sort-arrow:after{content:"▼"}
 th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
 
-/* زر تصدير PDF (مستقل عن البحث/الفرز — نطاقه فقط تصفية البيئة) */
+/* زر تصدير PDF يتبع العمود واتجاه الفرز الحاليين. */
 .export-pdf-btn{
   display:inline-block;
   margin-bottom:var(--s2);
@@ -172,7 +171,7 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
     {% if not participants %}
       <p class="empty-note">لا توجد بيانات مشاركين لعرضها حتى الآن.</p>
     {% else %}
-      {% if can_prepare_reports %}<a href="#" id="export-pdf-btn" class="export-pdf-btn">تصدير PDF</a>{% endif %}
+      {% if can_prepare_reports %}<a href="{% url 'participants:participants_data_pdf' %}?status={{ participant_status|urlencode }}" id="export-pdf-btn" class="export-pdf-btn">تصدير PDF</a>{% endif %}
 
       <input type="text" id="roster-search" class="roster-search" placeholder="ابحث بالاسم أو رقم الهوية…" autocomplete="off">
 
@@ -198,15 +197,15 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
           <thead>
             <tr>
               <th class="num-col">#</th>
-              <th class="sortable" data-sort="text" data-col="1">الاسم الكامل<span class="sort-arrow"></span></th>
+              <th class="sortable" data-sort="text" data-col="1" data-sort-key="full_name" tabindex="0" aria-sort="none">الاسم الكامل<span class="sort-arrow" aria-hidden="true"></span></th>
               <th>رقم الهوية</th>
-              <th class="sortable" data-sort="text" data-col="3">البيئة<span class="sort-arrow"></span></th>
-              <th class="sortable" data-sort="text" data-col="4">المرحلة الدراسية<span class="sort-arrow"></span></th>
-              <th class="sortable num-col" data-sort="number" data-col="5">الأميال<span class="sort-arrow"></span></th>
-              <th class="sortable num-col" data-sort="number" data-col="6">النقاط<span class="sort-arrow"></span></th>
-              <th class="sortable num-col" data-sort="number" data-col="7">النقاط الشرائية<span class="sort-arrow"></span></th>
-              <th class="sortable num-col" data-sort="number" data-col="8">أيام حضور الحلقة<span class="sort-arrow"></span></th>
-              <th class="sortable num-col" data-sort="number" data-col="9">مرات حضور اللقاء<span class="sort-arrow"></span></th>
+              <th class="sortable" data-sort="text" data-col="3" data-sort-key="group" tabindex="0" aria-sort="none">البيئة<span class="sort-arrow" aria-hidden="true"></span></th>
+              <th class="sortable" data-sort="text" data-col="4" data-sort-key="academic_stage" tabindex="0" aria-sort="none">المرحلة الدراسية<span class="sort-arrow" aria-hidden="true"></span></th>
+              <th class="sortable num-col" data-sort="number" data-col="5" data-sort-key="miles" tabindex="0" aria-sort="none">الأميال<span class="sort-arrow" aria-hidden="true"></span></th>
+              <th class="sortable num-col" data-sort="number" data-col="6" data-sort-key="points" tabindex="0" aria-sort="none">النقاط<span class="sort-arrow" aria-hidden="true"></span></th>
+              <th class="sortable num-col" data-sort="number" data-col="7" data-sort-key="purchase_points" tabindex="0" aria-sort="none">النقاط الشرائية<span class="sort-arrow" aria-hidden="true"></span></th>
+              <th class="sortable num-col" data-sort="number" data-col="8" data-sort-key="circle_days_attended" tabindex="0" aria-sort="none">أيام حضور الحلقة<span class="sort-arrow" aria-hidden="true"></span></th>
+              <th class="sortable num-col" data-sort="number" data-col="9" data-sort-key="meetings_attended" tabindex="0" aria-sort="none">مرات حضور اللقاء<span class="sort-arrow" aria-hidden="true"></span></th>
               <th>رقم جوال المشارك</th>
               <th>رقم جوال ولي الأمر</th>
               {% if can_manage_accounts %}<th>إجراء</th>{% endif %}
@@ -216,7 +215,7 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
             {% for participant in participants %}
               <tr data-search="{{ participant.user.full_name|default:''|lower }} {{ participant.user.national_id|default:''|lower }}" data-group="{{ participant.group.name|default:'' }}">
                 <td class="num-cell row-number"></td>
-                <td><a class="roster-student-link" href="{% url 'participants:student_detail' pk=participant.pk %}">{{ participant.user.full_name|default:"—" }}</a>{% if not participant.user.is_active %}<span class="status-badge">مؤرشف</span>{% endif %}</td>
+                <td data-sort-value="{{ participant.user.full_name|default:'—' }}"><a class="roster-student-link" href="{% url 'participants:student_detail' pk=participant.pk %}">{{ participant.user.full_name|default:"—" }}</a>{% if not participant.user.is_active %}<span class="status-badge">مؤرشف</span>{% endif %}</td>
                 <td>{{ participant.user.national_id|default:"—" }}</td>
                 <td>{{ participant.group.name|default:"—" }}</td>
                 <td>{{ participant.get_academic_stage_display|default:"—" }}</td>
@@ -251,150 +250,5 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
 {% endblock %}
 
 {% block scripts %}
-<script>
-(function () {
-  // البحث النصي + فلتر البيئات متعدد الاختيار (يعملان معًا: يظهر الصف فقط إذا طابق الشرطين)
-  var search = document.getElementById("roster-search");
-  var tbody = document.getElementById("roster-body");
-  var empty = document.getElementById("roster-empty");
-
-  var groupCheckboxes = document.querySelectorAll(".group-filter-checkbox");
-  var selectAllBtn = document.getElementById("group-filter-all");
-  var selectNoneBtn = document.getElementById("group-filter-none");
-
-  function renumberRows() {
-    if (!tbody) return;
-    var visibleRows = Array.prototype.filter.call(
-      tbody.querySelectorAll("tr"),
-      function (row) { return !row.hidden; }
-    );
-    visibleRows.forEach(function (row, index) {
-      var numberCell = row.querySelector(".row-number");
-      if (numberCell) numberCell.textContent = index + 1;
-    });
-  }
-
-  function getSelectedGroups() {
-    var selected = [];
-    groupCheckboxes.forEach(function (cb) {
-      if (cb.checked) selected.push(cb.value);
-    });
-    return selected;
-  }
-
-  function applyFilters() {
-    if (!tbody) return;
-    var q = search ? search.value.trim().toLowerCase() : "";
-    var selectedGroups = getSelectedGroups();
-    // إذا لم توجد أي بيئة مُحدَّدة، تُخفى كل الصفوف (المشرف اختار صراحةً عدم رؤية أي بيئة).
-    // عندما لا توجد مجموعة checkboxes أصلًا (بيئة واحدة فقط) لا يُطبَّق فلتر البيئة إطلاقًا.
-    var groupFilterActive = groupCheckboxes.length > 0;
-    var visible = 0;
-    Array.prototype.forEach.call(tbody.querySelectorAll("tr"), function (row) {
-      var matchesSearch = !q || (row.getAttribute("data-search") || "").indexOf(q) !== -1;
-      var matchesGroup = !groupFilterActive
-        || selectedGroups.indexOf(row.getAttribute("data-group") || "") !== -1;
-      var match = matchesSearch && matchesGroup;
-      row.hidden = !match;
-      if (match) visible++;
-    });
-    if (empty) empty.hidden = visible !== 0;
-    renumberRows();
-  }
-
-  if (search) search.addEventListener("input", applyFilters);
-
-  groupCheckboxes.forEach(function (cb) {
-    cb.addEventListener("change", applyFilters);
-  });
-
-  if (selectAllBtn) {
-    selectAllBtn.addEventListener("click", function () {
-      groupCheckboxes.forEach(function (cb) { cb.checked = true; });
-      applyFilters();
-    });
-  }
-
-  if (selectNoneBtn) {
-    selectNoneBtn.addEventListener("click", function () {
-      groupCheckboxes.forEach(function (cb) { cb.checked = false; });
-      applyFilters();
-    });
-  }
-
-  // الفرز بالضغط على رأس العمود
-  var table = document.getElementById("roster-table");
-  if (!table || !tbody) return;
-
-  var currentSort = { col: null, dir: null };
-
-  function getCellValue(row, colIndex, type) {
-    var cell = row.children[colIndex];
-    var text = cell ? cell.textContent.trim() : "";
-    if (type === "number") {
-      var n = parseFloat(text.replace(/[^\d.-]/g, ""));
-      return isNaN(n) ? -Infinity : n;
-    }
-    return text.toLocaleLowerCase("ar");
-  }
-
-  table.querySelectorAll("th.sortable").forEach(function (header) {
-    header.addEventListener("click", function () {
-      var colIndex = parseInt(header.getAttribute("data-col"), 10);
-      var type = header.getAttribute("data-sort");
-
-      var dir = "asc";
-      if (currentSort.col === colIndex && currentSort.dir === "asc") {
-        dir = "desc";
-      }
-      currentSort = { col: colIndex, dir: dir };
-
-      table.querySelectorAll("th.sortable").forEach(function (h) {
-        h.classList.remove("sort-asc", "sort-desc");
-      });
-      header.classList.add(dir === "asc" ? "sort-asc" : "sort-desc");
-
-      var rows = Array.prototype.slice.call(tbody.querySelectorAll("tr"));
-      rows.sort(function (a, b) {
-        var va = getCellValue(a, colIndex, type);
-        var vb = getCellValue(b, colIndex, type);
-        if (va < vb) return dir === "asc" ? -1 : 1;
-        if (va > vb) return dir === "asc" ? 1 : -1;
-        return 0;
-      });
-      rows.forEach(function (row) { tbody.appendChild(row); });
-      renumberRows();
-    });
-  });
-
-  renumberRows();
-})();
-</script>
-
-<script>
-(function () {
-  // زر "تصدير PDF": مستقل تمامًا عن البحث النصي والفرز. يبني الرابط من
-  // البيئات المحددة حاليًا في الـ checkboxes فقط (قيمة كل checkbox هي اسم
-  // البيئة)، ويرسلها كـ ?group=<name> مكررة. عند عدم وجود أي checkboxes
-  // (بيئة واحدة فقط، أو مشرف بيئة) لا تُرسَل أي معاملات والخادم يصدّر كل
-  // ما يقع ضمن نطاق دور المستخدم.
-  var exportBtn = document.getElementById("export-pdf-btn");
-  if (!exportBtn) return;
-
-  exportBtn.addEventListener("click", function (e) {
-    e.preventDefault();
-    var params = new URLSearchParams();
-    document
-      .querySelectorAll(".group-filter-checkbox:checked")
-      .forEach(function (cb) {
-        params.append("group", cb.value);
-      });
-    var status = document.getElementById("participant-status-filter");
-    if (status) params.append("status", status.value);
-    var base = "{% url 'participants:participants_data_pdf' %}";
-    var qs = params.toString();
-    window.location.href = qs ? base + "?" + qs : base;
-  });
-})();
-</script>
+<script src="{% static 'js/participants-data.js' %}?v=20261112-sort1" defer></script>
 {% endblock %}

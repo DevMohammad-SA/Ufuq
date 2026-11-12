@@ -2180,17 +2180,11 @@ class ParticipantsDataView(PrivateReportResponseMixin, LoginRequiredMixin, UserP
         # CircleAttendance.participant / MeetingAttendance.participant carry
         # explicit related_name values ("circle_attendances" /
         # "meeting_attendances"), so those are the reverse accessors used here.
-        return base_queryset.select_related("user", "group").annotate(
-            circle_days_attended=Count(
-                "circle_attendances",
-                filter=Q(circle_attendances__attended=True),
-                distinct=True,
-            ),
-            meetings_attended=Count(
-                "meeting_attendances",
-                filter=Q(meeting_attendances__attended=True),
-                distinct=True,
-            ),
+        from .roster_ordering import annotate_roster_attendance
+        return annotate_roster_attendance(
+            base_queryset.select_related("user", "group"),
+        ).order_by(
+            "user__full_name", "pk",
         )
 
     def get_context_data(self, **kwargs):
@@ -2227,8 +2221,9 @@ class ParticipantsDataPDFExportView(PrivateReportResponseMixin, LoginRequiredMix
     participants_data.html is the group's name, so this endpoint filters by
     `group__name__in` to match with zero template changes.
 
-    Search text and column sorting are NOT reflected here (client-side
-    only); the export always lists participants sorted by full name.
+    Column sort_by/sort_dir choices use a fixed allowlist and match the
+    browser's stable ordering. Without a valid choice, miles descending is
+    retained. Search remains client-side only; access and filters are unchanged.
     """
 
     login_url = "accounts:login_supervisor"
@@ -2254,10 +2249,16 @@ class ParticipantsDataPDFExportView(PrivateReportResponseMixin, LoginRequiredMix
 
         from .participant_lifecycle import filter_participant_status
         queryset = filter_participant_status(queryset.filter(user__role=Role.PARTICIPANT), request)
-        return queryset.select_related("user", "group").order_by("-miles")
+        from .roster_ordering import annotate_roster_attendance
+        return annotate_roster_attendance(
+            queryset.select_related("user", "group"),
+        ).order_by("user__full_name", "pk")
 
     def get(self, request, *args, **kwargs):
-        participants = self._get_participants(request)
+        from .roster_ordering import order_roster_for_export
+        participants = order_roster_for_export(
+            self._get_participants(request), request.GET,
+        )
 
         html_string = render_to_string(
             "participants/participants_data_pdf.html",
