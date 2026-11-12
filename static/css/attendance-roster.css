@@ -578,3 +578,33 @@
   .attendance-roster[data-mobile-attendance] .roster-save-info{flex:1 1 100%;font-size:12px}
   .attendance-roster[data-mobile-attendance] [data-roster-savebar] .btn{max-width:none;width:100%;min-height:44px;padding:10px 16px}
 }
+
+/* Opt-in pages only: feedback occupies topbar flex space, never overlays controls.
+   The shell hides this 56px bar at <=720px; reserve it explicitly on these pages. */
+.roster-autosave-topbar .roster-autosave-feedback{
+  display:flex;flex:1 1 auto;align-items:center;justify-content:flex-end;gap:8px;
+  min-width:0;min-height:44px;color:var(--slate);font:600 13px/1.4 var(--font-ui);
+}
+.roster-autosave-feedback [data-autosave-message]{min-width:0;overflow-wrap:anywhere}
+.roster-autosave-feedback[data-state="idle"]{visibility:hidden}
+.roster-autosave-feedback[data-state="saved"]{color:#34734b}
+.roster-autosave-feedback[data-state="failed"]{color:#8d3f2e}
+.roster-autosave-feedback [data-autosave-retry]{
+  flex:0 0 auto;min-width:88px;min-height:44px;padding:6px 10px;
+  border:1px solid #dfc1b4;border-radius:8px;background:#fff7f3;color:#8d3f2e;
+  font:700 12px/1.4 var(--font-ui);cursor:pointer;touch-action:manipulation;
+}
+.roster-autosave-feedback [data-autosave-retry][hidden]{display:none!important}
+.roster-autosave-feedback [data-autosave-retry]:disabled{opacity:.6;cursor:wait}
+.roster-autosave-feedback [data-autosave-retry]:focus-visible{
+  outline:3px solid rgba(199,154,59,.26);outline-offset:2px;
+}
+.attendance-roster[data-individual-autosave] .select-all{min-height:44px}
+@media (max-width:720px){
+  body.roster-autosave-page,body.roster-autosave-page.sidebar-collapsed{padding-top:var(--topbar-h)}
+  .app-topbar.roster-autosave-topbar{display:flex;gap:8px;padding-inline:12px}
+  .roster-autosave-topbar .app-topbar__toggle,
+  .roster-autosave-topbar .app-topbar__brand .wordmark{display:none}
+  .roster-autosave-topbar .app-topbar__brand{flex:0 0 auto}
+  .roster-autosave-topbar .roster-autosave-feedback{font-size:12px}
+}

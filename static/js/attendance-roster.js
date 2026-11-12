@@ -1,6 +1,19 @@
 (function () {
   "use strict";
 
+  // Shared by note-only, individual and manual saves on this page, not across tabs.
+  var requests = globalThis.RahhalRosterRequests;
+  if (!requests) {
+    var tail = Promise.resolve();
+    requests = globalThis.RahhalRosterRequests = {
+      enqueue: function (run) {
+        var result = tail.then(run);
+        tail = result.catch(function () {});
+        return result;
+      }
+    };
+  }
+
   function toArray(nodeList) {
     return Array.prototype.slice.call(nodeList);
   }
@@ -63,19 +76,25 @@
       });
     }
 
-    function makeEarlyAttendanceAlsoAttended(earlyBox) {
+    // change.detail.rosterSource is "bulk" for select-all AND its coupled changes.
+    // roster:bulk-start/end bracket the synchronous operation for other listeners.
+    function change(box, source) {
+      box.dispatchEvent(new CustomEvent("change", { bubbles: true, detail: { rosterSource: source } }));
+    }
+    function makeEarlyAttendanceAlsoAttended(earlyBox, source) {
       if (!earlyBox.checked) return;
       var row = earlyBox.closest("tr");
       var attendedBox = row && row.querySelector('input[type="checkbox"][data-col="attended"]');
-      if (attendedBox && !attendedBox.checked) {
+      // Even a checked manual draft needs an individual intent when early is selected.
+      if (attendedBox && (!attendedBox.checked || root.hasAttribute("data-individual-autosave"))) {
         attendedBox.checked = true;
-        attendedBox.dispatchEvent(new Event("change", { bubbles: true }));
+        change(attendedBox, source || "individual");
       }
     }
 
     toArray(root.querySelectorAll('input[type="checkbox"][data-col="early"]')).forEach(function (earlyBox) {
-      earlyBox.addEventListener("change", function () {
-        makeEarlyAttendanceAlsoAttended(earlyBox);
+      earlyBox.addEventListener("change", function (event) {
+        makeEarlyAttendanceAlsoAttended(earlyBox, event && event.detail && event.detail.rosterSource);
       });
     });
 
@@ -87,13 +106,14 @@
         if (!boxes.length) return;
 
         var allChecked = boxes.every(function (box) { return box.checked; });
-        boxes.forEach(function (box) {
-          box.checked = !allChecked;
-          box.dispatchEvent(new Event("change", { bubbles: true }));
-        });
-
-        if (column === "early") {
-          boxes.forEach(makeEarlyAttendanceAlsoAttended);
+        root.dispatchEvent(new CustomEvent("roster:bulk-start"));
+        try {
+          boxes.forEach(function (box) {
+            box.checked = !allChecked;
+            change(box, "bulk");
+          });
+        } finally {
+          root.dispatchEvent(new CustomEvent("roster:bulk-end"));
         }
       });
     });
@@ -116,10 +136,12 @@
         data.append("date", sentDate);
         data.append("group", sentGroup);
         root.setAttribute("data-note-saving", String(Number(root.getAttribute("data-note-saving") || 0) + 1));
+        button.setAttribute("data-note-request-pending", "true");
         button.disabled = true;
         root.dispatchEvent(new CustomEvent("roster:note-request"));
         status.textContent = "جارٍ حفظ الملاحظة…";
-        fetch(form.action, {method: "POST", body: data, credentials: "same-origin"})
+        requests.enqueue(function () {
+          return fetch(form.action, {method: "POST", body: data, credentials: "same-origin"})
           .then(function (response) {
             var target = new URL(response.url);
             if (!response.ok || !response.redirected || target.pathname !== new URL(form.action).pathname ||
@@ -131,10 +153,12 @@
           })
           .catch(function () { status.textContent = "تعذر حفظ الملاحظة. حدّث الصفحة وتحقق من الصلاحية أو طول النص."; })
           .finally(function () {
-            button.disabled = false;
+            button.setAttribute("data-note-request-pending", "false");
+            button.disabled = form.getAttribute("aria-busy") === "true";
             root.setAttribute("data-note-saving", String(Math.max(0, Number(root.getAttribute("data-note-saving") || 0) - 1)));
             root.dispatchEvent(new CustomEvent("roster:note-request"));
           });
+        });
       });
     });
 

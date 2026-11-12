@@ -4,13 +4,19 @@
 {% block title %}تحضير اللقاء الأسبوعي — رحّال{% endblock %}
 
 {% block content %}
-  <link rel="stylesheet" href="{% static 'css/attendance-roster.css' %}">
+  <link rel="stylesheet" href="{% static 'css/attendance-roster.css' %}?v=20261112-individual1">
 
-  <div class="attendance-roster attendance-roster--meeting{% if can_view_notes %} attendance-roster--with-notes{% endif %}" data-roster-kind="meeting" data-mobile-attendance>
+  <div class="attendance-roster attendance-roster--meeting{% if can_view_notes %} attendance-roster--with-notes{% endif %}" data-roster-kind="meeting" data-mobile-attendance data-individual-autosave>
+    {% if group and roster %}
+      <div class="roster-autosave-feedback" data-autosave-feedback data-state="idle" role="status" aria-live="polite" aria-atomic="true">
+        <span data-autosave-message></span>
+        <button type="button" data-autosave-retry hidden>إعادة المحاولة</button>
+      </div>
+    {% endif %}
     <p class="welcome-note">مرحبًا، {{ request.user.full_name }}</p>
     <h1 class="page-title">تحضير اللقاء الأسبوعي</h1>
     <p class="page-sub">
-      {% if group %}بيئة <b>{{ group.name }}</b> · {% endif %}اختر تاريخ اللقاء، ثم علّم حضور المشاركين واحفظ التحضير دفعة واحدة.
+      {% if group %}بيئة <b>{{ group.name }}</b> · {% endif %}اختر تاريخ اللقاء؛ التغييرات الفردية تُحفظ تلقائيًا، والتحديد الجماعي{% if can_view_notes %} والملاحظات{% endif %} تُعتمد بزر الحفظ.
     </p>
 
     {% include "participants/_attendance_messages.html" %}
@@ -180,6 +186,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{% static 'js/attendance-roster.js' %}" defer></script>
-<script src="{% static 'js/mobile-attendance.js' %}" defer></script>
+<script src="{% static 'js/attendance-roster.js' %}?v=20261112-individual1" defer></script>
+<script src="{% static 'js/mobile-attendance.js' %}?v=20261112-individual1" defer></script>
 {% endblock %}

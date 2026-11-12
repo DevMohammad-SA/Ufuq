@@ -101,6 +101,7 @@ let passed = 0;
     }
     for (const kind of kinds) for (const width of [360,390,1280]) {
       const f = await fixture(kind,width);
+      assert.equal(await f.page.locator('[data-individual-autosave]').count(), kind==='elite_trip_attendance'?0:1, 'Exactly the three checkbox rosters opt in; elite stays manual');
       for (const show of [false,true]) {
         if (show) await f.page.locator('#student-data-toggle').click();
         const metrics = await f.page.evaluate(() => {
@@ -139,8 +140,13 @@ let passed = 0;
       await f.page.locator('#roster-search').fill('');
       await f.row(1).locator('[data-explicit-negative]').click();
       assert.equal(await f.row(1).isVisible(),false,'Explicit negative exits unprepared filter');
-      assert.equal(f.requests.length,0,'No autosave');
-      await f.save().click(); await f.waitSaved();
+      if(kind==='elite_trip_attendance') {
+        assert.equal(f.requests.length,0,'Elite negative remains manual');
+        await f.save().click(); await f.waitSaved();
+      } else {
+        await f.waitSaved();
+        assert.equal(f.requests.length,1,'Individual negative automatically saves only this student');
+      }
       const request=f.requests[0];
       assert.equal(request.data.partial_roster,'1');
       assert.equal(request.data.prepared_1,'1');
@@ -182,16 +188,21 @@ let passed = 0;
     // Every invalid acknowledgement retains ALL attendance and note baselines.
     for(const mode of ['missing-attendance','missing-note','wrong-date','wrong-group','false-success','bad-time','http-error','html','login','network']) {
       const f=await fixture(); f.mode=mode;
-      await f.row(1).locator('[data-explicit-negative]').click();
+      // Use the actual manual bulk lane, not an auto request that races the note edit.
+      await f.page.locator('.roster-mobile-bulk [data-target="attended"]').click();
+      assert.equal(f.requests.length,0,'Bulk remains pending before manual strict-ACK test');
       await f.row(1).locator('summary').click(); await f.row(1).locator('textarea').fill('تعديل جديد');
       await f.save().click();
       await f.page.waitForFunction(()=>document.querySelector('[data-roster-status]').getAttribute('data-error')==='true');
       assert.equal(await f.row(1).getAttribute('data-recorded'),'false');
+      assert.equal(await f.row(2).getAttribute('data-recorded'),'true','Existing recorded-negative baseline is not acknowledged anew');
+      assert.equal(await f.row(3).getAttribute('data-recorded'),'false');
       assert.equal(await f.row(1).locator('textarea').inputValue(),'تعديل جديد');
       assert.equal(await f.save().isEnabled(),true);
-      assert.match(await f.page.locator('[data-dirty-count]').textContent(),/1/);
+      assert.match(await f.page.locator('[data-dirty-count]').textContent(),/3/);
       f.mode='success'; await f.save().click(); await f.waitSaved();
       assert.equal(f.requests[1].data.prepared_1,'1'); assert.equal(f.requests[1].data.note_1,'تعديل جديد');
+      assert.equal(f.requests[1].data.prepared_2,'1'); assert.equal(f.requests[1].data.prepared_3,'1');
       passed++; await f.close();
     }
     // Note-only FormData never prepares the previously unrecorded student.
@@ -213,7 +224,8 @@ let passed = 0;
       await f.row(1).locator('.note-save-button').click();
       await f.page.waitForFunction(()=>document.querySelector('[data-note-saving]').getAttribute('data-note-saving')==='1');
       await f.row(1).locator('textarea').fill('تعديل أثناء الطلب');
-      assert.equal(await f.save().isDisabled(),true);
+      assert.equal(f.requests.length,1,'No overlapping roster POST during an independent note request');
+      assert.equal(await f.row(1).locator('.note-save-button').isDisabled(),true,'Duplicate note request remains blocked');
       while(!f.release) await new Promise(r=>setTimeout(r,10));
       f.held=false; f.release();
       await f.page.waitForFunction(()=>document.querySelector('[data-note-saving]').getAttribute('data-note-saving')==='0');
@@ -229,7 +241,11 @@ let passed = 0;
     // Freeze fields, reject double submission, beforeunload/date guards and successful cleanup.
     {
       const f=await fixture();
-      await f.row(1).locator('[data-explicit-negative]').click();
+      // Bulk select then unselect is an explicit pending negative on every row;
+      // it cannot be auto-acknowledged before the manual/navigation guards run.
+      await f.page.locator('.roster-mobile-bulk [data-target="attended"]').click();
+      await f.page.locator('.roster-mobile-bulk [data-target="attended"]').click();
+      assert.equal(f.requests.length,0,'Manual negative draft has not autosaved');
       assert.equal(await f.page.evaluate(()=>{const e=new Event('beforeunload',{cancelable:true});window.dispatchEvent(e);return e.defaultPrevented;}),true);
       f.confirm=false;
       const canceled=await f.page.evaluate(()=>{const e=new Event('submit',{bubbles:true,cancelable:true});document.querySelector('form[method="get"]').dispatchEvent(e);return e.defaultPrevented;});
