@@ -4,6 +4,7 @@ import io
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.db import models
+from django.utils import timezone
 from PIL import Image
 
 from accounts.models import Role
@@ -957,3 +958,30 @@ class EliteTripAudit(models.Model):
         ordering = ["created_at", "pk"]
         verbose_name = "تدقيق رحلة نخبة"
         verbose_name_plural = "تدقيق رحلات النخبة"
+
+
+class EliteTripNotification(models.Model):
+    class Kind(models.TextChoices):
+        NOMINATED = "nominated", "مرشح"
+        NOT_NOMINATED = "not_nominated", "غير مرشح"
+        CLOSED = "closed", "رحلة مغلقة"
+        CANCELLED = "cancelled", "رحلة ملغاة"
+
+    nomination = models.ForeignKey(EliteTripNomination, on_delete=models.PROTECT,
+                                    related_name="notifications", verbose_name="الدعوة")
+    kind = models.CharField(max_length=20, choices=Kind.choices, verbose_name="نوع الإشعار")
+    trip_version = models.PositiveIntegerField(verbose_name="نسخة الرحلة عند الإشعار")
+    message = models.CharField(max_length=600, verbose_name="نص الإشعار")
+    created_at = models.DateTimeField(default=timezone.now, verbose_name="وقت الإشعار")
+    read_at = models.DateTimeField(null=True, blank=True, verbose_name="وقت قراءة الإشعار")
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+        verbose_name = "إشعار حالة رحلة"
+        verbose_name_plural = "إشعارات حالات الرحلات"
+        constraints = [
+            models.UniqueConstraint(fields=["nomination", "trip_version"], name="elite_trip_notification_unique"),
+            models.CheckConstraint(condition=models.Q(kind__in=["nominated", "not_nominated", "closed", "cancelled"]),
+                                   name="elite_trip_notification_kind"),
+        ]
+        indexes = [models.Index(fields=["nomination", "read_at", "created_at"], name="elite_trip_notification_read")]

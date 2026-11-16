@@ -621,6 +621,7 @@ class SupervisorStudentReportMigrationTests(TransactionTestCase):
         migrate_from = [("participants", "0026_limited_task_grading_label")]
         migrate_to = [("participants", "0027_supervisor_student_report_permissions")]
         executor = MigrationExecutor(connection)
+        latest = executor.loader.graph.leaf_nodes()
         try:
             executor.migrate(migrate_from)
             old_apps = executor.loader.project_state(migrate_from).apps
@@ -647,4 +648,7 @@ class SupervisorStudentReportMigrationTests(TransactionTestCase):
             for name in ("view_reports", "prepare_reports"):
                 self.assertIs(SupervisorReportPermission._meta.get_field(name).default, False)
         finally:
-            MigrationExecutor(connection).migrate(migrate_to)
+            # Exercise 0026 -> 0027 above, but leave the complete schema for
+            # subsequent TransactionTestCase classes, including future tables.
+            MigrationExecutor(connection).migrate(latest)
+        self.assertEqual(MigrationExecutor(connection).migration_plan(latest), [])

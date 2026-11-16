@@ -444,3 +444,7 @@ nominationOneToOnePROTECTباسمconsent؛ ردواحدلكلدعوة. reference
 ### EliteTripAudit — أحداث الإدارة والرد
 
 tripFKPROTECTباسمaudit_events،actorFKUserSET_NULL،eventCharField30،dataJSONبمراجعوأعداد/نسخدونالتوقيعأوملاحظةالولي،created_atauto_now_addوترتيبالوقتثمpk. لايكتبأيجدولمنالأربعةفيPointsLedgerEntryأويستدعيapply_points_delta. التعطيلالناعملايحذفالردودواللقطات.
+
+### EliteTripNotification — إشعار حالة خاص بالطالب
+
+تضيف الهجرة `0029` جدولًا مستقلاً دون تحويل بيانات أو ملء إشعارات قديمة. `nomination` علاقة FK بـPROTECT وباسم `notifications`؛ منها يُحصر صاحب الحساب والنطاق المجمد. `kind` أحد `nominated/not_nominated/closed/cancelled` بقيد قيمة صالحة، و`trip_version` النسخة وقت الحدث؛ قيد فريد على الدعوة/النسخة يمنع التكرار. `message` نص ثابت حتى 600 حرف دون ملاحظات أو توقيع، و`created_at` بوقت الخادم، و`read_at` اختياري لا يُضبط إلا بإقرار POST مملوك. الفهرس على الدعوة/القراءة/الوقت، والترتيب الافتراضي الأحدث ثم PK؛ عرض اللوحة يعطي غير المقروء أولوية كي لا تبقى رسالة قديمة خارج حد العرض. لا تسجيل في الأدمن أو ربط بسجل النقاط.

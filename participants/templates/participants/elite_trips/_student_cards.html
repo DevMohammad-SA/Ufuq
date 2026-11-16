@@ -1,3 +1,4 @@
+{% load l10n %}
 {% if student_trip_cards %}
 <section class="et-student-cards" aria-label="دعوات رحلات النخبة">
   <header class="et-heading">
@@ -5,7 +6,7 @@
     <a class="et-button" href="{% url 'participants:student_trips' %}">رحلاتي</a>
   </header>
   {% for card in student_trip_cards %}
-  <article class="et-trip-card{% if not card.is_selected %} et-trip-card--unselected{% endif %}" aria-labelledby="et-trip-card-{{ card.nomination_id }}">
+  <article id="trip-{{ card.trip_id|unlocalize }}" class="et-trip-card{% if not card.is_selected %} et-trip-card--unselected{% endif %}" aria-labelledby="et-trip-card-{{ card.nomination_id }}">
     <div class="et-heading">
       <div><p class="et-eyebrow">{{ card.title }}</p><h3 id="et-trip-card-{{ card.nomination_id }}">{% if card.is_selected %}تهانينا! تم ترشيحك لرحلة النخبة{% else %}غير مرشح لهذه الرحلة{% endif %}</h3></div>
       <span class="et-badge{% if card.is_selected %} et-badge--yes{% else %} et-badge--no{% endif %}">{{ card.status_label }}</span>

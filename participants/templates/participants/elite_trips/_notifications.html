@@ -1,0 +1,42 @@
+{% load l10n %}
+{% if trip_notifications_enabled %}
+<section class="trip-notifications" data-trip-notifications dir="rtl" aria-labelledby="trip-notifications-heading"
+         data-notifications-url="{{ trip_notifications_url }}" data-trips-url="{% url 'participants:student_trips' %}"
+         data-unread-count="{{ trip_notifications_unread|unlocalize }}" data-attention-count="{{ trip_notifications_attention|unlocalize }}">
+  <header class="trip-notifications__header">
+    <div>
+      <h2 id="trip-notifications-heading">إشعارات رحلاتي <span class="trip-notifications__count" data-notifications-count aria-label="غير مقروء: {{ trip_notifications_unread|unlocalize }}">{{ trip_notifications_unread|unlocalize }}</span></h2>
+      <p class="trip-notifications__hint">حتى 20 إشعارًا عن حالة ترشيحك المعتمد، مع أولوية غير المقروء.</p>
+    </div>
+    <button class="trip-notifications__button" type="button" data-notifications-refresh hidden>تحديث الإشعارات</button>
+  </header>
+  <div data-notifications-csrf hidden>{% csrf_token %}</div>
+  <p class="trip-notifications__status" data-notifications-status role="status" aria-live="polite" aria-atomic="true"></p>
+  <ul class="trip-notifications__list" data-notifications-list>
+    {% for notification in trip_notifications|slice:":20" %}
+    <li class="trip-notifications__item{% if not notification.read_at %} is-unread{% endif %}" data-notification-id="{{ notification.id|unlocalize }}" tabindex="-1">
+      <div class="trip-notifications__meta">
+        <span class="trip-notifications__kind">{% if notification.kind == 'nominated' %}تم الترشيح{% elif notification.kind == 'not_nominated' %}لم يتم الترشيح{% elif notification.kind == 'closed' %}أُغلقت الرحلة{% elif notification.kind == 'cancelled' %}أُلغيت الرحلة{% endif %}</span>
+        <span class="trip-notifications__read-state">{% if notification.read_at %}مقروء{% else %}غير مقروء{% endif %}</span>
+        <time datetime="{{ notification.created_at }}">{{ notification.created_at }}</time>
+      </div>
+      <p class="trip-notifications__message">{{ notification.message }}</p>
+      <div class="trip-notifications__actions">
+        <a class="trip-notifications__button" href="{{ notification.url }}">تفاصيل الرحلة</a>
+        {% if notification.read_at %}
+        <span class="trip-notifications__read-stamp">تم الاطلاع: <time datetime="{{ notification.read_at }}">{{ notification.read_at }}</time></span>
+        {% else %}
+        <form method="post" action="{{ notification.read_url }}" data-notification-read data-notification-id="{{ notification.id|unlocalize }}">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="read">
+          <button class="trip-notifications__button" type="submit">تم الاطلاع</button>
+        </form>
+        {% endif %}
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="trip-notifications__empty" data-notifications-empty{% if trip_notifications %} hidden{% endif %}>لا توجد إشعارات رحلات حاليًا.</p>
+  {{ trip_notifications|json_script:"trip-notifications-initial" }}
+</section>
+{% endif %}

@@ -305,6 +305,8 @@ def approve_trip(actor, trip_id, version, confirm):
         trip.version += 1
         trip.save(update_fields=["snapshot", "snapshot_sha256", "status", "approved_by", "approved_at", "version", "updated_at"])
         _audit(trip, actor, "approved", version=trip.version, selected_count=len(selected), roster_count=len(scoped))
+        from .trip_notifications import emit_trip_notifications
+        emit_trip_notifications(trip)
         return trip
 
 
@@ -327,6 +329,8 @@ def change_trip_status(actor, trip_id, status, version, confirm):
         trip.version += 1
         trip.save(update_fields=["status", "version", "updated_at"])
         _audit(trip, actor, status, version=trip.version)
+        from .trip_notifications import emit_trip_notifications
+        emit_trip_notifications(trip)
         return trip
 
 

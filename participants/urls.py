@@ -15,6 +15,7 @@ from .supervisor_permissions import SupervisorStudentReportsView
 from .elite_trip_views import (
     EliteTripListView, EliteTripEditView, EliteTripReviewView, EliteTripResponsesView,
     StudentTripsView, TripInvitationView, TripConsentDetailView, TripConsentPDFView,
+    TripNotificationsView, TripNotificationReadView,
 )
 
 app_name = "participants"
@@ -30,6 +31,8 @@ urlpatterns = [
     path("elite-trips/<int:pk>/review/", EliteTripReviewView.as_view(), name="elite_trip_review"),
     path("elite-trips/<int:pk>/responses/", EliteTripResponsesView.as_view(), name="elite_trip_responses"),
     path("my-trips/", StudentTripsView.as_view(), name="student_trips"),
+    path("my-trips/notifications/", TripNotificationsView.as_view(), name="trip_notifications"),
+    path("my-trips/notifications/<int:pk>/read/", TripNotificationReadView.as_view(), name="trip_notification_read"),
     path("trip-invitations/<int:pk>/", TripInvitationView.as_view(), name="trip_invitation"),
     path("trip-consents/<int:pk>/", TripConsentDetailView.as_view(), name="trip_consent_detail"),
     path("trip-consents/<int:pk>/pdf/", TripConsentPDFView.as_view(), name="trip_consent_pdf"),

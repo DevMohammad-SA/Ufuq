@@ -6,7 +6,7 @@ from collections import Counter
 from django import forms
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Count, Q
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.cache import patch_vary_headers
 from django.utils.decorators import method_decorator
@@ -15,6 +15,7 @@ from django.views.decorators.debug import sensitive_post_parameters
 
 from .elite_trip_forms import GuardianTripConsentForm, EliteTripForm, CONSENT_FIELDS
 from . import elite_trips as services
+from . import trip_notifications as notifications
 from .models import EliteTrip, EliteTripNomination, GuardianTripConsent, Group
 
 # Include missing/malformed paths and APPEND_SLASH redirects within these new
@@ -267,7 +268,42 @@ class StudentTripsView(PrivateTripView):
     page_title = "رحلاتي"
 
     def get(self, request):
-        return self.render(self.context(trip_cards=services.student_trip_cards(request.user)))
+        return self.render(self.context(trip_cards=services.student_trip_cards(request.user),
+                                        **notifications.notification_context(request.user)))
+
+
+def _notification_response(user):
+    context = notifications.notification_context(user)
+    return JsonResponse({"ok": True, "notifications": context["trip_notifications"],
+                         "unread_count": context["trip_notifications_unread"],
+                         "attention_count": context["trip_notifications_attention"]})
+
+
+class TripNotificationsView(PrivateTripView):
+    audience = "student"
+    http_method_names = ["get", "head", "options"]
+
+    def get(self, request):
+        return _notification_response(request.user)
+
+
+class TripNotificationReadView(PrivateTripView):
+    audience = "student"
+    http_method_names = ["post", "options"]
+    actions = ("read",)
+
+    def authorize_object(self, **kwargs):
+        try:
+            pk = services._id(kwargs.get("pk"))
+        except ValidationError:
+            raise Http404 from None
+        get_object_or_404(notifications.own_trip_notifications(self.request.user).only("pk"), pk=pk)
+
+    def post(self, request, pk):
+        notifications.mark_notification_read(request.user, pk)
+        if "application/json" in request.headers.get("Accept", "").lower() and request.accepts("application/json"):
+            return _notification_response(request.user)
+        return redirect("participants:student_trips")
 
 
 class TripInvitationView(PrivateTripView):

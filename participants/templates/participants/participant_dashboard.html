@@ -162,8 +162,10 @@
 {% block content %}
   <link rel="stylesheet" href="{% static 'css/elite-competition.css' %}">
   <link rel="stylesheet" href="{% static 'css/elite-trips.css' %}?v=20261116-consent1">
+  <link rel="stylesheet" href="{% static 'css/trip-notifications.css' %}?v=20261116-notify1">
   <h1 class="page-title">هلا، {{ participant.user.full_name|default:"رحّالنا" }} 👋</h1>
 
+  {% include "participants/elite_trips/_notifications.html" %}
   {% include "participants/elite_trips/_student_cards.html" %}
 
   <div class="currency-grid">
@@ -276,4 +278,8 @@
       <p class="empty-note">لا توجد نقاط مضافة لك حتى الآن — ستظهر أحدث الإضافات هنا! 🎉</p>
     {% endif %}
   </section>
+{% endblock %}
+{% block scripts %}
+{{ block.super }}
+<script src="{% static 'js/trip-notifications.js' %}?v=20261116-notify1" defer></script>
 {% endblock %}

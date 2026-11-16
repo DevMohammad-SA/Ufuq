@@ -185,8 +185,8 @@ def get_notification_counts(user):
     Badge counts for navbar items, keyed by the same entry `key` used in
     build_navbar() below (not by label — several roles reuse the same
     Arabic label, e.g. "tasks", for different URLs). Everything here is
-    derived fresh from current data state on every call: no read/seen
-    tracking, no new model fields.
+    derived fresh from current data state on every call. Trip attention combines
+    open invitations with durable unread trip events, counting each trip once.
     """
     counts = {}
 
@@ -250,8 +250,8 @@ def get_notification_counts(user):
                 .count()
             )
 
-            from .elite_trips import pending_trip_invitation_count
-            counts["student_trips"] = pending_trip_invitation_count(user)
+            from .trip_notifications import trip_attention_count
+            counts["student_trips"] = trip_attention_count(user)
 
     return counts
 
@@ -691,7 +691,9 @@ class ParticipantDashboardView(PrivateReportResponseMixin, LoginRequiredMixin, U
         context["points_ledger"] = participant.points_ledger_entries.filter(points_delta__gt=0)[:50]
 
         from .elite_trips import student_trip_cards
+        from .trip_notifications import notification_context
         context["student_trip_cards"] = student_trip_cards(self.request.user)
+        context.update(notification_context(self.request.user))
         context["navbar_items"] = build_navbar(self.request.user, "home")
         return context
 
