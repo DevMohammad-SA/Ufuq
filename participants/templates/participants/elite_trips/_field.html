@@ -1,0 +1,6 @@
+<div class="et-field{% if wide %} et-wide{% endif %}">
+  <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span aria-hidden="true">*</span>{% endif %}</label>
+  {{ field }}
+  {% if field.help_text %}<span class="et-hint">{{ field.help_text }}</span>{% endif %}
+  {% for message in field.errors %}<span class="et-error">{{ message }}</span>{% endfor %}
+</div>

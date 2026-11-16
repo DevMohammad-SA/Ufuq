@@ -1,0 +1,13 @@
+<dl class="et-data">
+  <div class="et-wide"><dt>اسم الرحلة</dt><dd>{{ trip_data.title|default:"غير محدد" }}</dd></div>
+  <div><dt>تاريخ الرحلة</dt><dd>{{ trip_data.date|default:"غير محدد" }}</dd></div>
+  <div><dt>وقت بدء الرحلة</dt><dd>{{ trip_data.time|default:"غير محدد" }}</dd></div>
+  <div class="et-wide"><dt>موقع الرحلة</dt><dd>{{ trip_data.location|default:"غير محدد" }}</dd></div>
+  <div><dt>رسوم المشاركة</dt><dd>{% if trip_data.fee == 0 or trip_data.fee == '0' or trip_data.fee == '0.00' %}مجانية{% elif trip_data.fee != None and trip_data.fee != '' %}{{ trip_data.fee }} ر.س{% else %}غير محددة{% endif %}</dd></div>
+  <div><dt>نطاق الرحلة</dt><dd>{% if trip_data.scope_group %}{% if trip.approved_at %}{% for group in trip.snapshot.groups %}{% if group.id|stringformat:'s' == trip_data.scope_group|stringformat:'s' %}{{ group.name }}{% endif %}{% endfor %}{% else %}{{ trip.scope_group.name }}{% endif %}{% else %}جميع البيئات{% endif %}</dd></div>
+  <div class="et-wide"><dt>نقطة التجمع</dt><dd>{{ trip_data.meeting_point|default:"غير محددة" }}</dd></div>
+  <div><dt>موعد الانطلاق</dt><dd>{{ trip_data.departure_time|default:"غير محدد" }}</dd></div>
+  <div><dt>موعد العودة</dt><dd>{{ trip_data.return_time|default:"غير محدد" }}</dd></div>
+  <div class="et-wide"><dt>التعليمات والاشتراطات</dt><dd>{{ trip_data.instructions|default:"لا توجد تعليمات إضافية" }}</dd></div>
+  <div class="et-wide"><dt>تفاصيل إضافية</dt><dd>{{ trip_data.details|default:"لا توجد تفاصيل إضافية" }}</dd></div>
+</dl>

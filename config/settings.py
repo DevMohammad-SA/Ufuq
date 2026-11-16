@@ -108,6 +108,8 @@ UNFOLD = {
 }
 
 MIDDLEWARE = [
+    # Cache protection only for private trip paths, including pre-view denials.
+    "participants.elite_trip_views.EliteTripPrivateResponseMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",

@@ -1,0 +1,43 @@
+{% extends "participants/elite_trips/base.html" %}
+{% block elite_content %}
+<header class="et-hero"><p class="et-eyebrow">رحّال / دعوتك لرحلة النخبة</p><h1>تهانينا! تم ترشيحك لرحلة النخبة</h1><p>{{ student_name }} · {{ group_name }}</p><p class="et-muted">راجع تفاصيل الرحلة مع ولي أمرك. قرار ولي الأمر يُرسل عبر حساب الطالب بإقرار غير موثّق بالهوية، دون رمز تحقق.</p></header>
+{% include "participants/elite_trips/_errors.html" %}
+<section class="et-panel"><h2>تفاصيل الرحلة المعتمدة</h2>{% include "participants/elite_trips/_trip_data.html" %}</section>
+{% if can_submit and not consent %}
+<form class="et-panel" method="post" action="{% url 'participants:trip_invitation' nomination.pk %}" data-signature-form data-elite-post>
+  {% csrf_token %}<input type="hidden" name="action" value="review">
+  <h2>قرار ولي الأمر</h2>
+  <p class="et-notice">{{ verification_disclosure }}</p>
+  <fieldset><legend>هل توافق على مشاركة الطالب في الرحلة؟ <span aria-hidden="true">*</span></legend><p class="et-hint">اختر قرارًا صريحًا؛ لم يتم تحديد موافقة أو رفض مسبقًا. التوقيع والإقرار مطلوبان للقرارين.</p><div class="et-decision-options">
+    {% for option in form.decision %}<label class="et-check et-decision" for="{{ option.id_for_label }}">{{ option.tag }}<span>{{ option.choice_label }}</span></label>{% endfor %}
+  </div>{% for message in form.decision.errors %}<p class="et-error">{{ message }}</p>{% endfor %}</fieldset>
+  <div class="et-grid">
+    {% include "participants/elite_trips/_field.html" with field=form.guardian_name %}
+    {% include "participants/elite_trips/_field.html" with field=form.guardian_relation %}
+    {% include "participants/elite_trips/_field.html" with field=form.notes wide=True %}
+  </div>
+  <p class="et-hint">الملاحظات اختيارية، بحد أقصى ١٥٠٠ حرف، وتظهر للمشرف العام مع قرارك. صفة ولي الأمر إقرار منك وليست إثباتًا موثّقًا.</p>
+  <section aria-labelledby="et-signature-title" style="margin-top:22px">
+    <div class="et-heading"><div><h3 id="et-signature-title">توقيع ولي الأمر <span aria-hidden="true">*</span></h3><p class="et-hint" id="et-signature-help">ارسم توقيعك باللمس أو الفأرة. يمكنك الرسم بلوحة المفاتيح وفق التعليمات أدناه؛ كتابة الاسم لا تُغني عن رسم التوقيع.</p></div></div>
+    {{ form.signature }}
+    {% if signature_data_url %}<img src="{{ signature_data_url }}" alt="التوقيع المستعاد بعد التحقق من الخادم" data-signature-restore hidden>{% endif %}
+    <div class="et-signature-frame">
+      <canvas class="et-signature-canvas" id="et-signature-canvas" width="1000" height="360" tabindex="0" aria-label="مساحة رسم توقيع ولي الأمر" aria-describedby="et-signature-help et-signature-keyboard-help et-signature-status" data-signature-canvas>يتطلب رسم التوقيع JavaScript ومتصفحًا يدعم مساحة الرسم.</canvas>
+      <span class="et-signature-hint" data-signature-hint aria-hidden="true">ارسم توقيعك هنا</span><span class="et-signature-cursor" data-signature-cursor hidden aria-hidden="true"></span>
+    </div>
+    <div class="et-signature-controls"><button class="et-button et-button--danger" type="button" data-signature-clear disabled>مسح التوقيع بالكامل</button><p class="et-hint" id="et-signature-status" data-signature-status role="status" aria-live="polite">ارسم توقيعك بوضوح قبل المراجعة.</p></div>
+    {% for message in form.signature.errors %}<p class="et-error">{{ message }}</p>{% endfor %}
+    <details class="et-keyboard-help"><summary>طريقة الرسم بلوحة المفاتيح</summary><p id="et-signature-keyboard-help">انتقل بمفتاح Tab إلى مساحة الرسم. حرّك المؤشر بالأسهم؛ اضغط المسافة أو Enter لبدء رسم خط، ثم استخدم الأسهم لرسم توقيعك. اضغط المسافة مجددًا لإيقاف الخط، أو Escape لإيقاف القلم. Shift مع الأسهم يحركه أسرع. يمكنك التنقل بمفتاح Tab دون احتجاز، ومسح الرسم بالزر أعلاه. لا تُنشأ توقيعات تلقائيًا من الاسم.</p></details>
+  </section>
+  <label class="et-check" for="{{ form.declaration_accepted.id_for_label }}" style="margin-top:20px">{{ form.declaration_accepted }}<span>{{ declaration_text }}</span></label>
+  {% for message in form.declaration_accepted.errors %}<p class="et-error">{{ message }}</p>{% endfor %}
+  <p class="et-notice" style="margin-top:18px">{{ privacy_text }}</p>
+  <div class="et-actions"><button class="et-button et-button--primary" type="submit" data-signature-review-button disabled>مراجعة القرار والتوقيع قبل الإرسال</button><a class="et-button" href="{% url 'participants:student_trips' %}">العودة إلى رحلاتي</a></div>
+  <p class="et-hint">هذه الخطوة تعرض المراجعة فقط؛ لا يُحفظ الرد إلا بعد التأكيد النهائي في الصفحة التالية. بعد الحفظ لا يمكن تعديل الرد أو مسحه من الواجهة.</p>
+  <p class="et-submit-status" data-submit-status role="status" aria-live="polite"></p>
+  <noscript><p class="et-notice et-notice--error">JavaScript مطلوب لرسم التوقيع ومراجعته. لا يمكن إرسال استمارة موقعة من هذا المتصفح وهو معطّل؛ لم يتم حفظ أي رد.</p></noscript>
+</form>
+{% else %}
+<section class="et-panel"><h2>عرض تاريخي للرحلة</h2><p class="et-notice">{% if consent %}سبق حفظ الرد؛ لا تتاح استمارة جديدة أو تعديل للرد المحفوظ.{% else %}هذه الرحلة {{ trip.get_status_display }}؛ لا يمكن إرسال رد جديد.{% endif %}</p>{% if consent %}<a class="et-button" href="{% url 'participants:trip_consent_detail' consent.pk %}">عرض الرد المحفوظ</a>{% endif %}<a class="et-button" href="{% url 'participants:student_trips' %}">العودة إلى رحلاتي</a></section>
+{% endif %}
+{% endblock %}

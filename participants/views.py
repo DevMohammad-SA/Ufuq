@@ -250,6 +250,9 @@ def get_notification_counts(user):
                 .count()
             )
 
+            from .elite_trips import pending_trip_invitation_count
+            counts["student_trips"] = pending_trip_invitation_count(user)
+
     return counts
 
 
@@ -280,10 +283,9 @@ def build_navbar(user, active_key):
     """
     counts = get_notification_counts(user)
     if user.role == Role.PARTICIPANT:
-        # Three fully independent links: grouping three items under headings
-        # buys nothing, so they all sit in the label-less "main" section and
-        # all three are bottom-bar primaries (hence no "القائمة" button and
-        # no drawer for this role).
+        # Keep the original three bottom-bar primaries. Trip invitations are
+        # a secondary entry in the same label-less main group; the shared shell
+        # derives the drawer/menu from mobile_primary, never from link labels.
         entries = [
             ("home", "الرئيسية", "participants:dashboard", ICON_HOME, "main", True),
             (
@@ -295,6 +297,7 @@ def build_navbar(user, active_key):
                 True,
             ),
             ("store", "المتجر", "participants:store", ICON_STORE, "main", True),
+            ("student_trips", "رحلاتي", "participants:student_trips", ICON_ACTIVITY, "main", False),
         ]
     elif user.role == Role.LIMITED_SUPERVISOR:
         from .capabilities import can_follow_tasks, can_manage_store
@@ -541,6 +544,12 @@ def build_navbar(user, active_key):
                 "report_center", "التقارير", "participants:report_center",
                 ICON_LEDGER, "students", False,
             ))
+        from .elite_trips import can_manage_elite_trips
+        if can_manage_elite_trips(user):
+            student_entries.append((
+                "elite_trip_list", "ترشيح رحلة النخبة", "participants:elite_trip_list",
+                ICON_ACTIVITY, "students", False,
+            ))
         # Insert immediately after the existing students run, or before the
         # next section, so Django's consecutive regroup keeps one heading.
         student_indices = [i for i, entry in enumerate(entries) if entry[4] == "students"]
@@ -642,9 +651,15 @@ class HomeView(TemplateView):
         return context
 
 
-class ParticipantDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+class ParticipantDashboardView(PrivateReportResponseMixin, LoginRequiredMixin, UserPassesTestMixin, TemplateView):
     template_name = "participants/participant_dashboard.html"
     login_url = "accounts:login_participant"
+
+    def dispatch(self, request, *args, **kwargs):
+        response = super().dispatch(request, *args, **kwargs)
+        response["CDN-Cache-Control"] = "no-store"
+        response["Cloudflare-CDN-Cache-Control"] = "no-store"
+        return response
 
     def test_func(self):
         return self.request.user.is_active and self.request.user.role == Role.PARTICIPANT
@@ -675,6 +690,8 @@ class ParticipantDashboardView(LoginRequiredMixin, UserPassesTestMixin, Template
 
         context["points_ledger"] = participant.points_ledger_entries.filter(points_delta__gt=0)[:50]
 
+        from .elite_trips import student_trip_cards
+        context["student_trip_cards"] = student_trip_cards(self.request.user)
         context["navbar_items"] = build_navbar(self.request.user, "home")
         return context
 
@@ -1818,6 +1835,8 @@ class GeneralSupervisorDashboardView(
         context["navbar_items"] = build_navbar(self.request.user, "home")
         context["can_compare_groups"] = report_access["can_center"]
         context["can_view_reports"] = report_access["can_view"]
+        from .elite_trips import can_manage_elite_trips
+        context["can_manage_elite_trips"] = can_manage_elite_trips(self.request.user)
         if not report_access["can_view"]:
             # Basic operational counters remain part of the general role;
             # no group/points/status breakdown or chart dataset is queried.

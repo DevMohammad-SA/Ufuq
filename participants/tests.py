@@ -684,11 +684,13 @@ class NavigationShellTests(TestCase):
                 self.assertEqual('id="drawerOpen"' in bottom, has_secondary)
                 self.assertEqual('id="navDrawer"' in html, has_secondary)
 
-        # Explicit form of the same rule, per the spec table.
-        self.assertNotIn(
-            'id="drawerOpen"',
-            self._render("participant").content.decode(),
-        )
+        # Trip invitations add one secondary student link, not another primary.
+        response = self._render("participant")
+        items = response.context["navbar_items"]
+        self.assertEqual([i["key"] for i in items if i["mobile_primary"]], ["home", "tasks", "store"])
+        self.assertEqual([i["key"] for i in items if not i["mobile_primary"]], ["student_trips"])
+        self.assertIn('id="drawerOpen"', response.content.decode())
+        self.assertIn(reverse("participants:student_trips"), self._drawer(response.content.decode()))
 
     # 4. The active page is highlighted inside the sidebar.
     def test_active_item_marked_in_sidebar(self):

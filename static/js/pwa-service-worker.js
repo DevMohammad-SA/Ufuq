@@ -78,7 +78,8 @@ self.addEventListener('fetch', event => {
       url.pathname.startsWith('/media/') ||
       url.pathname.startsWith('/static/') ||
       url.pathname === '/participants/reports/export/' ||
-      url.pathname === '/participants/data/export-pdf/') return;
+      url.pathname === '/participants/data/export-pdf/' ||
+      /^\/participants\/trip-consents\/\d+\/pdf\/$/.test(url.pathname)) return;
 
   event.respondWith((async () => {
     try {

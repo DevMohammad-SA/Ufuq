@@ -1,0 +1,13 @@
+{% extends "participants/app_base.html" %}
+{% load static %}
+{% block title %}{{ page_title|default:"رحلات النخبة" }} — رحّال{% endblock %}
+{% block extra_style %}.wrap{width:100%;max-width:1240px;min-width:0}@media(max-width:720px){.wrap{padding:20px 14px 32px}}{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/elite-trips.css' %}?v=20261116-consent1">
+<main class="elite-trips" id="elite-trip-content">
+  {% block elite_content %}{% endblock %}
+</main>
+{% endblock %}
+{% block scripts %}
+<script src="{% static 'js/elite-trips.js' %}?v=20261116-consent1" defer></script>
+{% endblock %}

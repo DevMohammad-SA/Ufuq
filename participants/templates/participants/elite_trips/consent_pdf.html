@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>استمارة رحلة النخبة — {{ consent.reference }}</title>
+<style>
+@font-face{font-family:ElitePDF;src:url('{{ assets.font_regular }}');font-weight:400}
+@font-face{font-family:ElitePDF;src:url('{{ assets.font_bold }}');font-weight:700}
+@font-face{font-family:ElitePDF;src:url('{{ assets.font_extra_bold }}');font-weight:800}
+@page{size:A4;margin:16mm 15mm 18mm;@bottom-center{content:'رحّال · استمارة محفوظة خاصة · صفحة ' counter(page) ' من ' counter(pages);font-family:ElitePDF;font-size:9pt;color:#5f676e}}
+*{box-sizing:border-box}html,body{margin:0;background:#fff;color:#2b2f33;font:12pt/1.7 ElitePDF,sans-serif;direction:rtl}h1,h2,h3,p{margin:0 0 9pt}h1{font-size:22pt;font-weight:800}h2{font-size:16pt;font-weight:800}h3{font-size:13pt;font-weight:700}p{orphans:3;widows:3}h2,h3{break-after:avoid}.et-snapshot-heading{display:flex;align-items:center;gap:14pt;border-bottom:1pt solid #e2dcd0;padding-bottom:12pt;margin-bottom:16pt}.et-snapshot-heading img{width:36pt;height:48pt;object-fit:contain}.et-muted,.et-hint{font-size:10pt;color:#5f676e}.et-data{display:grid;grid-template-columns:1fr 1fr;gap:10pt 18pt;margin:12pt 0}.et-data>div{min-width:0;break-inside:avoid}.et-wide{grid-column:1/-1}.et-data dt{color:#5f676e;font-size:10pt;margin-bottom:3pt}.et-data dd{margin:0;font-weight:700;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word}.et-reference{direction:ltr;unicode-bidi:isolate;font-size:9pt;font-weight:400!important;overflow-wrap:anywhere;word-break:break-all}.et-heading{display:flex;justify-content:space-between;align-items:center;gap:12pt}.et-badge{display:inline-block;padding:3pt 9pt;border:1pt solid #d4d2c7;border-radius:5pt;font-size:10pt;font-weight:700}.et-badge--yes{background:#eaf5ee;color:#23624a}.et-badge--no{background:#fff0ed;color:#9e4140}.et-signature-preview{display:block;width:100%;max-width:340pt;height:122pt;object-fit:contain;border:1pt solid #e2dcd0;border-radius:6pt;background:#fff;margin:10pt 0;break-inside:avoid}.et-notice{padding:10pt;border:1pt solid #d9c99d;border-radius:6pt;background:#fff9eb;color:#705018;font-size:10pt;margin:12pt 0;break-inside:avoid}.et-integrity{padding-top:10pt;border-top:1pt solid #e2dcd0}.et-error{color:#9e4140;font-size:11pt}
+</style>
+</head>
+<body>
+<header class="et-snapshot-heading"><img src="{{ assets.logo }}" alt="شعار رحّال"><div><h1>استمارة رحلة النخبة</h1><p class="et-muted">نسخة خاصة من الرد المحفوظ · {{ decision_label }}</p></div></header>
+{% include "participants/elite_trips/_consent_snapshot.html" %}
+</body>
+</html>

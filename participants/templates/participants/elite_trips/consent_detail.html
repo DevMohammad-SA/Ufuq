@@ -1,0 +1,8 @@
+{% extends "participants/elite_trips/base.html" %}
+{% load static %}
+{% block elite_content %}
+{% include "participants/elite_trips/_errors.html" %}
+<header class="et-hero et-no-print"><p class="et-eyebrow">رحّال / الرد المحفوظ</p><h1>استمارة ولي الأمر</h1><p>تم تسجيل هذا القرار عبر حساب الطالب؛ لم يُتحقق من هوية ولي الأمر.</p><p class="et-muted">عرض للرد المحفوظ والنسخة المعتمدة، دون تعديل أو مسح. مرجع الاستمارة أدناه هو مرجع السجل المحفوظ.</p></header>
+<div class="et-actions et-no-print" style="margin-bottom:20px"><a class="et-button et-button--primary" href="{% url 'participants:trip_consent_pdf' consent.pk %}">تنزيل الاستمارة PDF</a>{% if request.user.role == 'general_supervisor' %}<a class="et-button" href="{% url 'participants:elite_trip_responses' trip.pk %}">متابعة ردود الرحلة</a>{% else %}<a class="et-button" href="{% url 'participants:student_trips' %}">رحلاتي</a>{% endif %}</div>
+<section class="et-panel"><header class="et-snapshot-heading"><img src="{% static 'images/logo.png' %}" alt="شعار رحّال"><div><h2>استمارة رحلة النخبة</h2><p class="et-muted">نسخة الرد المحفوظة · {{ decision_label }}</p></div></header>{% include "participants/elite_trips/_consent_snapshot.html" %}</section>
+{% endblock %}

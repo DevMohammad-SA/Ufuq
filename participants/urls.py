@@ -12,6 +12,10 @@ from .management_views import (
 from .participant_lifecycle import ParticipantDeleteView, ParticipantRestoreView
 from .student_management import StudentManagementListView
 from .supervisor_permissions import SupervisorStudentReportsView
+from .elite_trip_views import (
+    EliteTripListView, EliteTripEditView, EliteTripReviewView, EliteTripResponsesView,
+    StudentTripsView, TripInvitationView, TripConsentDetailView, TripConsentPDFView,
+)
 
 app_name = "participants"
 
@@ -21,6 +25,14 @@ urlpatterns = [
     path("quran-circle/", views.QuranCircleAttendanceView.as_view(), name="quran_circle_attendance"),
     path("weekly-activity/", views.WeeklyActivityAttendanceView.as_view(), name="weekly_activity_attendance"),
     path("elite-trip-attendance/", views.EliteTripAttendanceView.as_view(), name="elite_trip_attendance"),
+    path("elite-trips/", EliteTripListView.as_view(), name="elite_trip_list"),
+    path("elite-trips/<int:pk>/edit/", EliteTripEditView.as_view(), name="elite_trip_edit"),
+    path("elite-trips/<int:pk>/review/", EliteTripReviewView.as_view(), name="elite_trip_review"),
+    path("elite-trips/<int:pk>/responses/", EliteTripResponsesView.as_view(), name="elite_trip_responses"),
+    path("my-trips/", StudentTripsView.as_view(), name="student_trips"),
+    path("trip-invitations/<int:pk>/", TripInvitationView.as_view(), name="trip_invitation"),
+    path("trip-consents/<int:pk>/", TripConsentDetailView.as_view(), name="trip_consent_detail"),
+    path("trip-consents/<int:pk>/pdf/", TripConsentPDFView.as_view(), name="trip_consent_pdf"),
     path("import/", views.ParticipantImportView.as_view(), name="import_participants"),
     path("add-participant/", views.AddParticipantView.as_view(), name="add_participant"),
     path("general-supervisor/dashboard/", views.GeneralSupervisorDashboardView.as_view(), name="general_supervisor_dashboard"),

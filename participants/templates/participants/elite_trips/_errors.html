@@ -1,0 +1,11 @@
+{% if error or form.errors %}
+<div class="et-error-summary" role="alert" tabindex="-1">
+  <strong>تعذر إكمال الطلب. راجع البيانات ثم حاول مجددًا.</strong>
+  {% if error %}<p>{{ error }}</p>{% endif %}
+  {% for message in form.non_field_errors %}<p>{{ message }}</p>{% endfor %}
+  {% if form.errors %}<ul>{% for field in form %}{% for message in field.errors %}<li>{{ field.label }}: {{ message }}</li>{% endfor %}{% endfor %}</ul>{% endif %}
+</div>
+{% endif %}
+{% for message in messages %}
+<div class="et-notice{% if message.level == 25 %} et-notice--success{% elif message.level >= 40 %} et-notice--error{% endif %}" role="{% if message.level >= 40 %}alert{% else %}status{% endif %}">{{ message }}</div>
+{% endfor %}

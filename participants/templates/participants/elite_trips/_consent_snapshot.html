@@ -1,0 +1,28 @@
+<article class="et-consent-snapshot">
+  <dl class="et-data">
+    <div><dt>اسم الطالب وقت الاعتماد</dt><dd>{{ student_name }}</dd></div>
+    <div><dt>البيئة وقت الاعتماد</dt><dd>{{ group_name }}</dd></div>
+    <div class="et-wide"><dt>مرجع الاستمارة</dt><dd class="et-reference">{{ consent.reference }}</dd></div>
+    <div class="et-wide"><dt>تاريخ ووقت إرسال الرد</dt><dd><time datetime="{{ submitted_at|date:'c' }}">{{ submitted_at|date:"Y/m/d H:i:s" }}</time> · الرياض</dd></div>
+  </dl>
+  <h2 style="margin-top:24px">تفاصيل الرحلة المعتمدة</h2>
+  {% include "participants/elite_trips/_trip_data.html" %}
+  <section class="et-snapshot-decision" style="margin-top:24px">
+    <div class="et-heading"><h2>قرار ولي الأمر المحفوظ</h2><span class="et-badge{% if consent.decision == 'yes' %} et-badge--yes{% else %} et-badge--no{% endif %}">{{ decision_label }}</span></div>
+    <dl class="et-data">
+      <div><dt>اسم ولي الأمر</dt><dd>{{ consent.guardian_name }}</dd></div>
+      <div><dt>الصفة المقر بها</dt><dd>{{ guardian_relation_label }}</dd></div>
+      <div class="et-wide"><dt>ملاحظات ولي الأمر</dt><dd>{{ consent.notes|default:"لا توجد ملاحظات" }}</dd></div>
+      <div class="et-wide"><dt>إقرار ولي الأمر</dt><dd>{% if consent.declaration_accepted %}{{ declaration_text }}{% else %}لم يُسجل قبول الإقرار{% endif %}</dd></div>
+    </dl>
+    <h3 style="margin-top:20px">التوقيع المحفوظ</h3>
+    {% if signature_data_url %}<img class="et-signature-preview" src="{{ signature_data_url }}" alt="توقيع ولي الأمر المحفوظ بعد التحقق والتطبيع">{% else %}<p class="et-error">تعذر عرض التوقيع المحفوظ. لا يعني ذلك حذف الرد أو تغيير القرار.</p>{% endif %}
+  </section>
+  <p class="et-notice">{{ verification_disclosure }}</p>
+  <p class="et-hint">{{ privacy_text }}</p>
+  <dl class="et-data et-integrity">
+    <div class="et-wide"><dt>بصمة نسخة الرحلة (SHA-256)</dt><dd class="et-reference">{{ consent.trip_sha256 }}</dd></div>
+    <div class="et-wide"><dt>بصمة محتوى الاستمارة (SHA-256)</dt><dd class="et-reference">{{ consent.content_sha256 }}</dd></div>
+    <div class="et-wide"><dt>بصمة التوقيع (SHA-256)</dt><dd class="et-reference">{{ consent.signature_sha256 }}</dd></div>
+  </dl>
+</article>

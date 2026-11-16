@@ -1,0 +1,29 @@
+{% extends "participants/elite_trips/base.html" %}
+{% block elite_content %}
+<header class="et-hero"><p class="et-eyebrow">رحّال / مراجعة رحلة النخبة</p><h1>{% if trip.status == 'draft' %}راجع قبل الاعتماد{% else %}النسخة المعتمدة المحفوظة{% endif %}</h1><p class="et-muted">{{ trip.title }} · النسخة {{ version }} · {{ trip.get_status_display }}</p></header>
+{% include "participants/elite_trips/_errors.html" %}
+{% if trip.status == 'draft' %}
+<ol class="et-steps" aria-label="مراحل إعداد الرحلة"><li>١ · إعداد المسودة</li><li aria-current="step">٢ · مراجعة النسخة المحفوظة</li><li>٣ · اعتماد وإتاحة الدعوات</li></ol>
+<p class="et-notice">هذه المراجعة للنسخة المحفوظة فقط. الاعتماد يثبت تفاصيل الرحلة وقائمة الطلاب المشمولين؛ لا يمكن تعديلها بعد الاعتماد.</p>
+{% else %}<p class="et-notice et-notice--success">هذه تفاصيل الرحلة وقائمة النطاق وقت الاعتماد. تغير ترتيب الطالب أو بيئته لاحقًا لا يغير هذه النسخة، ولا تتاح إعادة تحريرها.</p>{% endif %}
+<section class="et-panel"><h2>تفاصيل الرحلة</h2>{% include "participants/elite_trips/_trip_data.html" %}</section>
+<section class="et-panel"><div class="et-heading"><h2>قائمة النطاق النهائي</h2><div class="et-counts"><span>المشمولون: <strong>{{ roster_count }}</strong></span><span>المرشحون: <strong>{{ selected_count }}</strong></span></div></div>
+{% regroup rows by group_name as review_groups %}
+{% for group in review_groups %}
+<section class="et-group"><header class="et-group-heading"><h3>{{ group.grouper }}</h3><span class="et-badge">{{ group.list|length }} طالبًا ضمن النطاق</span></header><ul class="et-list" style="padding:12px 16px">
+{% for row in group.list %}<li><strong>{{ row.student_name }}</strong> <span class="et-badge{% if row.is_selected %} et-badge--yes{% else %} et-badge--no{% endif %}">{% if row.is_selected %}مرشح{% else %}غير مرشح{% endif %}</span><span class="et-hint">{{ row.student_code }} · الترتيب {{ row.rank }} · {{ row.points }} نقطة</span>{% if row.reason %}<span class="et-hint et-prewrap">سبب الاستبعاد: {{ row.reason }}</span>{% endif %}</li>{% endfor %}
+</ul></section>
+{% empty %}<div class="et-empty">لا توجد قائمة صالحة للاعتماد. ارجع إلى المسودة وحدد نطاقًا وطلابًا مؤهلين.</div>{% endfor %}
+</section>
+{% if can_approve and trip.status == 'draft' %}
+<form class="et-panel" method="post" action="{% url 'participants:elite_trip_review' trip.pk %}" data-elite-post>
+  {% csrf_token %}<input type="hidden" name="action" value="approve"><input type="hidden" name="version" value="{{ version }}">
+  <h2>اعتماد الرحلة</h2>
+  <label class="et-check" for="et-approve-confirm"><input id="et-approve-confirm" type="checkbox" name="confirm" value="yes" required data-final-confirm><span>راجعت التفاصيل والنطاق والمرشحين، وأؤكد اعتماد هذه النسخة وإتاحة الدعوات عبر حسابات الطلاب. أفهم أن النسخة لن تكون قابلة للتعديل.</span></label>
+  <div class="et-actions" style="margin-top:16px"><button class="et-button et-button--primary" type="submit" data-final-button>تأكيد اعتماد الرحلة وإتاحة الدعوات</button><a class="et-button" href="{% url 'participants:elite_trip_edit' trip.pk %}">العودة لتعديل المسودة</a></div>
+  <p class="et-submit-status" data-submit-status role="status" aria-live="polite"></p>
+</form>
+{% elif trip.status == 'draft' %}<div class="et-notice et-notice--error">الاعتماد غير متاح لهذه النسخة. أكمل الحقول المطلوبة والترشيحات واحفظ المسودة ثم راجعها مجددًا.</div><a class="et-button" href="{% url 'participants:elite_trip_edit' trip.pk %}">العودة إلى المسودة</a>
+{% else %}<a class="et-button et-button--primary" href="{% url 'participants:elite_trip_responses' trip.pk %}">متابعة الردود والوثائق</a>{% endif %}
+<a class="et-button" href="{% url 'participants:elite_trip_list' %}">قائمة الرحلات</a>
+{% endblock %}

@@ -186,6 +186,9 @@ async function test(name, callback) {
       request('/static/example.html'), request('/media/private.pdf'),
       request('/participants/reports/export/?format=xlsx'),
       request('/participants/data/export-pdf/'),
+      request('/participants/trip-consents/1/pdf/'),
+      request('/participants/trip-consents/12345/pdf/?download=1'),
+      request('/participants/trip-consents/99/pdf/', {destination: '', mode: 'same-origin'}),
     ];
     for (const item of ignored) {
       const result = f.dispatch(item);
@@ -195,6 +198,22 @@ async function test(name, callback) {
     assert.deepEqual(f.operations.fetch, []);
     assert.deepEqual(f.operations.put, []);
     assert.deepEqual(f.operations.open, []);
+  });
+
+  await test('consent PDF exclusion is exact: lookalikes remain ordinary network-only navigation', async () => {
+    for (const url of ['/participants/trip-consents/no-id/pdf/', '/participants/trip-consents/12/pdf/extra/',
+                       '/participants/trip-consents/12/pdf', '/participants/trip-consents/12/',
+                       '/participants/trip-consents/12/pdf-export/']) {
+      const real = response('real non-PDF page', {marker: null});
+      const f = setup({network: async () => real});
+      const original = request(url);
+      const result = f.dispatch(original);
+      assert.equal(result.called, true, url);
+      assert.strictEqual(await result.pending, real);
+      assert.strictEqual(f.operations.fetch[0][0], original);
+      assert.deepEqual(f.operations.put, []);
+      assert.deepEqual(f.operations.open, []);
+    }
   });
 
   await test('authenticated navigation sends the ORIGINAL request and returns real response unchanged with zero caching', async () => {

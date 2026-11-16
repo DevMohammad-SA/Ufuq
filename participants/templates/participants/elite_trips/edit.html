@@ -1,0 +1,62 @@
+{% extends "participants/elite_trips/base.html" %}
+{% block elite_content %}
+<header class="et-hero"><p class="et-eyebrow">رحّال / مسودة رحلة النخبة</p><h1>إعداد الرحلة والترشيحات</h1><p class="et-muted">احفظ التفاصيل والاختيارات أولًا، ثم افتح مراجعة النسخة المحفوظة لاعتمادها.</p></header>
+<ol class="et-steps" aria-label="مراحل إعداد الرحلة"><li aria-current="step">١ · إعداد المسودة</li><li>٢ · مراجعة النسخة المحفوظة</li><li>٣ · اعتماد وإتاحة الدعوات</li></ol>
+{% include "participants/elite_trips/_errors.html" %}
+<section data-elite-roster>
+<form method="post" action="{% url 'participants:elite_trip_edit' trip.pk %}" data-draft-form data-elite-post>
+  {% csrf_token %}<input type="hidden" name="action" value="save"><input type="hidden" name="version" value="{{ version }}">
+  <section class="et-panel" aria-labelledby="et-trip-fields-title">
+    <h2 id="et-trip-fields-title">تفاصيل الرحلة</h2>
+    <p class="et-hint">رحلة ليوم واحد؛ يجب أن يكون الانطلاق قبل البدء أو معه، والعودة بعد البدء. الرسوم صفر تعني رحلة مجانية، ولا يُحصّل دفع من هذه الاستمارة.</p>
+    <div class="et-grid">
+      {% include "participants/elite_trips/_field.html" with field=form.title wide=True %}
+      {% include "participants/elite_trips/_field.html" with field=form.date %}
+      {% include "participants/elite_trips/_field.html" with field=form.time %}
+      {% include "participants/elite_trips/_field.html" with field=form.location wide=True %}
+      {% include "participants/elite_trips/_field.html" with field=form.fee %}
+      {% include "participants/elite_trips/_field.html" with field=form.scope_group %}
+      {% include "participants/elite_trips/_field.html" with field=form.meeting_point wide=True %}
+      {% include "participants/elite_trips/_field.html" with field=form.departure_time %}
+      {% include "participants/elite_trips/_field.html" with field=form.return_time %}
+      {% include "participants/elite_trips/_field.html" with field=form.instructions wide=True %}
+      {% include "participants/elite_trips/_field.html" with field=form.details wide=True %}
+    </div>
+  </section>
+  <section class="et-panel" aria-labelledby="et-roster-title">
+    <div class="et-heading"><h2 id="et-roster-title">اختيار المرشحين</h2><span class="et-badge">مسودة · النسخة {{ version }}</span></div>
+    <p class="et-notice">نطاق الرحلة: <strong data-scope-label>{% if trip.scope_group %}{{ trip.scope_group.name }}{% else %}جميع البيئات{% endif %}</strong>. هذا نطاق فعلي للاعتماد وليس فلتر عرض؛ تبقى اختيارات البيئات الأخرى محفوظة في المسودة وخارج اعتماد هذا النطاق.</p>
+    <p class="et-hint">أعلى ١٣ من كل بيئة نقطة بداية عند الإنشاء فقط، وليست حدًا أقصى أو اختيارًا يُعاد تطبيقه. الصفوف مرتبة بالنقاط ثم رمز الطالب عند التعادل. البحث والفلترة لا يلغيان الاختيارات المخفية.</p>
+    <div class="et-filters">
+      <div class="et-field"><label for="et-roster-search">البحث باسم الطالب أو رمزه</label><input id="et-roster-search" type="search" data-roster-search placeholder="اسم الطالب أو الرمز الداخلي" autocomplete="off"></div>
+      <div class="et-field"><label for="et-roster-status">تصفية العرض حسب الترشيح</label><select id="et-roster-status" data-roster-status><option value="">كل الطلاب</option><option value="selected">مرشح</option><option value="unselected">غير مرشح</option></select></div>
+    </div>
+    <div class="et-counts" aria-live="polite"><span>كل الصفوف: <strong>{{ rows|length }}</strong></span><span>اختيارات المسودة بكل البيئات: <strong data-total-selected>—</strong></span><span>المرشحون ضمن النطاق: <strong data-scoped-selected>{{ selected_count }}</strong> / <strong data-scoped-total>{{ roster_count }}</strong></span><span>نتائج العرض: <strong data-visible-count>{{ rows|length }}</strong></span></div>
+    {% regroup rows by group_name as roster_groups %}
+    {% for group in roster_groups %}
+    <section class="et-group" data-roster-group aria-labelledby="et-roster-group-{{ forloop.counter }}">
+      <header class="et-group-heading"><div><h3 id="et-roster-group-{{ forloop.counter }}">{{ group.grouper|default:"بلا بيئة — خارج نطاق الرحلة" }}</h3><span class="et-hint">{{ group.list|length }} طالبًا</span></div><span class="et-badge"><strong data-group-selected>—</strong> مرشحًا في المسودة</span></header>
+      <table class="et-table et-roster"><caption>اختر الطالب، واكتب سبب الاستبعاد عند الحاجة. لا يُحفظ التعديل إلا بزر حفظ المسودة.</caption><thead><tr><th scope="col">الترتيب</th><th scope="col">الطالب</th><th scope="col">النقاط</th><th scope="col">الترشيح</th><th scope="col">سبب الاستبعاد</th></tr></thead><tbody>
+      {% for row in group.list %}
+      <tr class="et-row{% if row.is_selected %} is-selected{% endif %}" data-roster-row data-search="{{ row.student_name }} {{ row.student_code }}" data-group-id="{{ row.group_id|default_if_none:'' }}" data-eligible="{{ row.eligible|yesno:'true,false' }}" data-in-scope="{{ row.in_scope|yesno:'true,false' }}">
+        <td data-label="الترتيب">{{ row.rank }}</td>
+        <td data-label="الطالب"><strong>{{ row.student_name }}</strong><span class="et-student-code">{{ row.student_code }}</span><span class="et-hint" data-row-scope>{% if row.in_scope %}ضمن نطاق الرحلة{% else %}خارج النطاق الحالي{% endif %}</span>{% if not row.eligible %}<span class="et-error">غير مؤهل حاليًا؛ لا يدخل الاعتماد.</span>{% endif %}</td>
+        <td data-label="النقاط">{{ row.points }}</td>
+        <td data-label="الترشيح"><label class="et-selection" for="et-selected-{{ row.participant_id }}"><input id="et-selected-{{ row.participant_id }}" type="checkbox" name="selected_ids" value="{{ row.participant_id }}"{% if row.is_selected %} checked{% endif %}><span data-selection-label>{% if row.is_selected %}مرشح{% else %}غير مرشح{% endif %}</span><span class="et-sr-only">{{ row.student_name }}</span></label></td>
+        <td data-label="سبب الاستبعاد"><label class="et-sr-only" for="et-reason-{{ row.participant_id }}">سبب استبعاد {{ row.student_name }} (اختياري)</label><input type="text" id="et-reason-{{ row.participant_id }}" name="reason_{{ row.participant_id }}" maxlength="250" value="{{ row.reason }}" placeholder="سبب الاستبعاد (اختياري)"></td>
+      </tr>
+      {% endfor %}
+      </tbody></table>
+    </section>
+    {% empty %}<div class="et-empty">لا يوجد طلاب مؤهلون لإعداد هذه المسودة.</div>{% endfor %}
+    <p class="et-empty" data-no-results hidden>لا توجد نتائج مطابقة. الاختيارات المخفية لم تتغير.</p>
+  </section>
+  <div class="et-bar"><div><p>الحفظ لا يعتمد الرحلة ولا يرسل دعوات.</p><span class="et-hint">بعد الحفظ، راجع النسخة المحفوظة قبل اعتمادها.</span></div><div class="et-actions"><button class="et-button et-button--primary" type="submit">حفظ المسودة</button><a class="et-button" href="{% url 'participants:elite_trip_list' %}">قائمة الرحلات</a></div><p class="et-submit-status" data-submit-status role="status" aria-live="polite"></p></div>
+</form>
+<div class="et-actions">
+  {% if version > 1 and not error and not form.errors %}<a class="et-button et-button--primary" data-saved-review-link href="{% url 'participants:elite_trip_review' trip.pk %}">مراجعة النسخة المحفوظة {{ version }}</a>{% endif %}
+  <p class="et-hint" data-unsaved-review{% if version > 1 and not error and not form.errors %} hidden{% endif %}>احفظ التفاصيل والترشيحات لتصبح المراجعة متاحة. التغييرات غير المحفوظة لا تدخل الاعتماد.</p>
+</div>
+<noscript><p class="et-notice">البحث والعدادات التفاعلية تحتاج JavaScript؛ جميع الاختيارات قابلة للحفظ دونه. احفظ أي تعديل قبل فتح المراجعة لتراجع نسخة الخادم.</p></noscript>
+</section>
+{% endblock %}

@@ -1,0 +1,7 @@
+{% extends "participants/elite_trips/base.html" %}
+{% block elite_content %}
+<header class="et-hero"><p class="et-eyebrow">رحّال / رحلاتي</p><h1>خطوة نحو رحلة مميزة.</h1><p class="et-muted">دعواتك المعتمدة وسجل رحلاتك في مكان واحد. لا يظهر هنا إلا ترشيحك أنت ضمن الرحلات المشمولة.</p></header>
+{% include "participants/elite_trips/_errors.html" %}
+{% include "participants/elite_trips/_student_cards.html" with student_trip_cards=trip_cards %}
+{% if not trip_cards %}<div class="et-empty"><h2>لا توجد رحلات معتمدة مشمولة لك حاليًا</h2><p class="et-muted">واصل اجتهادك وحصد الأميال. ستظهر حالة ترشيحك عندما تعتمد الإدارة رحلة تشمل بيئتك.</p></div>{% endif %}
+{% endblock %}

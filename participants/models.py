@@ -834,3 +834,126 @@ class MeetingNote(models.Model):
         )]
         verbose_name = "ملاحظة لقاء خاصة"
         verbose_name_plural = "ملاحظات اللقاء الخاصة"
+
+
+# Guardian declarations are independent of EliteTripAttendance and all rewards.
+import uuid
+from decimal import Decimal
+from django.core.validators import MinValueValidator
+
+
+class EliteTrip(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = "draft", "مسودة"
+        APPROVED = "approved", "معتمدة"
+        CLOSED = "closed", "مغلقة"
+        CANCELLED = "cancelled", "ملغاة"
+
+    title = models.CharField(max_length=150, verbose_name="عنوان الرحلة")
+    date = models.DateField(null=True, blank=True, verbose_name="تاريخ الرحلة")
+    time = models.TimeField(null=True, blank=True, verbose_name="وقت بدء الرحلة")
+    location = models.CharField(max_length=250, blank=True, verbose_name="مكان الرحلة")
+    fee = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True,
+                              validators=[MinValueValidator(Decimal("0"))], verbose_name="الرسوم بالريال")
+    meeting_point = models.CharField(max_length=250, blank=True, verbose_name="نقطة التجمع")
+    departure_time = models.TimeField(null=True, blank=True, verbose_name="وقت الانطلاق")
+    return_time = models.TimeField(null=True, blank=True, verbose_name="وقت العودة")
+    instructions = models.TextField(max_length=3000, blank=True, verbose_name="التعليمات")
+    details = models.TextField(max_length=5000, blank=True, verbose_name="تفاصيل الرحلة")
+    scope_group = models.ForeignKey(Group, on_delete=models.PROTECT, null=True, blank=True,
+                                    related_name="elite_trips", verbose_name="نطاق البيئة")
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.DRAFT, verbose_name="الحالة")
+    version = models.PositiveIntegerField(default=1, verbose_name="نسخة الرحلة")
+    snapshot = models.JSONField(default=dict, blank=True, editable=False, verbose_name="اللقطة المعتمدة")
+    snapshot_sha256 = models.CharField(max_length=64, blank=True, editable=False, verbose_name="بصمة الرحلة")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+                                   related_name="+", verbose_name="أنشأها")
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                    related_name="+", verbose_name="اعتمدها")
+    approved_at = models.DateTimeField(null=True, blank=True, verbose_name="وقت الاعتماد")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الإنشاء")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="آخر تحديث")
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+        verbose_name = "رحلة نخبة"
+        verbose_name_plural = "رحلات النخبة"
+        constraints = [
+            models.CheckConstraint(condition=models.Q(status__in=["draft", "approved", "closed", "cancelled"]), name="elite_trip_valid_status"),
+            models.CheckConstraint(condition=models.Q(fee__isnull=True) | models.Q(fee__gte=0), name="elite_trip_nonnegative_fee"),
+        ]
+
+    def __str__(self):
+        return self.title
+
+
+class EliteTripNomination(models.Model):
+    trip = models.ForeignKey(EliteTrip, on_delete=models.PROTECT, related_name="nominations", verbose_name="الرحلة")
+    participant = models.ForeignKey(Participant, on_delete=models.PROTECT, related_name="trip_nominations", verbose_name="الطالب")
+    is_selected = models.BooleanField(default=False, verbose_name="مرشح")
+    frozen_member = models.BooleanField(default=False, editable=False, verbose_name="ضمن النطاق المعتمد")
+    reason = models.CharField(max_length=250, blank=True, verbose_name="سبب الاختيار اليدوي")
+    student_name = models.CharField(max_length=100, blank=True, verbose_name="اسم الطالب وقت الاعتماد")
+    group_name = models.CharField(max_length=50, blank=True, verbose_name="اسم البيئة وقت الاعتماد")
+    group_snapshot_id = models.PositiveBigIntegerField(null=True, blank=True, verbose_name="مرجع البيئة التاريخي")
+    points_snapshot = models.PositiveIntegerField(default=0, verbose_name="لقطة النقاط")
+    rank_snapshot = models.PositiveIntegerField(null=True, blank=True, verbose_name="الترتيب في البيئة")
+    notified_at = models.DateTimeField(null=True, blank=True, verbose_name="وقت إتاحة الدعوة داخل الحساب")
+    read_at = models.DateTimeField(null=True, blank=True, verbose_name="وقت قراءة الدعوة")
+
+    class Meta:
+        ordering = ["group_name", "rank_snapshot", "participant_id"]
+        verbose_name = "ترشيح رحلة نخبة"
+        verbose_name_plural = "ترشيحات رحلات النخبة"
+        constraints = [models.UniqueConstraint(fields=["trip", "participant"], name="elite_trip_unique_nomination")]
+        indexes = [models.Index(fields=["participant", "frozen_member", "is_selected"], name="elite_trip_own_invites")]
+
+
+class GuardianTripConsent(models.Model):
+    class Decision(models.TextChoices):
+        YES = "yes", "موافق"
+        NO = "no", "غير موافق"
+
+    class Relation(models.TextChoices):
+        FATHER = "father", "الأب"
+        MOTHER = "mother", "الأم"
+        GUARDIAN = "guardian", "ولي أمر أو مخوّل بالرعاية"
+
+    nomination = models.OneToOneField(EliteTripNomination, on_delete=models.PROTECT, related_name="consent", verbose_name="الدعوة")
+    reference = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, verbose_name="مرجع الرد")
+    decision = models.CharField(max_length=3, choices=Decision.choices, verbose_name="قرار ولي الأمر")
+    guardian_name = models.CharField(max_length=100, verbose_name="اسم ولي الأمر")
+    guardian_relation = models.CharField(max_length=10, choices=Relation.choices, verbose_name="صفة ولي الأمر")
+    notes = models.TextField(max_length=1500, blank=True, verbose_name="ملاحظات ولي الأمر")
+    declaration_accepted = models.BooleanField(default=False, verbose_name="إقرار ولي الأمر")
+    signature = models.BinaryField(editable=False, verbose_name="التوقيع الخاص بصيغة PNG")
+    signature_sha256 = models.CharField(max_length=64, editable=False, verbose_name="بصمة التوقيع")
+    trip_sha256 = models.CharField(max_length=64, editable=False, verbose_name="بصمة الرحلة المعتمدة")
+    content_sha256 = models.CharField(max_length=64, editable=False, verbose_name="بصمة محتوى الرد")
+    verification_method = models.CharField(max_length=30, default="account_declaration", editable=False, verbose_name="طريقة الإرسال غير الموثقة")
+    submitted_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+", verbose_name="حساب الطالب المرسل")
+    submitted_at = models.DateTimeField(auto_now_add=True, verbose_name="وقت استلام القرار")
+
+    class Meta:
+        ordering = ["-submitted_at", "-pk"]
+        verbose_name = "إقرار ولي أمر لرحلة"
+        verbose_name_plural = "إقرارات أولياء الأمور للرحلات"
+        constraints = [
+            models.CheckConstraint(condition=models.Q(decision__in=["yes", "no"]), name="elite_consent_valid_decision"),
+            models.CheckConstraint(condition=models.Q(guardian_relation__in=["father", "mother", "guardian"]), name="elite_consent_valid_relation"),
+            models.CheckConstraint(condition=models.Q(declaration_accepted=True), name="elite_consent_declaration_required"),
+            models.CheckConstraint(condition=models.Q(verification_method="account_declaration"), name="elite_consent_account_declaration"),
+        ]
+
+
+class EliteTripAudit(models.Model):
+    trip = models.ForeignKey(EliteTrip, on_delete=models.PROTECT, related_name="audit_events", verbose_name="الرحلة")
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+", verbose_name="منفذ الإجراء")
+    event = models.CharField(max_length=30, verbose_name="الإجراء")
+    data = models.JSONField(default=dict, verbose_name="مراجع الإجراء دون بيانات حساسة")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="وقت الإجراء")
+
+    class Meta:
+        ordering = ["created_at", "pk"]
+        verbose_name = "تدقيق رحلة نخبة"
+        verbose_name_plural = "تدقيق رحلات النخبة"

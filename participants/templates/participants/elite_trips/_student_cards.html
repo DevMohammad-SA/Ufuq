@@ -1,0 +1,28 @@
+{% if student_trip_cards %}
+<section class="et-student-cards" aria-label="دعوات رحلات النخبة">
+  <header class="et-heading">
+    <div><h2>رحلات النخبة</h2><p class="et-muted">هذه حالة الترشيح المعتمد للرحلة؛ مؤشر المنافسة يتغير ولا يُعد دعوة نهائية.</p></div>
+    <a class="et-button" href="{% url 'participants:student_trips' %}">رحلاتي</a>
+  </header>
+  {% for card in student_trip_cards %}
+  <article class="et-trip-card{% if not card.is_selected %} et-trip-card--unselected{% endif %}" aria-labelledby="et-trip-card-{{ card.nomination_id }}">
+    <div class="et-heading">
+      <div><p class="et-eyebrow">{{ card.title }}</p><h3 id="et-trip-card-{{ card.nomination_id }}">{% if card.is_selected %}تهانينا! تم ترشيحك لرحلة النخبة{% else %}غير مرشح لهذه الرحلة{% endif %}</h3></div>
+      <span class="et-badge{% if card.is_selected %} et-badge--yes{% else %} et-badge--no{% endif %}">{{ card.status_label }}</span>
+    </div>
+    {% if card.date %}<p class="et-muted">موعد الرحلة: {{ card.date }}</p>{% endif %}
+    {% if card.is_selected %}
+      {% if card.has_response %}<p>تم تسجيل رد ولي الأمر عبر حساب الطالب؛ لم يُتحقق من هويته.</p>
+      {% elif card.can_reply %}<p>راجع تفاصيل الرحلة مع ولي أمرك ليختار قراره ويوقّع الاستمارة عبر حسابك.</p>
+      {% else %}<p>أُغلقت إمكانية إرسال رد جديد. تفاصيل الرحلة المحفوظة متاحة للرجوع إليها.</p>{% endif %}
+      <div class="et-actions">
+        {% if card.has_response and card.consent_url %}<a class="et-button" href="{{ card.consent_url }}">عرض الرد المحفوظ</a>
+        {% elif card.invitation_url %}<a class="et-button et-button--primary" href="{{ card.invitation_url }}">تفاصيل الرحلة{% if card.can_reply %} واستمارة ولي الأمر{% endif %}</a>{% endif %}
+      </div>
+    {% else %}
+      <p>الفرصة أمامك! اجتهد واحصد المزيد من الأميال لتكون من المرشحين للرحلات القادمة.</p>
+    {% endif %}
+  </article>
+  {% endfor %}
+</section>
+{% endif %}

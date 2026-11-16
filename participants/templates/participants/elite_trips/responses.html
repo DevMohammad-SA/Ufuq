@@ -1,0 +1,60 @@
+{% extends "participants/elite_trips/base.html" %}
+{% load tz %}
+{% block elite_content %}
+<header class="et-hero"><p class="et-eyebrow">رحّال / متابعة ردود ولي الأمر</p><h1>كل قرار، في مكانه.</h1><p>{{ trip.title }} · {{ trip.get_status_display }}</p><p class="et-muted">الملاحظات ظاهرة مباشرة لكل رد. الإحصاءات تخص جميع مرشحي الرحلة المعتمدين، ولا تتغير مع فلاتر العرض.</p></header>
+{% include "participants/elite_trips/_errors.html" %}
+<div class="et-actions et-no-print"><a class="et-button" href="{% url 'participants:elite_trip_list' %}">قائمة الرحلات</a><a class="et-button" href="{% url 'participants:elite_trip_review' trip.pk %}">عرض تفاصيل النسخة المعتمدة</a></div>
+<section aria-label="إحصاءات الرحلة كاملة">
+  <div class="et-kpis"><div class="et-kpi"><p>إجمالي المرشحين المعتمدين</p><strong>{{ kpis.selected }}</strong></div><div class="et-kpi et-kpi--yes"><p>موافق</p><strong>{{ kpis.yes }}</strong></div><div class="et-kpi et-kpi--no"><p>غير موافق</p><strong>{{ kpis.no }}</strong></div><div class="et-kpi"><p>بانتظار الرد</p><strong>{{ kpis.pending }}</strong></div></div>
+</section>
+<section class="et-panel" aria-labelledby="et-follow-title">
+  <h2 id="et-follow-title">ردود المرشحين</h2>
+  <form method="get" action="{% url 'participants:elite_trip_responses' trip.pk %}" class="et-no-print">
+    <div class="et-filters">
+      <div class="et-field"><label for="et-follow-q">البحث باسم الطالب أو رمزه</label><input id="et-follow-q" type="search" name="q" value="{{ filters.q }}" placeholder="اسم الطالب أو الرمز الداخلي" autocomplete="off"></div>
+      <div class="et-field"><label for="et-follow-group">تصفية العرض حسب البيئة المعتمدة</label><select name="group" id="et-follow-group"><option value="">كل البيئات المشمولة</option>{% for group in groups %}<option value="{{ group.id }}"{% if filters.group|stringformat:'s' == group.id|stringformat:'s' %} selected{% endif %}>{{ group.name }}</option>{% endfor %}</select></div>
+      <div class="et-field"><label for="et-follow-status">حالة الرد</label><select id="et-follow-status" name="status"><option value="">جميع الحالات</option><option value="yes"{% if filters.status == 'yes' %} selected{% endif %}>موافق</option><option value="no"{% if filters.status == 'no' %} selected{% endif %}>غير موافق</option><option value="pending"{% if filters.status == 'pending' %} selected{% endif %}>بانتظار الرد</option></select></div>
+    </div>
+    <div class="et-actions"><button class="et-button et-button--primary" type="submit">تطبيق فلاتر العرض</button><a class="et-button" href="{% url 'participants:elite_trip_responses' trip.pk %}">عرض كل المرشحين</a></div>
+  </form>
+  <p class="et-hint">نتائج العرض: <strong>{{ filtered_count }}</strong> من <strong>{{ kpis.selected }}</strong> مرشحًا معتمدًا. هذه تصفية عرض فقط، لا تغيّر نطاق الرحلة.</p>
+  <div class="et-group">
+    <table class="et-table et-response-table"><caption>ملاحظات ولي الأمر محفوظة كما أرسلها، للموافق وغير الموافق، وتظهر مباشرة دون فتح الاستمارة.</caption><thead><tr><th scope="col">الطالب</th><th scope="col">البيئة</th><th scope="col">حالة ولي الأمر</th><th scope="col">ملاحظات ولي الأمر</th><th scope="col">الاستمارة</th></tr></thead><tbody>
+    {% for row in rows %}
+    <tr>
+      <td data-label="الطالب"><strong>{{ row.student_name }}</strong><span class="et-student-code">{{ row.student_code }} · {{ row.points }} نقطة · الترتيب {{ row.rank }}</span></td>
+      <td data-label="البيئة">{{ row.group_name }}</td>
+      <td data-label="حالة ولي الأمر"><span class="et-badge{% if row.decision == 'yes' %} et-badge--yes{% elif row.decision == 'no' %} et-badge--no{% endif %}">{{ row.decision_label }}</span>{% if row.submitted_at %}<span class="et-hint">{% timezone "Asia/Riyadh" %}{{ row.submitted_at|date:"Y/m/d H:i" }}{% endtimezone %} · الرياض</span>{% endif %}</td>
+      <td data-label="ملاحظات ولي الأمر"><span class="et-prewrap">{% if row.decision == 'pending' %}بانتظار رد ولي الأمر{% elif row.notes %}{{ row.notes }}{% else %}لا توجد ملاحظات{% endif %}</span></td>
+      <td data-label="الاستمارة">{% if row.consent_id %}<div class="et-actions"><a class="et-button" href="{% url 'participants:trip_consent_detail' row.consent_id %}">معاينة الاستمارة<span class="et-sr-only"> — {{ row.student_name }}</span></a><a class="et-button" href="{% url 'participants:trip_consent_pdf' row.consent_id %}">تنزيل PDF<span class="et-sr-only"> — {{ row.student_name }}</span></a></div>{% else %}<span class="et-muted">لا يوجد رد محفوظ</span>{% endif %}</td>
+    </tr>
+    {% empty %}<tr><td colspan="5">لا توجد نتائج تطابق فلاتر العرض.</td></tr>{% endfor %}
+    </tbody></table>
+  </div>
+</section>
+<p class="et-notice">{{ verification_disclosure }} {{ privacy_text }}</p>
+{% if can_close or can_cancel %}
+<section class="et-panel et-no-print" aria-labelledby="et-lifecycle-title"><h2 id="et-lifecycle-title">إيقاف استقبال الردود</h2><p class="et-muted">الإغلاق والإلغاء يوقفان الردود الجديدة، مع إبقاء الرحلة والقرارات والتواقيع والوثائق المحفوظة. لا يوجد حذف للسجل.</p>
+{% if can_close %}
+<details class="et-lifecycle"><summary>إغلاق الرحلة…</summary>
+<form method="post" action="{% url 'participants:elite_trip_responses' trip.pk %}" data-elite-post>
+  {% csrf_token %}<input type="hidden" name="action" value="close"><input type="hidden" name="version" value="{{ version }}">
+  <p class="et-notice">التأكيد الأول: إغلاق «{{ trip.title }}» يوقف استقبال أي رد جديد.</p>
+  <label class="et-check" for="et-close-first"><input id="et-close-first" type="checkbox" required data-extra-confirm><span>أفهم أن استقبال الردود سيتوقف، وأن الأرشيف سيبقى محفوظًا.</span></label>
+  <label class="et-check" for="et-close-confirm"><input id="et-close-confirm" type="checkbox" name="confirm" value="yes" required data-final-confirm><span>التأكيد النهائي: أريد إغلاق هذه الرحلة الآن.</span></label>
+  <button class="et-button et-button--danger" type="submit" data-final-button>تأكيد إغلاق الرحلة</button><p class="et-submit-status" data-submit-status role="status" aria-live="polite"></p>
+</form></details>
+{% endif %}
+{% if can_cancel %}
+<details class="et-lifecycle"><summary>إلغاء الرحلة…</summary>
+<form method="post" action="{% url 'participants:elite_trip_responses' trip.pk %}" data-elite-post>
+  {% csrf_token %}<input type="hidden" name="action" value="cancel"><input type="hidden" name="version" value="{{ version }}">
+  <p class="et-notice et-notice--error">التأكيد الأول: إلغاء «{{ trip.title }}» يغيّر حالتها إلى ملغاة ويوقف استقبال الردود؛ لا يحذف الوثائق.</p>
+  <label class="et-check" for="et-cancel-first"><input id="et-cancel-first" type="checkbox" required data-extra-confirm><span>راجعت أثر الإلغاء وأفهم أن الردود والوثائق القديمة ستبقى محفوظة.</span></label>
+  <label class="et-check" for="et-cancel-confirm"><input id="et-cancel-confirm" type="checkbox" name="confirm" value="yes" required data-final-confirm><span>التأكيد النهائي: أريد إلغاء هذه الرحلة الآن.</span></label>
+  <button class="et-button et-button--danger" type="submit" data-final-button>تأكيد إلغاء الرحلة</button><p class="et-submit-status" data-submit-status role="status" aria-live="polite"></p>
+</form></details>
+{% endif %}
+</section>
+{% endif %}
+{% endblock %}

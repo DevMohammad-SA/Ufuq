@@ -137,6 +137,16 @@
   </section>
   {% endif %}
 
+  {% if can_manage_elite_trips %}
+  <section class="comparison-entry" aria-labelledby="elite-trip-entry-title">
+    <div>
+      <h2 id="elite-trip-entry-title">ترشيح رحلة النخبة</h2>
+      <p>جهّز الرحلة واختر المرشحين، ثم تابع ردود أولياء الأمور وملاحظاتهم.</p>
+    </div>
+    <a href="{% url 'participants:elite_trip_list' %}">فتح الترشيحات والردود</a>
+  </section>
+  {% endif %}
+
   {% if can_view_reports %}
   <h2 class="page-title" style="font-size:20px; margin-top:var(--s2)">نظرة عامة على البرنامج</h2>
 

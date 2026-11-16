@@ -1,0 +1,27 @@
+{% extends "participants/elite_trips/base.html" %}
+{% block elite_content %}
+<header class="et-hero">
+  <p class="et-eyebrow">رحّال / إدارة رحلات النخبة</p>
+  <h1>رحلات تستحقها النخبة.</h1>
+  <p class="et-muted">أنشئ رحلة، احفظ ترشيحاتها وتفاصيلها، ثم راجعها قبل الاعتماد. لا تُرسل دعوة عند إنشاء المسودة أو حفظها.</p>
+</header>
+{% include "participants/elite_trips/_errors.html" %}
+<div class="et-heading">
+  <h2>الرحلات والأرشيف</h2>
+  <form method="post" action="{% url 'participants:elite_trip_list' %}" data-elite-post>
+    {% csrf_token %}<input type="hidden" name="action" value="create">
+    <button class="et-button et-button--primary" type="submit">إنشاء مسودة رحلة</button>
+    <p class="et-submit-status" data-submit-status role="status" aria-live="polite"></p>
+  </form>
+</div>
+<p class="et-notice">عند إنشاء مسودة جديدة فقط، يُحدَّد أعلى ١٣ طالبًا نشطًا من كل بيئة مبدئيًا. يمكنك إضافة الطلاب أو استبعادهم دون سقف للعدد. مؤشر المنافسة الحالي لا يتغير.</p>
+{% for trip in trips %}
+<article class="et-panel">
+  <div class="et-heading"><div><h2>{{ trip.title }}</h2><p class="et-muted">{% if trip.date %}{{ trip.date|date:"Y/m/d" }}{% else %}لم يُحدد موعد الرحلة{% endif %}</p></div><span class="et-badge{% if trip.status == 'approved' %} et-badge--yes{% elif trip.status == 'cancelled' %} et-badge--no{% endif %}">{{ trip.get_status_display }}</span></div>
+  <div class="et-counts"><span>المرشحون: <strong>{{ trip.selected_count }}</strong></span><span>الردود المحفوظة: <strong>{{ trip.response_count }}</strong></span></div>
+  <div class="et-actions">
+    {% if trip.status == 'draft' %}<a class="et-button et-button--primary" href="{% url 'participants:elite_trip_edit' trip.pk %}">إعداد المسودة</a>{% else %}<a class="et-button et-button--primary" href="{% url 'participants:elite_trip_responses' trip.pk %}">متابعة الردود</a><a class="et-button" href="{% url 'participants:elite_trip_review' trip.pk %}">عرض النسخة المعتمدة</a>{% endif %}
+  </div>
+</article>
+{% empty %}<div class="et-empty"><h2>لا توجد رحلات بعد</h2><p class="et-muted">ابدأ بمسودة جديدة. تفاصيل الرحلة تبقى فارغة حتى تُدخلها وتحفظها.</p></div>{% endfor %}
+{% endblock %}

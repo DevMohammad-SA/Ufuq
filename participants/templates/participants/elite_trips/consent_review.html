@@ -1,0 +1,21 @@
+{% extends "participants/elite_trips/base.html" %}
+{% block elite_content %}
+<header class="et-hero"><p class="et-eyebrow">رحّال / مراجعة قرار ولي الأمر</p><h1>راجع قرارك قبل إرساله</h1><p class="et-muted">هذه معاينة للبيانات التي تحقق منها الخادم، وليست ردًا محفوظًا بعد. راجع القرار والاسم والملاحظات والتوقيع، ثم أكد الإرسال صراحةً.</p></header>
+{% include "participants/elite_trips/_errors.html" %}
+<section class="et-panel"><h2>الطالب والرحلة</h2><dl class="et-data"><div><dt>اسم الطالب من الدعوة المعتمدة</dt><dd>{{ student_name }}</dd></div><div><dt>البيئة المعتمدة</dt><dd>{{ group_name }}</dd></div></dl>{% include "participants/elite_trips/_trip_data.html" %}</section>
+<section class="et-panel" aria-labelledby="et-review-decision-title"><div class="et-heading"><h2 id="et-review-decision-title">قرار ولي الأمر للمراجعة</h2><span class="et-badge{% if review_values.decision == 'yes' %} et-badge--yes{% else %} et-badge--no{% endif %}">{{ review_values.decision_label }}</span></div>
+  <dl class="et-data"><div><dt>اسم ولي الأمر</dt><dd>{{ review_values.guardian_name }}</dd></div><div><dt>الصفة</dt><dd>{{ review_values.guardian_relation_label }}</dd></div><div class="et-wide"><dt>الملاحظات</dt><dd>{{ review_values.notes|default:"لا توجد ملاحظات" }}</dd></div><div class="et-wide"><dt>الإقرار</dt><dd>{% if review_values.declaration_accepted %}تم قبول الإقرار: {{ declaration_text }}{% else %}لم يُقبل الإقرار{% endif %}</dd></div></dl>
+  <h3 style="margin-top:20px">التوقيع الذي تمت مراجعته</h3>
+  {% if signature_data_url %}<img class="et-signature-preview" src="{{ signature_data_url }}" alt="توقيع ولي الأمر بعد التحقق والتطبيع، للمراجعة قبل الإرسال">{% else %}<p class="et-error">لم تتوفر صورة توقيع صالحة؛ عد إلى الاستمارة وارسم التوقيع.</p>{% endif %}
+  <p class="et-notice">{{ verification_disclosure }}</p><p class="et-hint">{{ privacy_text }}</p>
+</section>
+<form class="et-panel" method="post" action="{% url 'participants:trip_invitation' nomination.pk %}" data-elite-post>
+  {% csrf_token %}<input type="hidden" name="action" value="submit"><input type="hidden" name="review_token" value="{{ review_token }}">
+  {% for field in form %}{{ field }}{% endfor %}
+  <h2>التأكيد النهائي</h2>
+  <label class="et-check" for="et-consent-final-confirm"><input type="checkbox" id="et-consent-final-confirm" name="confirm" value="yes" required data-final-confirm><span>أؤكد أن القرار والاسم والصفة والملاحظات والتوقيع المعروضين أعلاه هي ما أريد إرساله. أفهم أنه سيُحفظ رد واحد لا يمكنني تعديله أو مسحه من الواجهة.</span></label>
+  <p class="et-hint">تنتهي صلاحية المراجعة بعد ١٥ دقيقة؛ إذا انتهت، ارجع إلى الاستمارة وراجعها من جديد. لا يوجد إرسال تلقائي أو إعادة إرسال في الخلفية.</p>
+  <div class="et-actions" style="margin-top:16px">{% if signature_data_url and review_token %}<button class="et-button et-button--primary" type="submit" data-final-button>تأكيد إرسال قرار ولي الأمر</button>{% endif %}<a class="et-button" href="{% url 'participants:trip_invitation' nomination.pk %}">العودة إلى الاستمارة دون إرسال</a></div>
+  <p class="et-submit-status" data-submit-status role="status" aria-live="polite"></p>
+</form>
+{% endblock %}

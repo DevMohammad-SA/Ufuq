@@ -414,3 +414,33 @@ SUBMISSION_FORMAT_EXTENSIONS = {
 بينما إدارة العام/النظام موروثة. علمَا المتجر والمهام يبقيان للمحدود فقط.
 لا بيانات تحويل أو سياسات تلقائية أو تعديلUser/أرصدة، والسحب يحفظ سجل المنع.
 تفاصيل النطاق والتأكيد في[صلاحيات الطلاب والتقارير](student-report-permissions.md).
+
+## جداول استمارات رحلة النخبة — 16 نوفمبر2026
+
+الهجرة0028تضيف أربع جداول مستقلة، بلا بيانات تحويل أو إعادة احتساب أرصدة/حضور. لا تُسجل فيأدمنDjangoلفتح التواقيع خارج صلاحيات الرحلة. خدماتها[موثقة هنا](elite-trip-consents.md).
+
+### EliteTrip — رحلة ونسخة اعتماد
+
+| الحقول | النوع والمعنى |
+|---|---|
+| title / location / meeting_point | CharFieldبحد150/250/250؛ الاسم والموقع والتجمع |
+| date / time / departure_time / return_time | DateField/TimeFieldاختيارية في المسودة؛ يتطلبها الاعتماد |
+| fee | DecimalField8أرقام ومنزلتان،nullableللمسودة،MinValueValidator0وقيدelite_trip_nonnegative_fee؛ صفر مجاني |
+| instructions / details | TextFieldبحد3000/5000 |
+| scope_group | FKGroupPROTECTnullable؛NULLكل البيئات |
+| status / version | draft/approved/closed/cancelled؛نسخةPositiveIntegerافتراضي1وقيدelite_trip_valid_status |
+| snapshot / snapshot_sha256 | JSONFieldوبصمة64حرفًا غير قابلين للتحرير؛ ثابتان بعد الاعتماد |
+| created_by / approved_by | FKUserSET_NULLلحفظ المرجع إن أزيل الحساب |
+| approved_at / created_at / updated_at | وقت الاعتماد وauto_now_addوauto_now؛الترتيب الأحدث ثمpk |
+
+### EliteTripNomination — اختيار وعضوية تاريخية
+
+trip وparticipantعلاقتاFKPROTECTباسميnominationsوtrip_nominations؛ unique(trip,participant)باسمelite_trip_unique_nomination. is_selectedBooleanللمسودة، وfrozen_memberBooleanغيرقابل للتحريرلتثبيت أهلية النطاق؛ لا يكفيis_selectedوحده لإتاحة دعوة. reasonحتى250حرفًا. student_name100وgroup_name50وgroup_snapshot_idعددتاريخياختياري ونقاطpoints_snapshotوترتيبrank_snapshotاختياري: لقطة اعتماد لا علاقةبيئة حية. notified_atوقتإتاحةالدعوة،read_atاختياريغيرمستخدملتغييرGET. الفهرسelite_trip_own_invitesعلىparticipant/frozen_member/is_selected. ترتيبgroup_name/rank_snapshot/participant_id.
+
+### GuardianTripConsent — رد ولي محفوظ
+
+nominationOneToOnePROTECTباسمconsent؛ ردواحدلكلدعوة. referenceUUIDفريدافتراضيuuid4وغيرقابل للتحرير. decisionyes/noبحد3،guardian_name100وguardian_relationfather/mother/guardianبحد10،notes1500اختيارية،declaration_acceptedBooleanويُفرضTrueبقيد. signatureBinaryFieldغيرقابل للتحريرPNGخاص، لاImageFieldأوmediaعام. signature_sha256/trip_sha256/content_sha256بصمات64حرفًا. verification_methodثابتaccount_declarationغيرقابل للتحرير؛ لاOTPأوشهادة. submitted_byFKUserSET_NULLبوصفهحسابالطالب،submitted_atauto_now_add. قيودelite_consent_valid_decision/relation/declaration_required/account_declarationتفرضالقيمحتىخارجالنموذج. ترتيبأحدثردثمpk.
+
+### EliteTripAudit — أحداث الإدارة والرد
+
+tripFKPROTECTباسمaudit_events،actorFKUserSET_NULL،eventCharField30،dataJSONبمراجعوأعداد/نسخدونالتوقيعأوملاحظةالولي،created_atauto_now_addوترتيبالوقتثمpk. لايكتبأيجدولمنالأربعةفيPointsLedgerEntryأويستدعيapply_points_delta. التعطيلالناعملايحذفالردودواللقطات.
