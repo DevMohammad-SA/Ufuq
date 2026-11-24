@@ -127,6 +127,7 @@
                     </div>
                   {% endif %}
                   <span class="person-meta">التقارير: {% if supervisor.report_view_allowed %}{% if supervisor.report_prepare_allowed %}اطلاع وإعداد{% else %}اطلاع فقط{% endif %}{% else %}غير متاحة{% endif %}</span>
+                  <span class="person-meta">تعديل تقييم المهام والتميز: {% if supervisor.task_grade_edit_allowed %}متاح{% else %}غير متاح{% endif %}</span>
                 </td>
                 <td class="group-list">
                   {% if supervisor.role == "limited_supervisor" %}
@@ -158,7 +159,7 @@
                       <a class="action-button action-button--grant" href="{% url 'participants:supervisor_capabilities' pk=supervisor.pk %}">صلاحيات محددة</a>
                     {% endif %}
                     {% if supervisor.can_configure_student_reports %}
-                      <a class="action-button action-button--grant" href="{% url 'participants:supervisor_student_reports' pk=supervisor.pk %}">صلاحيات الطلاب والتقارير</a>
+                      <a class="action-button action-button--grant" href="{% url 'participants:supervisor_student_reports' pk=supervisor.pk %}">صلاحيات الطلاب والتقارير والتقييم</a>
                     {% endif %}
                     {% if supervisor.can_grant_general %}
                       <a class="action-button action-button--grant" href="{% url 'participants:supervisor_grant_general' pk=supervisor.pk %}">منح صلاحية المشرف العام</a>

@@ -18,7 +18,10 @@ from django.views.decorators.cache import never_cache
 from django.views.generic import TemplateView
 
 from accounts.models import Role, User
-from .capabilities import can_follow_tasks, can_manage_store, revoke_capabilities
+from .capabilities import (
+    can_follow_tasks, can_manage_store, revoke_capabilities,
+    revoke_task_grade_grants, task_grade_edit_users,
+)
 from .management_forms import (
     MANAGED_SUPERVISOR_ROLES, ParticipantEditForm, SupervisorCapabilitiesForm,
     SupervisorManagementForm,
@@ -215,7 +218,9 @@ class SupervisorListView(AccountManagementView):
         role = request.GET.get("role", "")
         if role not in MANAGED_SUPERVISOR_ROLES:
             role = ""
-        supervisors = visible_supervisors().select_related("limited_capabilities", "report_permissions").prefetch_related("group_set").order_by("full_name", "pk")
+        supervisors = visible_supervisors().annotate(
+            task_grade_edit_allowed=Exists(task_grade_edit_users().filter(pk=OuterRef("pk"))),
+        ).select_related("limited_capabilities", "report_permissions").prefetch_related("group_set").order_by("full_name", "pk")
         if q:
             supervisors = supervisors.filter(
                 Q(full_name__icontains=q) | Q(username__icontains=q) | Q(national_id__icontains=q),
@@ -346,6 +351,7 @@ class SupervisorFormView(AccountManagementView):
                         revoke_capabilities(supervisor, actor)
                         from .capabilities import revoke_report_grants
                         revoke_report_grants(supervisor, actor)
+                        revoke_task_grade_grants(supervisor, actor)
                     record_management(actor, supervisor, "إضافة مشرف" if is_new else "بيانات المشرف", ADDITION if is_new else CHANGE)
                     if supervisor.pk == request.user.pk and password:
                         update_session_auth_hash(request, supervisor)
@@ -397,6 +403,7 @@ class SupervisorGrantGeneralView(AccountManagementView):
                 revoke_capabilities(supervisor, actor)
                 from .capabilities import revoke_report_grants
                 revoke_report_grants(supervisor, actor)
+                revoke_task_grade_grants(supervisor, actor)
                 record_management(actor, supervisor, "منح صلاحية المشرف العام")
 
         if already_general:
@@ -436,6 +443,7 @@ class SupervisorDeleteView(AccountManagementView):
             revoke_capabilities(supervisor, actor)
             from .capabilities import revoke_report_grants
             revoke_report_grants(supervisor, actor)
+            revoke_task_grade_grants(supervisor, actor)
             record_management(actor, supervisor, "حذف آمن للمشرف: تعطيل الحساب مع حفظ السجلات")
         messages.success(request, "تم حذف المشرف من الحسابات النشطة؛ حُفظت سجلاته ويمكن إعادة تفعيله من الحسابات المعطلة")
         return redirect("participants:supervisor_list")
@@ -502,6 +510,7 @@ class SupervisorCapabilitiesView(AccountManagementView):
                 revoke_review(supervisor, actor)
                 from .capabilities import revoke_report_grants
                 revoke_report_grants(supervisor, actor)
+                revoke_task_grade_grants(supervisor, actor)
 
             capability = SupervisorCapability.objects.select_for_update().filter(
                 supervisor_id=supervisor.pk,

@@ -244,7 +244,7 @@ SUBMISSION_FORMAT_EXTENSIONS = {
 | `file` | `FileField(upload_to="task_submissions/%Y/%W/", blank=True, null=True)` | اختياري الآن (كان إلزاميًا) — فارغ لتسليم نصي. يُضغط إن كان صورة عبر `save()`. |
 | `text_content` | `TextField(blank=True)` | **جديد**. يُستخدم فقط عند اختيار صيغة "نص مباشر". |
 | `status` | `CharField(choices=Status.choices, default=PENDING)` | `pending` / `accepted` / `rejected` / `returned` («مُعادة للتعديل»). |
-| `is_featured` | `BooleanField(default=False)` | **جديد**. تُفعَّل عند القبول فقط عبر خانة اختيار "مميزة" في `WeeklyTaskReviewView` — تمنح نقطتين إضافيتين (12 بدل 10). راجع [`points-system.md`](points-system.md). |
+| `is_featured` | `BooleanField(default=False)` | **جديد**. تُفعَّل عند القبول عبر مربع التميز، أو تُضاف/تزال لاحقًا للمقبول بإذن مستقل عبر set_featured — فرق نقطتين فقط (12 بدل10). راجع [`points-system.md`](points-system.md). |
 | `points_awarded` | `BooleanField(null=True, default=False)` | علامة المنحة الدائمة: `True` = صُرفت النقاط، `False` = لم تُصرف (الافتراضي للتسليم الجديد)، و`NULL` = حالة تاريخية غير مؤكدة تحتاج قرار `historical_award` صريحًا من المشرف العام/النظام عند القبول. تمنع المنح المتكرر بعد إعادة التسليم. أضافتها الهجرة `0019`. |
 | `award_value` | `PositiveSmallIntegerField(null=True, editable=False)` | أضافته0024: قيمة المنحة المحتسبة0/10/12 للمراجعات الجديدة أو التصحيح النهائي الصريح، وNULL للسجل السابق الذي يحتاج تحققًا؛ لا تهيئة تخمينية أو إعادة صرف أثناء الهجرة. |
 | `rejection_reason` | `TextField(blank=True)` | **جديد**. يُملأ عند الرفض، ويظهر للمشارك ليفهم سبب الرفض. |
@@ -260,16 +260,16 @@ SUBMISSION_FORMAT_EXTENSIONS = {
 `grade_revision_token` خاصية تعيد reviewed_at بصيغةISO كاملة تتضمن الكسور
 والمنطقة الزمنية لمنع تبديل تقييم أحدث بنموذج قديم. تعديل العام النهائي
 يحدّث `award_value` و`points_awarded` بتطبيق الفرق فقط؛ لا يؤثر على اللقطات.
-الواجهة الحالية تستبدل التعديل بالإلغاء ثم المراجعة: الإلغاء يعيد الحالة إلى
-`PENDING` والمنحة إلى0 وعلامتهاFalse والتميزFalse، ويصفّر حقول المراجعة
-والملاحظات النشطة وعلامة إعادة الرفع، مع حفظ العمل وتاريخ رفعه والموعد.
+منذ24نوفمبر تعرض الواجهة التعديل المباشر وset_featured للمقبول بفرق±2،
+مع إذن مستقل ونطاق حديث ونسخة. التعديل/التميز لا يعودانPENDING ولا يغيران
+العمل والموعد أو إعادة الفتح الإدارية. الإلغاء القديم للتوافق فقط وفق عقده السابق.
 
 ### `TaskGradeRevision` — تدقيق تعديل أو إلغاء التقييم
 
 أضافته0024 بلا بيانات افتراضية أو إعادة حساب. يرتبط بالتسليم عبرFK/PROTECT
 و`grade_revisions`، ويحفظ old_status/new_status وold_featured/new_featured
 وold_award/new_award وreason وrevised_by (SET_NULL) وrevised_at. تكتبه خدمة
-`task_grading.py` داخل معاملة التعديل للعام فقط، ولا يُسجّل في واجهة الأدمن
+`task_grading.py` داخل معاملة لصاحب إذن تعديل التقييم المستقل ضمن نطاقه، ولا يُسجّل في واجهة الأدمن
 للتحرير. حماية المرجع تمنع حذف تسليم له أثر تدقيق؛ أرشفة الطالب الحالية
 لا تحذف أيًا منهما.
 في `cancel_grade` يسجل الحالة السابقة ثم `PENDING` والمنحة السابقة ثم0؛
@@ -448,3 +448,7 @@ tripFKPROTECTباسمaudit_events،actorFKUserSET_NULL،eventCharField30،dataJS
 ### EliteTripNotification — إشعار حالة خاص بالطالب
 
 تضيف الهجرة `0029` جدولًا مستقلاً دون تحويل بيانات أو ملء إشعارات قديمة. `nomination` علاقة FK بـPROTECT وباسم `notifications`؛ منها يُحصر صاحب الحساب والنطاق المجمد. `kind` أحد `nominated/not_nominated/closed/cancelled` بقيد قيمة صالحة، و`trip_version` النسخة وقت الحدث؛ قيد فريد على الدعوة/النسخة يمنع التكرار. `message` نص ثابت حتى 600 حرف دون ملاحظات أو توقيع، و`created_at` بوقت الخادم، و`read_at` اختياري لا يُضبط إلا بإقرار POST مملوك. الفهرس على الدعوة/القراءة/الوقت، والترتيب الافتراضي الأحدث ثم PK؛ عرض اللوحة يعطي غير المقروء أولوية كي لا تبقى رسالة قديمة خارج حد العرض. لا تسجيل في الأدمن أو ربط بسجل النقاط.
+
+### SupervisorTaskGradePermission — 24 نوفمبر2026
+
+هجرة0030: supervisor OneToOne/CASCADE بrelated_name=task_grade_permission، enabled Boolean/defaultFalse، granted_by FK/SET_NULL nullable بrelated_name=+، وupdated_at auto_now. غياب السجل يرث العام فقط، وFalse منع صريح دائم. البيئة/المحدود يحتاجان True وإذن التصحيح القائم. لا RunPython أو إعادة احتساب أو تسجيل تحرير في الأدمن؛ صفحة صلاحيات رحّال تحرس المنح والسحب ودورة الحياة. انظر [العقد](task-grade-edits.md).

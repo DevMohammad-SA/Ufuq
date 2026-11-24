@@ -1,4 +1,4 @@
-"""Independent student/report grants without modifying supervisor accounts."""
+"""Independent student/report/grade grants without modifying supervisor accounts."""
 
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
@@ -7,7 +7,9 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from accounts.models import Role, User
 from .management_views import AccountManagementView, locked_users, record_management
-from .models import Participant, SupervisorCapability, SupervisorReportPermission
+from .models import (
+    Participant, SupervisorCapability, SupervisorReportPermission, SupervisorTaskGradePermission,
+)
 from .supervisor_permission_forms import SupervisorStudentReportsForm
 
 
@@ -46,15 +48,19 @@ class SupervisorStudentReportsView(AccountManagementView):
     def form(self, supervisor, data=None, *, locked=False):
         capabilities = SupervisorCapability.objects
         policies = SupervisorReportPermission.objects
+        grade_policies = SupervisorTaskGradePermission.objects
         if locked:
             capabilities = capabilities.select_for_update()
             policies = policies.select_for_update()
+            grade_policies = grade_policies.select_for_update()
         capability = capabilities.filter(supervisor_id=supervisor.pk).first()
         policy = policies.filter(supervisor_id=supervisor.pk).first()
+        grade_policy = grade_policies.filter(supervisor_id=supervisor.pk).first()
         form = SupervisorStudentReportsForm(
             data, supervisor=supervisor, capability=capability, report_permission=policy,
+            task_grade_permission=grade_policy,
         )
-        return form, capability, policy
+        return form, capability, policy, grade_policy
 
     def show(self, form, supervisor, *, status=200):
         return render(self.request, self.template_name, self.context(
@@ -66,7 +72,7 @@ class SupervisorStudentReportsView(AccountManagementView):
 
     def get(self, request, pk):
         supervisor = self.target(pk)
-        form, _, _ = self.form(supervisor)
+        form, _, _, _ = self.form(supervisor)
         return self.show(form, supervisor)
 
     def post(self, request, pk):
@@ -74,7 +80,7 @@ class SupervisorStudentReportsView(AccountManagementView):
         # Exact explicit confirmation precedes all locks and writes. Rebuild
         # the form under the locks below, since the target's role may change.
         if request.POST.getlist("confirm") != ["yes"]:
-            form, _, _ = self.form(target, request.POST)
+            form, _, _, _ = self.form(target, request.POST)
             form.is_valid()
             if "confirm" not in form.errors:
                 form.add_error("confirm", "أكّد حفظ الصلاحيات أولًا")
@@ -85,7 +91,7 @@ class SupervisorStudentReportsView(AccountManagementView):
             if actor.role != Role.GENERAL_SUPERVISOR or not actor.is_active or actor.pk == supervisor.pk:
                 raise PermissionDenied
             get_object_or_404(student_report_supervisors(), pk=supervisor.pk)
-            form, capability, policy = self.form(supervisor, request.POST, locked=True)
+            form, capability, policy, grade_policy = self.form(supervisor, request.POST, locked=True)
             if not form.is_valid():
                 return self.show(form, supervisor, status=400)
 
@@ -121,11 +127,29 @@ class SupervisorStudentReportsView(AccountManagementView):
                 policy.save(update_fields=["view_reports", "prepare_reports", "granted_by", "updated_at"])
                 changed = True
 
+            # An old form without the marker and checkbox cannot change this
+            # independent policy, create a row or update its audit metadata.
+            if form.cleaned_data.get("task_grade_permissions_present") == "yes":
+                edit_task_grades = form.cleaned_data["edit_task_grades"]
+                if grade_policy is None:
+                    SupervisorTaskGradePermission.objects.create(
+                        supervisor=supervisor, enabled=edit_task_grades, granted_by=actor,
+                    )
+                    changed = True
+                elif grade_policy.enabled != edit_task_grades:
+                    grade_policy.enabled = edit_task_grades
+                    grade_policy.granted_by = actor
+                    grade_policy.save(update_fields=["enabled", "granted_by", "updated_at"])
+                    changed = True
+
             if changed:
-                record_management(actor, supervisor, "صلاحيات الطلاب والتقارير")
+                label = "صلاحيات الطلاب والتقارير"
+                if form.cleaned_data.get("task_grade_permissions_present") == "yes":
+                    label += " والتقييم"
+                record_management(actor, supervisor, label)
 
         if changed:
-            messages.success(request, "تم حفظ صلاحيات الطلاب والتقارير دون تغيير الدور أو بيانات الحساب")
+            messages.success(request, "تم حفظ صلاحيات الطلاب والتقارير والتقييم دون تغيير الدور أو بيانات الحساب")
         else:
             messages.info(request, "الصلاحيات مطابقة للمحفوظ؛ لم يتغير أي حساب")
         return redirect("participants:supervisor_list")

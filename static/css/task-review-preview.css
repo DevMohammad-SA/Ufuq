@@ -47,11 +47,34 @@
 #modal-review-actions .featured-checkbox-label { min-height: 44px; padding: 8px 12px; gap: 8px; border: 1px solid var(--line); border-radius: 99px; background: #fff; color: var(--gold-ink); cursor: pointer; font-size: 14px; }
 #modal-review-actions .featured-checkbox-label input { width: 18px; height: 18px; accent-color: var(--gold-ink); }
 #modal-review-actions .featured-checkbox-label:has(input:checked) { background: var(--gold-soft); border-color: var(--gold-ink); }
-.grade-cancellation-form { flex-direction: column; align-items: stretch !important; max-width: 100%; }
-.grade-cancellation-form p, .return-unavailable p { white-space: normal; overflow-wrap: anywhere; }
-.btn-cancel-grade { background: var(--gold-ink); }
-.btn-cancel-grade:hover { background: var(--asphalt); }
-.return-unavailable button:disabled { opacity: .55; cursor: not-allowed; }
+.grade-review-tools { flex-direction: column; width: 280px; max-width: 100%; min-width: 0; }
+.grade-revision-details { width: 100%; min-width: 0; max-width: 100%; }
+.grade-revision-details summary { box-sizing: border-box; min-height: 44px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--sand); color: var(--asphalt); cursor: pointer; font: 700 13px/1.7 var(--font-ui); overflow-wrap: anywhere; }
+.grade-revision-details[open] summary { margin-bottom: 10px; background: var(--gold-soft); }
+.review-actions .grade-revision-form,
+.review-actions .featured-adjustment-form { flex-direction: column; align-items: stretch !important; width: 100%; max-width: 100%; min-width: 0; gap: 8px; }
+.grade-revision-form .field,
+.featured-adjustment-form .field { width: 100%; min-width: 0; margin-bottom: 0; }
+.grade-revision-form select,
+.grade-revision-form textarea,
+.featured-adjustment-form select { box-sizing: border-box; width: 100%; max-width: 100%; min-width: 0; min-height: 44px; }
+.grade-revision-form textarea { min-height: 64px; resize: vertical; }
+.grade-revision-form p,
+.featured-adjustment-form p,
+.return-unavailable p,
+.review-submit-status { white-space: normal; overflow-wrap: anywhere; font: 12px/1.7 var(--font-ui); color: var(--slate); margin: 0; }
+.btn-revise-grade { background: var(--asphalt); }
+.btn-featured-adjustment { background: var(--gold-ink); flex-wrap: wrap; }
+.btn-featured-adjustment:hover { background: var(--asphalt); }
+.btn-featured-adjustment span { font: 600 12px var(--font-ui); }
+.task-review-card .review-actions button,
+.task-review-card .featured-checkbox-label,
+.task-review-card .file-actions button { box-sizing: border-box; min-height: 44px; min-width: 44px; }
+.task-review-card .featured-checkbox-label { padding: 6px 8px; cursor: pointer; }
+.return-unavailable button:disabled,
+.featured-adjustment-form button:disabled { opacity: .55; cursor: not-allowed; }
+.review-actions form[aria-busy="true"] button[type="submit"] { opacity: .65; cursor: wait; }
+.task-review-card .review-actions :focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
 .task-preview-dialog :focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
 @media (max-width: 600px) {
   .task-review-card { padding: 12px; }
@@ -69,6 +92,7 @@
   .task-review-card .submissions-table td:nth-child(6) { grid-column: 1 / -1; }
   .task-review-card .reject-reason-input,
   .task-review-card .return-note-input { max-width: 100%; }
+  .grade-review-tools { width: 100%; }
   .task-preview-dialog { padding: 12px; width: calc(100% - 16px); max-width: calc(100% - 16px); max-height: calc(100dvh - 16px); }
   .task-preview-layout { grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .task-preview-header h2 { font-size: 16px; }

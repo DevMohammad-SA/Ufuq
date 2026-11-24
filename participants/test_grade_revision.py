@@ -91,12 +91,67 @@ class GradeRevisionTests(TestCase):
         self.assert_balances(100, 1000, 100)
         self.assertFalse(TaskGradeRevision.objects.exists())
 
-    def test_pending_or_returned_requires_regular_review(self):
-        for status in (TaskSubmission.Status.PENDING, TaskSubmission.Status.REVISION_REQUIRED):
-            self.submission.status = status
-            self.submission.save()
-            self.assertEqual(self.post_grade('featured').status_code, 400)
+    def test_pending_requires_regular_review(self):
+        self.submission.status = TaskSubmission.Status.PENDING
+        self.submission.save()
+        self.assertEqual(self.post_grade('featured').status_code, 400)
         self.assertFalse(TaskGradeRevision.objects.exists())
+
+    def test_returned_can_be_finalized_directly_without_reopening_upload(self):
+        WeeklyTask.objects.filter(pk=self.task.pk).update(
+            is_active=True, due_date=timezone.localdate() + datetime.timedelta(days=2),
+        )
+        self.submission.status = TaskSubmission.Status.REVISION_REQUIRED
+        self.submission.award_value = 0
+        self.submission.points_awarded = False
+        self.submission.revision_note = 'شرح سابق يجب حفظه في التدقيق'
+        self.submission.rejection_reason = 'سبب سابق'
+        self.submission.save()
+        old_review = self.submission.reviewed_at
+        original_upload = self.submission.submitted_at
+        self.assertEqual(self.post_grade('accepted').status_code, 302)
+        self.submission.refresh_from_db()
+        self.assertEqual(self.submission.status, TaskSubmission.Status.ACCEPTED)
+        self.assertEqual(self.submission.revision_note, '')
+        self.assertEqual(self.submission.rejection_reason, '')
+        self.assertFalse(self.submission.reopened_for_resubmission)
+        self.assertEqual(self.submission.submitted_at, original_upload)
+        audit = TaskGradeRevision.objects.get()
+        self.assertEqual((audit.old_status, audit.new_status), ('returned', 'accepted'))
+        self.assertIn('شرح سابق يجب حفظه في التدقيق', audit.reason)
+        self.assertIn('سبب سابق', audit.reason)
+        self.assertIn(old_review.isoformat(), audit.reason)
+        self.assertIn(str(self.general.pk), audit.reason)
+        self.assertIn('سبب تعديل مصطنع', audit.reason)
+        student_client = Client()
+        student_client.force_login(self.student)
+        response = student_client.post(reverse('participants:task_submission'), {
+            'task_id': self.task.pk, 'chosen_format': 'text', 'text_content': 'رفع غير مصرح',
+        })
+        self.assertEqual(response.status_code, 302)
+        self.submission.refresh_from_db()
+        self.assertEqual(self.submission.text_content, 'نص مصطنع ثابت')
+        self.assertEqual(self.submission.status, TaskSubmission.Status.ACCEPTED)
+        self.assert_balances(110, 1100, 110)
+        self.assertEqual(list(PointsLedgerEntry.objects.values_list('points_delta', flat=True)), [10])
+
+    def test_same_final_decision_clears_return_note_once_without_points(self):
+        self.submission.revision_note = 'ملاحظة قديمة ' + 'ع' * 2200
+        self.submission.reopened_for_resubmission = True
+        self.submission.save()
+        note = self.submission.revision_note
+        self.assertEqual(self.post_grade('accepted').status_code, 302)
+        self.submission.refresh_from_db()
+        self.assertEqual(self.submission.revision_note, '')
+        self.assertTrue(self.submission.reopened_for_resubmission)
+        self.assertIn(note, TaskGradeRevision.objects.get().reason)
+        reviewed_at = self.submission.reviewed_at
+        self.assertEqual(self.post_grade('accepted').status_code, 302)
+        self.submission.refresh_from_db()
+        self.assertEqual(self.submission.reviewed_at, reviewed_at)
+        self.assertEqual(TaskGradeRevision.objects.count(), 1)
+        self.assertFalse(PointsLedgerEntry.objects.exists())
+        self.assert_balances(100, 1000, 100)
 
     def test_historical_award_is_not_guessed(self):
         self.submission.award_value = None
@@ -143,8 +198,8 @@ class GradeRevisionTests(TestCase):
         response = self.client.get(self.url, {'task': self.task.pk})
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, self.submission.grade_revision_token)
-        self.assertContains(response, 'value="cancel_grade"')
-        self.assertNotContains(response, 'value="revise_grade"')
+        self.assertContains(response, 'value="revise_grade"')
+        self.assertNotContains(response, 'value="cancel_grade"')
         for actor in (self.environment, self.system):
             self.client.force_login(actor)
             response = self.client.get(self.url, {'task': self.task.pk})

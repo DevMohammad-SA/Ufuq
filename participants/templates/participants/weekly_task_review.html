@@ -281,7 +281,7 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
 {% endblock %}
 
 {% block content %}
-  <link rel="stylesheet" href="{% static 'css/task-review-preview.css' %}?v=20261107-cancel1">
+  <link rel="stylesheet" href="{% static 'css/task-review-preview.css' %}?v=20261124-grade1">
   <h1 class="page-title">المهام الأسبوعية</h1>
   {% for message in messages %}
     <p class="task-review-message task-review-message-{{ message.tags }}" role="status">{{ message }}</p>
@@ -292,13 +292,16 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
     <p class="page-sub">متابعة وتصحيح تسليمات المشاركين في جميع البيئات، بما فيها المهام السابقة.</p>
     <section class="card">
       <h2>المعاينة والقبول والرفض</h2>
-      <p>فعّل «متميز» إن أردت ثم اضغط «قبول»، أو ارفض التسليم مع السبب. لا تشمل هذه الصلاحية إدارة المهام أو الإعادة للطالب أو إلغاء تقييم سابق أو فتح تفاصيل الطالب.</p>
+      <p>فعّل «متميز» إن أردت ثم اضغط «قبول»، أو ارفض التسليم مع السبب. لا تشمل متابعة المهام إدارة المهام أو الإعادة للطالب أو فتح تفاصيل الطالب.</p>
+      {% if can_revise_grades %}<p>إذن تعديل التقييم مفعّل: يمكنك تعديل تقييم سابق، وإضافة التميز أو إزالته من التسليم المقبول.</p>
+      {% else %}<p>تعديل تقييم سابق وإضافة التميز لاحقًا يحتاجان إذنًا مستقلًا من المشرف العام.</p>{% endif %}
     </section>
   {% else %}
     <p class="page-sub">مهام وتسليمات طلاب البيئات المسندة إليك فقط، بما فيها المهام السابقة.</p>
     <section class="card">
       {% if can_review_submissions %}<h2>التصحيح مفعّل</h2><p>يمكنك قبول أو رفض أو إعادة تسليمات طلاب بيئاتك للتعديل. لا يمكنك إنشاء المهام أو تفعيلها أو إعادة فتحها.</p>
       {% else %}<h2>الاطلاع فقط</h2><p>يمكنك معاينة ملفات ونصوص طلابك وحالات التسليم. التصحيح متاح بعد تفعيله لك من المشرف العام.</p>{% endif %}
+      {% if can_revise_grades %}<p>إذن تعديل التقييم مفعّل ضمن نطاقك: تعديل مباشر، وإضافة التميز أو إزالته من التسليم المقبول.</p>{% endif %}
     </section>
   {% endif %}
 
@@ -474,7 +477,7 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
                 <th>تاريخ الرفع</th>
                 <th>الملف</th>
                 <th>الحالة</th>
-                {% if can_review_submissions %}<th>إجراء</th>{% endif %}
+                {% if can_review_submissions or can_revise_grades %}<th>إجراء</th>{% endif %}
               </tr>
             </thead>
             <tbody class="submissions-body" data-task="{{ entry.task.id }}">
@@ -500,7 +503,7 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
                     {% if submission.status == "pending" %}
                       <span class="status-pill status-pending">قيد المراجعة</span>
                     {% elif submission.status == "accepted" %}
-                      <span class="status-pill status-accepted">مقبولة</span>
+                      <span class="status-pill status-accepted">{% if submission.is_featured %}مميزة{% else %}مقبولة{% endif %}</span>
                     {% elif submission.status == "returned" %}
                       <span class="status-pill status-returned">مُعادة للتعديل</span>
                       {% if submission.revision_note %}
@@ -516,9 +519,10 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
                       <p class="rejection-note">آخر ملاحظة إعادة للتعديل: {{ submission.revision_note }}</p>
                     {% endif %}
                   </td>
-                  {% if can_review_submissions %}
+                  {% if can_review_submissions or can_revise_grades %}
                   <td>
                     {% if submission.status == "pending" %}
+                      {% if can_review_submissions %}
                       <div class="review-actions">
                         {% if submission.points_awarded is None and not can_manage_tasks %}
                           <span class="rejection-note">تسليم قديم: يلزم تحقق المشرف العام من صرف النقاط قبل القبول.</span>
@@ -568,28 +572,76 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
 	                        {% endif %}
 	                        {% endif %}
                       </div>
+                      {% else %}—{% endif %}
                     {% elif can_revise_grades %}
-                      <div class="review-actions">
-                        <form method="post" class="grade-cancellation-form" data-award="{% if submission.award_value is not None %}{{ submission.award_value }}{% elif submission.points_awarded is False %}0{% endif %}">
-                          {% csrf_token %}
-                          <input type="hidden" name="action" value="cancel_grade">
-                          <input type="hidden" name="submission_id" value="{{ submission.id }}">
-                          <input type="hidden" name="review_version" value="{{ submission.grade_revision_token }}">
-                          <input type="hidden" name="confirm" value="yes">
-                          {% if submission.award_value is None and submission.points_awarded is not False %}
-                            <label class="field" for="cancel-award-{{ submission.id }}">تحقق من المنحة السابقة للتسليم القديم
-                              <select id="cancel-award-{{ submission.id }}" name="previous_award" required aria-label="قيمة المنحة السابقة">
-                                <option value="">حدد ما صُرف فعليًا دون تخمين</option>
-                                <option value="0">لم تصرف نقاط</option>
-                                <option value="10">صرفت 10 نقاط</option>
-                                <option value="12">صرفت 12 نقطة</option>
+                      <div class="review-actions grade-review-tools">
+                        {% if submission.status == "accepted" %}
+                          <form method="post" class="featured-adjustment-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="set_featured">
+                            <input type="hidden" name="submission_id" value="{{ submission.id }}">
+                            <input type="hidden" name="review_version" value="{{ submission.grade_revision_token }}">
+                            <input type="hidden" name="is_featured" value="{% if submission.is_featured %}no{% else %}yes{% endif %}">
+                            {% if submission.award_value is None and submission.points_awarded is not False %}
+                              <div class="field">
+                                <label for="featured-award-{{ submission.id }}">تحقق من منحة القبول السابقة</label>
+                                <select id="featured-award-{{ submission.id }}" name="previous_award" required>
+                                  <option value="">حدد ما صُرف فعليًا دون تخمين</option>
+                                  <option value="10">صُرفت 10 نقاط</option>
+                                  <option value="12">صُرفت 12 نقطة</option>
+                                </select>
+                                <p class="hint">إن لم تُصرف نقاط، استخدم «تعديل التقييم» لتأكيد المنحة أولًا.</p>
+                              </div>
+                            {% endif %}
+                            <button type="submit" class="btn btn-featured-adjustment btn-sm"{% if submission.award_value == 0 or submission.award_value is None and submission.points_awarded is False %} disabled aria-describedby="featured-hint-{{ submission.id }}"{% elif submission.award_value is not None and submission.award_value != 10 and submission.award_value != 12 %} disabled aria-describedby="featured-hint-{{ submission.id }}"{% endif %}>{% if submission.is_featured %}إزالة التميز <span>(−2 نقطة)</span>{% else %}إضافة التميز <span>(+2 نقطة)</span>{% endif %}</button>
+                            {% if submission.award_value == 0 or submission.award_value is None and submission.points_awarded is False %}
+                              <p id="featured-hint-{{ submission.id }}" class="rejection-note">لا توجد منحة قبول محتسبة؛ استخدم «تعديل التقييم» لتأكيد المنحة أولًا.</p>
+                            {% elif submission.award_value is not None and submission.award_value != 10 and submission.award_value != 12 %}
+                              <p id="featured-hint-{{ submission.id }}" class="rejection-note">قيمة المنحة غير صالحة؛ استخدم «تعديل التقييم» للتحقق من المنحة أولًا.</p>
+                            {% else %}
+                              <p class="rejection-note">فرق المنحة فقط، حتى نقطتين؛ لا تُمنح نقاط القبول من جديد.</p>
+                            {% endif %}
+                          </form>
+                        {% endif %}
+                        <details class="grade-revision-details">
+                          <summary aria-controls="grade-form-{{ submission.id }}">تعديل التقييم</summary>
+                          <form id="grade-form-{{ submission.id }}" method="post" class="grade-revision-form" data-award="{% if submission.award_value is not None %}{{ submission.award_value }}{% elif submission.points_awarded is False %}0{% endif %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="revise_grade">
+                            <input type="hidden" name="submission_id" value="{{ submission.id }}">
+                            <input type="hidden" name="review_version" value="{{ submission.grade_revision_token }}">
+                            <div class="field">
+                              <label for="grade-choice-{{ submission.id }}">التقييم الجديد</label>
+                              <select id="grade-choice-{{ submission.id }}" name="grade" required>
+                                <option value=""{% if submission.status != "accepted" and submission.status != "rejected" %} selected{% endif %} disabled>اختر التقييم الجديد</option>
+                                <option value="featured"{% if submission.status == "accepted" and submission.is_featured %} selected{% endif %}>متميز — 12 نقطة</option>
+                                <option value="accepted"{% if submission.status == "accepted" and not submission.is_featured %} selected{% endif %}>قبول — 10 نقاط</option>
+                                <option value="rejected"{% if submission.status == "rejected" %} selected{% endif %}>رفض — دون نقاط</option>
                               </select>
-                            </label>
-                          {% endif %}
-                          <p class="rejection-note">يعود التسليم إلى قيد المراجعة وتُلغى منحتُه إن صُرفت، مع حفظ العمل وسجل الإلغاء.</p>
-                          <noscript><label><input type="checkbox" required> أؤكد إلغاء التقييم وسحب منحة المهمة المحتسبة.</label></noscript>
-                          <button type="submit" class="btn btn-cancel-grade btn-sm">إلغاء التقييم</button>
-                        </form>
+                            </div>
+                            {% if submission.award_value is None and submission.points_awarded is not False %}
+                              <div class="field">
+                                <label for="previous-award-{{ submission.id }}">تحقق من المنحة السابقة للتسليم القديم</label>
+                                <select id="previous-award-{{ submission.id }}" name="previous_award" required>
+                                  <option value="">حدد ما صُرف فعليًا دون تخمين</option>
+                                  <option value="0">لم تُصرف نقاط</option>
+                                  <option value="10">صُرفت 10 نقاط</option>
+                                  <option value="12">صُرفت 12 نقطة</option>
+                                </select>
+                              </div>
+                            {% endif %}
+                            <div class="field">
+                              <label for="grade-reason-{{ submission.id }}">سبب تعديل التقييم (مطلوب)</label>
+                              <textarea id="grade-reason-{{ submission.id }}" name="reason" rows="2" maxlength="2000" required></textarea>
+                            </div>
+                            <div class="field">
+                              <label for="grade-rejection-reason-{{ submission.id }}">سبب الرفض للطالب (اختياري)</label>
+                              <textarea id="grade-rejection-reason-{{ submission.id }}" name="rejection_reason" rows="2" maxlength="2000">{{ submission.rejection_reason }}</textarea>
+                            </div>
+                            <p class="rejection-note">يُحفظ فرق المنحة فقط، مع سبب التعديل وعمل الطالب؛ لا حاجة لإلغاء التقييم أولًا.</p>
+                            <button type="submit" class="btn btn-revise-grade btn-sm">حفظ التقييم</button>
+                          </form>
+                        </details>
                       </div>
                     {% else %}
                       —
@@ -696,7 +748,7 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg>
       </button>
     </header>
-    <p id="preview-help">{% if limited_task_followup %}فعّل «متميز» إن أردت ثم اضغط «قبول»، أو ارفض التسليم مع السبب. الإعادة للطالب وإلغاء التقييم ليستا ضمن هذه الصلاحية.{% else %}فعّل «متميز» إن أردت ثم اضغط «قبول». يمكنك الرفض أو الإعادة مع ملاحظة ضمن الموعد. إلغاء التقييم للمشرف العام فقط، ويعيد التسليم إلى قيد المراجعة بعد التأكيد.{% endif %}</p>
+    <p id="preview-help">{% if can_review_submissions %}للتسليم المعلّق: فعّل «متميز» إن أردت ثم اضغط «قبول»، أو اختر «رفض». {% if can_return_submissions %}الإعادة للطالب متاحة مع ملاحظة للمهمة النشطة ضمن الموعد. {% endif %}{% else %}المعاينة لا تمنح إذن التصحيح. {% endif %}{% if can_revise_grades %}للتقييم السابق: افتح «تعديل التقييم» واكتب السبب ثم احفظ. وللمقبول يمكنك إضافة التميز أو إزالته مباشرة؛ يُحفظ فرق المنحة فقط.{% else %}تعديل تقييم سابق وإضافة التميز لاحقًا يحتاجان إذنًا مستقلًا.{% endif %}</p>
     <p id="preview-status" role="status" aria-live="polite"></p>
     <div class="task-preview-layout">
       <div id="modal-content"></div>
@@ -706,5 +758,5 @@ th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow:after{content:"▲▼"}
 {% endblock %}
 
 {% block scripts %}
-<script src="{% static 'js/task-review-preview.js' %}?v=20261107-cancel1" defer></script>
+<script src="{% static 'js/task-review-preview.js' %}?v=20261124-grade1" defer></script>
 {% endblock %}

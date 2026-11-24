@@ -4,7 +4,7 @@ from django.db import transaction
 from django.db.models import Q
 
 from accounts.models import Role, User
-from .models import SupervisorCapability, SupervisorReportPermission
+from .models import SupervisorCapability, SupervisorReportPermission, SupervisorTaskGradePermission
 
 
 def _authenticated_active(user):
@@ -46,6 +46,33 @@ def can_follow_tasks(user):
     return User.objects.filter(
         pk=user.pk, is_active=True, role=Role.LIMITED_SUPERVISOR,
         limited_capabilities__follow_tasks=True,
+    ).exists()
+
+
+def task_grade_edit_users():
+    """Fresh eligible identities; also usable as a bounded list annotation."""
+    return User.objects.filter(is_active=True).filter(
+        Q(role=Role.GENERAL_SUPERVISOR) & (
+            Q(task_grade_permission__isnull=True) | Q(task_grade_permission__enabled=True)
+        )
+        | Q(role=Role.GROUP_SUPERVISOR, task_grade_permission__enabled=True,
+            task_review_permission__enabled=True)
+        | Q(role=Role.LIMITED_SUPERVISOR, task_grade_permission__enabled=True,
+            limited_capabilities__follow_tasks=True)
+    )
+
+
+def can_edit_task_grades(user):
+    """Resolve activity, unchanged role, policy and review prerequisite freshly.
+
+    A retained identity cannot acquire a new role's powers after a role change.
+    Missing policy preserves GENERAL only; explicit False denies even GENERAL.
+    This policy never grants viewing, initial review, reports or task scope.
+    """
+    if not _authenticated_identity(user):
+        return False
+    return task_grade_edit_users().filter(
+        pk=user.pk, role=getattr(user, "role", None),
     ).exists()
 
 
@@ -157,4 +184,22 @@ def revoke_report_grants(user, actor):
     policy.prepare_reports = False
     policy.granted_by = actor
     policy.save(update_fields=["view_reports", "prepare_reports", "granted_by", "updated_at"])
+    return True
+
+
+@transaction.atomic
+def revoke_task_grade_grants(user, actor):
+    """Clear existing positive policies only, after the caller's User lock.
+
+    Explicit denials remain durable through role/activity changes. Missing and
+    already denied policies are exact no-ops, including audit actor/timestamps.
+    """
+    policy = SupervisorTaskGradePermission.objects.select_for_update().filter(
+        supervisor_id=user.pk,
+    ).first()
+    if policy is None or not policy.enabled:
+        return False
+    policy.enabled = False
+    policy.granted_by = actor
+    policy.save(update_fields=["enabled", "granted_by", "updated_at"])
     return True

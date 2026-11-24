@@ -2340,7 +2340,7 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
         context["can_review_submissions"] = can_review_task_submissions(self.request.user)
         context["can_return_submissions"] = not limited and context["can_review_submissions"]
         from .task_grading import can_revise_grades
-        context["can_revise_grades"] = not limited and can_revise_grades(self.request.user)
+        context["can_revise_grades"] = can_revise_grades(self.request.user)
         status_options = (
             ("all", "الكل"), ("pending", "تحت المعالجة"),
             ("rejected", "المرفوضة"), ("accepted", "المقبولة"),
@@ -2493,18 +2493,30 @@ class WeeklyTaskReviewView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
         if limited and not can_follow_tasks(request.user):
             raise PermissionDenied("لم تعد صلاحية متابعة وتصحيح المهام متاحة لك.")
         action = request.POST.get("action")
-        if limited and action not in ("accept", "reject"):
+        grade_actions = ("revise_grade", "cancel_grade", "set_featured")
+        if action in grade_actions:
+            from .task_grading import can_revise_grades
+            if not can_revise_grades(request.user):
+                raise PermissionDenied("لم تعد صلاحية تعديل تقييم المهام متاحة لك.")
+        if limited and action not in ("accept", "reject", *grade_actions):
             raise PermissionDenied("يمكنك قبول التسليمات المعلقة أو رفضها فقط.")
         from .access import can_manage_tasks, scoped_submissions
         may_manage = can_manage_tasks(request.user)
-        if not may_manage and action not in ("accept", "reject", "return_for_revision"):
+        if not may_manage and action not in ("accept", "reject", "return_for_revision", *grade_actions):
             raise PermissionDenied("لا يمكنك إنشاء المهام أو تفعيلها أو إعادة فتح التسليمات.")
 
-        if action in ("revise_grade", "cancel_grade"):
-            # Older open pages keep the protected revision path; the current
-            # interface offers cancellation followed by the ordinary review.
-            from .task_grading import revise_submission_grade, cancel_submission_grade
-            operation = cancel_submission_grade if action == "cancel_grade" else revise_submission_grade
+        if action in grade_actions:
+            # Direct edits and absolute featured changes share the independent
+            # permission and scoped actor/submission/participant lock contract.
+            # Keep cancellation protected for older open pages, not as the UI.
+            from .task_grading import (
+                revise_submission_grade, cancel_submission_grade, set_submission_featured,
+            )
+            operation = {
+                "revise_grade": revise_submission_grade,
+                "cancel_grade": cancel_submission_grade,
+                "set_featured": set_submission_featured,
+            }[action]
             saved, message = operation(request)
             if not saved:
                 messages.error(request, message)

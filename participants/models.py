@@ -809,6 +809,25 @@ class SupervisorReportPermission(models.Model):
         verbose_name_plural = "أذونات تقارير المشرفين"
 
 
+class SupervisorTaskGradePermission(models.Model):
+    """Independent correction policy; absence inherits GENERAL access only."""
+
+    supervisor = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="task_grade_permission", verbose_name="المشرف",
+    )
+    enabled = models.BooleanField(default=False, verbose_name="تعديل تقييم المهام والتميز")
+    granted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+        related_name="+", verbose_name="حدّث إذن التقييم",
+    )
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="آخر تحديث")
+
+    class Meta:
+        verbose_name = "إذن تعديل تقييم مشرف"
+        verbose_name_plural = "أذونات تعديل تقييم المشرفين"
+
+
 class MeetingNote(models.Model):
     """Private staff note independent of attendance and points calculations."""
     participant = models.ForeignKey(

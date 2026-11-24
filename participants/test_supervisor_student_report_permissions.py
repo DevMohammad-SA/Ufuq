@@ -600,11 +600,17 @@ class SupervisorStudentReportsPermissionViewTests(TestCase):
         with self.assertRaises(PermissionDenied):
             SupervisorStudentReportsView.as_view()(request, pk=self.target.pk)
 
-    def test_form_native_controls_yes_and_only_four_permission_fields(self):
+    def test_form_native_controls_yes_and_only_declared_permission_fields(self):
         form = SupervisorStudentReportsForm(supervisor=self.general)
-        self.assertEqual(set(form.fields), {"manage_students", "view_reports", "prepare_reports", "confirm"})
-        for field in form.fields.values():
-            self.assertEqual(field.widget.attrs["value"], "yes")
+        self.assertEqual(set(form.fields), {
+            "manage_students", "view_reports", "prepare_reports", "edit_task_grades",
+            "task_grade_permissions_present", "confirm",
+        })
+        for name in ("manage_students", "view_reports", "prepare_reports", "edit_task_grades", "confirm"):
+            self.assertEqual(form.fields[name].widget.attrs["value"], "yes")
+        self.assertEqual(form.initial["task_grade_permissions_present"], "yes")
+        self.assertFalse(form.fields["task_grade_permissions_present"].required)
+        self.assertIn('type="hidden"', str(form["task_grade_permissions_present"]))
         self.assertTrue(form.fields["manage_students"].disabled)
         self.assertTrue(form.fields["confirm"].required)
         self.assertIn('type="checkbox"', str(form["view_reports"]))

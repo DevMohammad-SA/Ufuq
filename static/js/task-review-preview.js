@@ -10,29 +10,129 @@
   var opener = null;
   var previousOverflow = '';
 
-  function confirmGradeChange(form, event) {
-    if (form.classList.contains('grade-cancellation-form')) {
-      var award = form.getAttribute('data-award');
-      var historical = form.querySelector('[name="previous_award"]');
-      if (!award && historical) award = historical.value;
-      var note = award === '0' ? 'لا توجد منحة محتسبة لسحبها.' :
-        (['10', '12'].indexOf(award) !== -1 ? 'ستُسحب منحة المهمة (' + award + ' نقطة) من الأرصدة الحالية وفق قواعدها.' : 'ستُلغى منحة المهمة المؤكدة من الأرصدة الحالية وفق قواعدها.');
-      if (!window.confirm('هل تؤكد إلغاء التقييم وإعادة التسليم إلى قيد المراجعة؟ ' + note + ' يبقى عمل الطالب محفوظًا ويمكنك تقييمه من جديد.')) {
-        event.preventDefault();
-        return false;
-      }
+  function confirmGradeChange(form) {
+    // A simple featured adjustment is already an absolute yes/no command;
+    // only the full, reasoned revision needs an extra confirmation step.
+    if (!form.classList.contains('grade-revision-form')) return true;
+    var award = form.getAttribute('data-award');
+    var historical = form.querySelector('[name="previous_award"]');
+    var grade = form.querySelector('[name="grade"]');
+    if (!award && historical) award = historical.value;
+    var newAward = grade && {featured: 12, accepted: 10, rejected: 0}[grade.value];
+    var note = 'يُطبّق فرق المنحة فقط على الأرصدة الحالية وفق قواعدها.';
+    if (['0', '10', '12'].indexOf(award) !== -1 && typeof newAward === 'number') {
+      var delta = newAward - Number(award);
+      note = 'المنحة: ' + award + ' ← ' + newAward + ' نقطة؛ الفرق: ' +
+        (delta > 0 ? '+' : '') + delta + ' نقطة على الأرصدة الحالية وفق قواعدها.';
     }
-    if (form.classList.contains('grade-revision-form') &&
-        !window.confirm('هل تؤكد تعديل التقييم وتطبيق فرق المنحة على الأرصدة الحالية؟')) {
-      event.preventDefault();
-      return false;
-    }
-    return true;
+    return window.confirm('هل تؤكد تعديل التقييم مباشرة؟ ' + note + ' يبقى عمل الطالب محفوظًا ويُسجّل سبب التعديل.');
   }
 
-  document.querySelectorAll('.grade-revision-form, .grade-cancellation-form').forEach(function (form) {
-    form.addEventListener('submit', function (event) { confirmGradeChange(form, event); });
+  function bindReviewForm(form, inPreview) {
+    var inFlight = false;
+    form.addEventListener('submit', function (event) {
+      if (event.defaultPrevented) return;
+      if (inFlight) {
+        event.preventDefault();
+        return;
+      }
+      // Native clicks/requestSubmit validate first; also guard a synthetic
+      // submit event before showing confirmation, locking or sending status.
+      if (!form.checkValidity()) {
+        event.preventDefault();
+        form.reportValidity();
+        return;
+      }
+      if (!confirmGradeChange(form)) {
+        event.preventDefault();
+        return;
+      }
+      inFlight = true;
+      form.setAttribute('aria-busy', 'true');
+      // Do not disable successful controls or the submitter: native POST must
+      // retain CSRF, version, action, chosen fields and any submitter payload.
+      form.querySelectorAll('button[type="submit"]').forEach(function (button) {
+        button.setAttribute('aria-disabled', 'true');
+      });
+      var sending = 'جارٍ إرسال القرار للتحقق والحفظ؛ ستظهر النتيجة بعد تحميل الصفحة.';
+      if (inPreview && status) {
+        status.textContent = sending;
+      } else {
+        var progress = form.querySelector('.review-submit-status');
+        if (!progress) {
+          progress = document.createElement('p');
+          progress.className = 'review-submit-status';
+          progress.setAttribute('role', 'status');
+          progress.setAttribute('aria-live', 'polite');
+          form.appendChild(progress);
+        }
+        progress.textContent = sending;
+      }
+      // No fetch, optimistic state change or success message. Native navigation
+      // exposes the server's saved result, validation error or revoked access.
+    });
+  }
+
+  function bindFeaturedCheckboxes(root) {
+    root.querySelectorAll('.featured-checkbox-label input[type="checkbox"]').forEach(function (checkbox) {
+      checkbox.addEventListener('keydown', function (event) {
+        // Space toggles. Enter never implicitly accepts in either location.
+        if (event.key === 'Enter') event.preventDefault();
+      });
+    });
+  }
+
+  function copyFormValues(original, copy) {
+    var originals = original.querySelectorAll('input, select, textarea');
+    copy.querySelectorAll('input, select, textarea').forEach(function (field, index) {
+      var source = originals[index];
+      if (field.tagName === 'SELECT') {
+        field.selectedIndex = source.selectedIndex;
+        Array.prototype.forEach.call(field.options, function (option, optionIndex) {
+          option.selected = source.options[optionIndex].selected;
+        });
+      } else if (field.type !== 'file') {
+        field.value = source.value;
+      }
+      if (field.type === 'checkbox' || field.type === 'radio') {
+        field.checked = source.checked;
+        field.indeterminate = source.indeterminate;
+      }
+    });
+  }
+
+  function remapPreviewIds(copy) {
+    var ids = Object.create(null);
+    var reserved = Object.create(null);
+    copy.querySelectorAll('[id]').forEach(function (field) {
+      var oldId = field.id;
+      var prefix = 'preview-' + oldId;
+      var newId = prefix;
+      var suffix = 1;
+      while (document.getElementById(newId) || reserved[newId]) {
+        newId = prefix + '-' + suffix++;
+      }
+      ids[oldId] = newId;
+      reserved[newId] = true;
+      field.id = newId;
+    });
+    // Preserve native details state and aria-expanded if present, and remap
+    // all local ID references (including summary aria-controls and hints).
+    copy.querySelectorAll('[for], [aria-controls], [aria-labelledby], [aria-describedby], [aria-owns]').forEach(function (element) {
+      ['for', 'aria-controls', 'aria-labelledby', 'aria-describedby', 'aria-owns'].forEach(function (attribute) {
+        var value = element.getAttribute(attribute);
+        if (!value) return;
+        element.setAttribute(attribute, value.split(/\s+/).map(function (id) {
+          return ids[id] || id;
+        }).join(' '));
+      });
+    });
+  }
+
+  document.querySelectorAll('.review-actions form').forEach(function (form) {
+    bindReviewForm(form, false);
   });
+  bindFeaturedCheckboxes(document);
 
   function clearPreview() {
     // Removing media also stops audio/video playback, without parsing student HTML.
@@ -87,30 +187,13 @@
     // Clone server-rendered, already-authorized forms, including CSRF, legacy
     // choice, submission id and native POST target. Preserve list forms intact.
     var copy = original.cloneNode(true);
-    // Featured is the same checkbox as in the list, not a submitter. Choosing
-    // or clearing it never accepts the work until the reviewer presses Accept.
-    // The authorized return form (or its disabled explanation) stays intact.
-    copy.querySelectorAll('[id]').forEach(function (field) {
-      var oldId = field.id;
-      field.id = 'preview-' + oldId;
-      copy.querySelectorAll('label[for]').forEach(function (label) {
-        if (label.htmlFor === oldId) label.htmlFor = field.id;
-      });
-    });
-    copy.querySelectorAll('.featured-checkbox-label input[type="checkbox"]').forEach(function (checkbox) {
-      checkbox.addEventListener('keydown', function (event) {
-        // Space toggles a native checkbox. Enter here must not implicitly
-        // submit its acceptance form; the Accept button remains explicit.
-        if (event.key === 'Enter') event.preventDefault();
-      });
-    });
+    // cloneNode does not reliably copy a runtime-selected option. Explicitly
+    // preserve all current choices, reasons and checked states before re-ID.
+    copyFormValues(original, copy);
+    remapPreviewIds(copy);
+    bindFeaturedCheckboxes(copy);
     copy.querySelectorAll('form').forEach(function (form) {
-      form.addEventListener('submit', function (event) {
-        if (!confirmGradeChange(form, event)) return;
-        // Native navigation visibly handles login redirects/403; never report
-        // a decision as successful before the server has actually saved it.
-        status.textContent = 'جارٍ إرسال القرار للتحقق والحفظ؛ ستظهر النتيجة بعد تحميل الصفحة. إن انتهت الجلسة ستحتاج تسجيل الدخول مجددًا.';
-      });
+      bindReviewForm(form, true);
     });
     actions.appendChild(copy);
   }
@@ -158,8 +241,14 @@
     modal.addEventListener('keydown', function (event) {
       if (event.key !== 'Tab') return;
       var focusable = Array.prototype.filter.call(
-        modal.querySelectorAll('button, a[href], input, select, textarea, iframe, audio[controls], video[controls], [tabindex]'),
-        function (element) { return !element.disabled && element.tabIndex >= 0 && element.getClientRects().length > 0; }
+        modal.querySelectorAll('button, summary, a[href], input, select, textarea, iframe, audio[controls], video[controls], [tabindex]'),
+        function (element) {
+          // Closed details content may still report layout rectangles in
+          // Chromium, but only its summary belongs in the keyboard order.
+          var closedDetails = element.closest('details:not([open])');
+          if (closedDetails && element !== closedDetails.querySelector('summary')) return false;
+          return !element.disabled && element.tabIndex >= 0 && element.getClientRects().length > 0;
+        }
       );
       if (!focusable.length) return;
       var first = focusable[0];

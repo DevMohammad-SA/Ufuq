@@ -1,13 +1,13 @@
 {% extends "participants/app_base.html" %}
 {% load static %}
 
-{% block title %}صلاحيات الطلاب والتقارير — رحّال{% endblock %}
+{% block title %}صلاحيات الطلاب والتقارير والتقييم — رحّال{% endblock %}
 {% block extra_style %}.wrap{max-width:100%;min-width:0}{% endblock %}
 
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/student-permissions.css' %}?v=20261111-permissions1">
 <main class="student-permissions">
-  <h1 class="page-title">صلاحيات الطلاب والتقارير</h1>
+  <h1 class="page-title">صلاحيات الطلاب والتقارير والتقييم</h1>
   <p class="page-sub">امنح ما يحتاجه المشرف، أو ألغِ اختياره لسحب الصلاحية. لا يتغير دور أي منكما أو البيئات المسندة إليه.</p>
   {% if messages %}{% for message in messages %}<p class="permission-note" role="status">{{ message }}</p>{% endfor %}{% endif %}
   <section class="card permission-card" aria-labelledby="permissions-target">
@@ -18,6 +18,8 @@
     {% if form.non_field_errors %}<div class="permission-errors" role="alert">{{ form.non_field_errors }}</div>{% endif %}
     <form method="post">
       {% csrf_token %}
+      {{ form.task_grade_permissions_present }}
+      {% if form.task_grade_permissions_present.errors %}<div class="permission-errors" role="alert">{{ form.task_grade_permissions_present.errors }}</div>{% endif %}
       <fieldset class="permission-fields">
         <legend>الصلاحيات الممنوحة</legend>
         <div class="permission-option">
@@ -35,8 +37,14 @@
           <p class="permission-help">إصدار ملفات PDF وExcel من التقارير. يتطلب تفعيل الاطلاع؛ يمكنك إبقاء الاطلاع وحده دون السماح بإصدار الملفات.</p>
           {% if form.prepare_reports.errors %}<div class="permission-errors" role="alert">{{ form.prepare_reports.errors }}</div>{% endif %}
         </div>
+        <div class="permission-option">
+          <label class="permission-check" for="{{ form.edit_task_grades.id_for_label }}">{{ form.edit_task_grades }}<span>تعديل تقييم المهام والتميز</span></label>
+          <p class="permission-help">تعديل تقييم تسليم سبق تقييمه، وإضافة أو إزالة التميز بعد القبول. إذن مستقل عن التقارير والمتجر، ولا يمنح عرض المهام أو تصحيح التسليم المعلق.</p>
+          {% if is_general %}<p class="permission-help">متاح للمشرف العام عند غياب سياسة صريحة؛ إلغاء الاختيار يمنعه من تعديل التقييم دون تغيير دوره.</p>{% else %}<p class="permission-help">يتطلب إذن تصحيح المهام الحالي لمشرف البيئة، أو متابعة وتصحيح المهام للمشرف المحدود. يبقى في نطاقه الحالي ويتوقف عند سحب إذن التصحيح.</p>{% endif %}
+          {% if form.edit_task_grades.errors %}<div class="permission-errors" role="alert">{{ form.edit_task_grades.errors }}</div>{% endif %}
+        </div>
       </fieldset>
-      <p class="permission-note">لا يتغير شيء بمجرد تحديد الخيارات. تحقّق منها، ثم أكّد الحفظ. تبقى إدارة المتجر وتصحيح المهام بحسب أذوناتهما السابقة.</p>
+      <p class="permission-note">لا يتغير شيء بمجرد تحديد الخيارات. تحقّق منها، ثم أكّد الحفظ. تبقى إدارة المتجر وتصحيح التسليم المعلق بحسب أذوناتهما السابقة.</p>
       <label class="permission-confirm" for="{{ form.confirm.id_for_label }}">{{ form.confirm }}<span>أؤكد حفظ هذه الصلاحيات لهذا المشرف، بما فيها الصلاحيات التي اخترت سحبها.</span></label>
       {% if form.confirm.errors %}<div class="permission-errors" role="alert">{{ form.confirm.errors }}</div>{% endif %}
       <div class="permission-actions">
